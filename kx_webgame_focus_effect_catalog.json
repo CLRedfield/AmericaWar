@@ -1,0 +1,1264 @@
+{
+    "schemaVersion": "1.0.0",
+    "documentName": "KX Civil War Webgame Focus Effect Catalog",
+    "language": "zh-CN",
+    "designNotes": [
+        "\u672c\u6587\u4ef6\u7528\u4e8e\u5b9a\u4e49\u56fd\u7b56\u6811\u3001\u4e8b\u4ef6\u3001\u88ab\u52a8\u80fd\u529b\u3001\u8282\u70b9\u6548\u679c\u53ef\u4ee5\u8c03\u7528\u7684\u6548\u679c\u7c7b\u578b\u3002",
+        "\u6240\u6709\u6548\u679c\u5efa\u8bae\u6570\u636e\u9a71\u52a8\uff1a\u524d\u7aef\u8d1f\u8d23\u5c55\u793a\uff0c\u540e\u7aef\u8d1f\u8d23\u7ed3\u7b97\u3002",
+        "JSON \u4e0d\u652f\u6301\u6ce8\u91ca\uff0c\u6240\u4ee5\u6240\u6709\u89e3\u91ca\u90fd\u5199\u5728 notes / remarks / examples \u5b57\u6bb5\u4e2d\u3002",
+        "\u767e\u5206\u6bd4\u7edf\u4e00\u7528\u5c0f\u6570\u8868\u793a\uff0c\u4f8b\u5982 +10% \u5199\u4f5c 0.10\uff0c-15% \u5199\u4f5c -0.15\u3002",
+        "durationTurns \u4e3a null \u8868\u793a\u6c38\u4e45\uff1b\u4e3a 0 \u8868\u793a\u7acb\u5373\u7ed3\u7b97\uff1b\u4e3a 1 \u8868\u793a\u6301\u7eed 1 \u56de\u5408\u3002"
+    ],
+    "commonFields": {
+        "type": "\u6548\u679c\u7c7b\u578b ID\uff0c\u4f8b\u5982 resource_add_money\u3002",
+        "targetScope": "\u6548\u679c\u76ee\u6807\u8303\u56f4\uff0c\u4f8b\u5982 self / selected_node / capital_node / owned_nodes_with_tag / battle\u3002",
+        "triggerTiming": "\u89e6\u53d1\u65f6\u673a\uff0c\u4f8b\u5982 instant / turn_start / before_battle / after_battle / passive\u3002",
+        "durationTurns": "\u6301\u7eed\u56de\u5408\u6570\u3002null = \u6c38\u4e45\uff0c0 = \u7acb\u5373\uff0c1 = \u6301\u7eed\u4e00\u56de\u5408\u3002",
+        "stacking": "\u53e0\u52a0\u65b9\u5f0f\uff1aadditive / multiplicative / replace / max / min / unique\u3002",
+        "conditions": "\u53ef\u9009\u6761\u4ef6\u6570\u7ec4\uff0c\u4f8b\u5982\u9700\u8981\u6e2f\u53e3\u3001\u9700\u8981\u5df2\u5b8c\u6210\u67d0\u56fd\u7b56\u3001\u9700\u8981\u5904\u4e8e\u6218\u4e89\u3002",
+        "remarks": "\u7b56\u5212\u5907\u6ce8\u3002"
+    },
+    "categories": [
+        "resource",
+        "economy",
+        "political",
+        "recruitment",
+        "maintenance",
+        "construction",
+        "combat",
+        "movement",
+        "map_node",
+        "diplomacy",
+        "visibility",
+        "special_action",
+        "rule_modifier",
+        "triggered",
+        "ui_only"
+    ],
+    "effectTypes": [
+        {
+            "type": "resource_add_money",
+            "name": "\u7acb\u5373\u83b7\u5f97\u91d1\u94b1",
+            "category": "resource",
+            "targetScope": "self",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "resource_add_money",
+                "amount": 8
+            },
+            "remarks": "\u6700\u57fa\u7840\u5956\u52b1\u3002\u9002\u5408\u7a0e\u6536\u3001\u6218\u65f6\u503a\u5238\u3001\u4f01\u4e1a\u8d5e\u52a9\u3002"
+        },
+        {
+            "type": "resource_add_pp",
+            "name": "\u7acb\u5373\u83b7\u5f97\u653f\u6cbb\u70b9",
+            "category": "political",
+            "targetScope": "self",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "resource_add_pp",
+                "amount": 2
+            },
+            "remarks": "\u4f60\u7684\u6e38\u620f\u6bcf\u56de\u5408\u57fa\u7840\u53ea\u6709 2 PP\uff0c\u6240\u4ee5\u7acb\u5373 +PP \u5f88\u5f3a\uff0c\u4e0d\u5b9c\u4e71\u7ed9\u3002"
+        },
+        {
+            "type": "resource_add_pp_cap",
+            "name": "\u63d0\u9ad8\u653f\u6cbb\u70b9\u4e0a\u9650",
+            "category": "political",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "resource_add_pp_cap",
+                "amount": 2
+            },
+            "remarks": "\u6bd4\u6bcf\u56de\u5408 +PP \u6e29\u548c\uff0c\u9002\u5408\u884c\u653f\u6539\u9769\u6216\u5236\u5ea6\u5316\u8def\u7ebf\u3002"
+        },
+        {
+            "type": "resource_set_pp_cap",
+            "name": "\u8bbe\u7f6e\u653f\u6cbb\u70b9\u4e0a\u9650",
+            "category": "political",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "replace",
+            "params": {
+                "newCap": "number"
+            },
+            "example": {
+                "type": "resource_set_pp_cap",
+                "newCap": 12
+            },
+            "remarks": "\u7528\u4e8e\u5f7b\u5e95\u6539\u53d8\u56fd\u5bb6\u884c\u52a8\u5bb9\u91cf\u3002"
+        },
+        {
+            "type": "income_money_per_turn",
+            "name": "\u6bcf\u56de\u5408\u989d\u5916\u91d1\u94b1",
+            "category": "economy",
+            "targetScope": "self",
+            "triggerTiming": "turn_start",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "income_money_per_turn",
+                "amount": 2
+            },
+            "remarks": "\u7ecf\u6d4e\u8def\u7ebf\u6838\u5fc3\u6548\u679c\u3002"
+        },
+        {
+            "type": "income_pp_per_turn",
+            "name": "\u6bcf\u56de\u5408\u989d\u5916\u653f\u6cbb\u70b9",
+            "category": "political",
+            "targetScope": "self",
+            "triggerTiming": "turn_start",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "income_pp_per_turn",
+                "amount": 1
+            },
+            "remarks": "\u6781\u5f3a\u6548\u679c\u3002\u5efa\u8bae\u53ea\u653e\u5728\u8def\u7ebf\u7ec8\u70b9\u6216\u5927\u4ee3\u4ef7\u56fd\u7b56\u3002"
+        },
+        {
+            "type": "income_tagged_node_money",
+            "name": "\u6307\u5b9a\u6807\u7b7e\u8282\u70b9\u989d\u5916\u6536\u5165",
+            "category": "economy",
+            "targetScope": "owned_nodes_with_tag",
+            "triggerTiming": "turn_start",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "tag": "string",
+                "amountPerNode": "number"
+            },
+            "example": {
+                "type": "income_tagged_node_money",
+                "tag": "port",
+                "amountPerNode": 1
+            },
+            "remarks": "\u9002\u5408\u592a\u5e73\u6d0b\u56fd\u6e2f\u53e3\u3001\u65b0\u82f1\u683c\u5170\u6e2f\u53e3\u3001\u5fb7\u5dde\u6cb9\u7530\u3002"
+        },
+        {
+            "type": "income_industry_multiplier",
+            "name": "\u5de5\u4e1a\u6536\u5165\u500d\u7387\u4fee\u6b63",
+            "category": "economy",
+            "targetScope": "self",
+            "triggerTiming": "turn_start",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "modifier": "number"
+            },
+            "example": {
+                "type": "income_industry_multiplier",
+                "modifier": 0.1
+            },
+            "remarks": "\u63a7\u5236\u8282\u70b9\u5de5\u4e1a\u603b\u6536\u5165\u4e58\u533a\u3002\u5bb9\u6613\u6eda\u96ea\u7403\uff0c\u5efa\u8bae\u614e\u7528\u3002"
+        },
+        {
+            "type": "recruit_add_troops_capital",
+            "name": "\u9996\u90fd\u7acb\u5373\u83b7\u5f97\u6b65\u5175",
+            "category": "recruitment",
+            "targetScope": "capital_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "recruit_add_troops_capital",
+                "amount": 5
+            },
+            "remarks": "\u6700\u7b80\u5355\u7684\u7206\u5175\u5956\u52b1\u3002\u9996\u90fd\u5931\u5b88\u65f6\u9700\u8981 fallback \u89c4\u5219\u3002"
+        },
+        {
+            "type": "recruit_add_troops_selected_node",
+            "name": "\u6307\u5b9a\u5df1\u65b9\u8282\u70b9\u83b7\u5f97\u6b65\u5175",
+            "category": "recruitment",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number",
+                "mustBeOwned": "boolean"
+            },
+            "example": {
+                "type": "recruit_add_troops_selected_node",
+                "amount": 3,
+                "mustBeOwned": true
+            },
+            "remarks": "\u66f4\u7075\u6d3b\uff0c\u4f46 UI \u8981\u8ba9\u73a9\u5bb6\u9009\u62e9\u8282\u70b9\u3002"
+        },
+        {
+            "type": "recruit_add_troops_all_owned_tag",
+            "name": "\u6240\u6709\u6307\u5b9a\u6807\u7b7e\u8282\u70b9\u83b7\u5f97\u6b65\u5175",
+            "category": "recruitment",
+            "targetScope": "owned_nodes_with_tag",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "tag": "string",
+                "amountPerNode": "number"
+            },
+            "example": {
+                "type": "recruit_add_troops_all_owned_tag",
+                "tag": "city",
+                "amountPerNode": 1
+            },
+            "remarks": "\u9002\u5408\u57ce\u5e02\u6c11\u5175\u3001\u6e2f\u53e3\u5b88\u5907\u3001\u5c71\u533a\u6e38\u51fb\u961f\u3002"
+        },
+        {
+            "type": "recruit_cost_modifier",
+            "name": "\u5f81\u5175\u4ef7\u683c\u4fee\u6b63",
+            "category": "recruitment",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "modifier": "number"
+            },
+            "example": {
+                "type": "recruit_cost_modifier",
+                "modifier": -0.15
+            },
+            "remarks": "-0.15 \u8868\u793a\u5f81\u5175\u4ef7\u683c\u964d\u4f4e 15%\u3002\u5efa\u8bae\u8bbe\u7f6e\u6700\u4f4e\u4ef7\u683c\uff0c\u4f8b\u5982 0.5 \u91d1\u94b1/\u5175\u3002"
+        },
+        {
+            "type": "recruit_unlock_node_tag",
+            "name": "\u89e3\u9501\u6307\u5b9a\u6807\u7b7e\u8282\u70b9\u5f81\u5175",
+            "category": "recruitment",
+            "targetScope": "owned_nodes_with_tag",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "tag": "string",
+                "maxTroopsPerAction": "number"
+            },
+            "example": {
+                "type": "recruit_unlock_node_tag",
+                "tag": "port",
+                "maxTroopsPerAction": 3
+            },
+            "remarks": "\u9002\u5408\u592a\u5e73\u6d0b\u56fd/\u65b0\u82f1\u683c\u5170\u6e2f\u53e3\u5f81\u5175\u3002"
+        },
+        {
+            "type": "recruit_unlock_fallback_largest_industry",
+            "name": "\u9996\u90fd\u5931\u5b88\u540e\u6700\u5927\u5de5\u4e1a\u8282\u70b9\u53ef\u5f81\u5175",
+            "category": "recruitment",
+            "targetScope": "self",
+            "triggerTiming": "on_capital_lost",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "enabled": "boolean"
+            },
+            "example": {
+                "type": "recruit_unlock_fallback_largest_industry",
+                "enabled": true
+            },
+            "remarks": "\u907f\u514d\u9996\u90fd\u4e00\u4e22\u5c31\u5b8c\u5168\u4e0d\u80fd\u53cd\u6253\u3002"
+        },
+        {
+            "type": "maintenance_cost_modifier",
+            "name": "\u90e8\u961f\u7ef4\u62a4\u8d39\u4fee\u6b63",
+            "category": "maintenance",
+            "targetScope": "self",
+            "triggerTiming": "turn_start",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "modifier": "number"
+            },
+            "example": {
+                "type": "maintenance_cost_modifier",
+                "modifier": -0.2
+            },
+            "remarks": "\u7ef4\u62a4\u8d39\u964d\u4f4e 20%\u3002\u9002\u5408\u519b\u7ba1\u3001\u798f\u5229\u3001\u5730\u65b9\u673a\u5668\u8def\u7ebf\u3002"
+        },
+        {
+            "type": "maintenance_free_troops",
+            "name": "\u514d\u7ef4\u62a4\u5175\u529b\u989d\u5ea6",
+            "category": "maintenance",
+            "targetScope": "self",
+            "triggerTiming": "turn_start",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "freeTroops": "number"
+            },
+            "example": {
+                "type": "maintenance_free_troops",
+                "freeTroops": 8
+            },
+            "remarks": "\u524d\u51e0\u540d\u58eb\u5175\u4e0d\u6536\u7ef4\u62a4\u8d39\u3002\u5bf9\u5c0f\u56fd\u66f4\u53cb\u597d\u3002"
+        },
+        {
+            "type": "construction_add_industry_selected",
+            "name": "\u6307\u5b9a\u5df1\u65b9\u8282\u70b9\u5de5\u4e1a +1",
+            "category": "construction",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number",
+                "respectIndustryCap": "boolean"
+            },
+            "example": {
+                "type": "construction_add_industry_selected",
+                "amount": 1,
+                "respectIndustryCap": true
+            },
+            "remarks": "\u9700\u8981 UI \u9009\u70b9\u3002"
+        },
+        {
+            "type": "construction_add_industry_capital",
+            "name": "\u9996\u90fd\u5de5\u4e1a +1",
+            "category": "construction",
+            "targetScope": "capital_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number",
+                "respectIndustryCap": "boolean"
+            },
+            "example": {
+                "type": "construction_add_industry_capital",
+                "amount": 1,
+                "respectIndustryCap": true
+            },
+            "remarks": "\u4e0d\u7528\u9009\u70b9\uff0c\u5b9e\u73b0\u7b80\u5355\u3002"
+        },
+        {
+            "type": "construction_build_industry_cost_modifier",
+            "name": "\u5efa\u8bbe\u5de5\u4e1a PP \u6d88\u8017\u4fee\u6b63",
+            "category": "construction",
+            "targetScope": "self",
+            "triggerTiming": "before_action_cost",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "ppCostDelta": "number"
+            },
+            "example": {
+                "type": "construction_build_industry_cost_modifier",
+                "ppCostDelta": -1
+            },
+            "remarks": "\u57fa\u7840\u5efa\u8bbe\u5de5\u4e1a\u662f 5 PP\uff0c\u53ef\u964d\u5230 4 \u6216 3\u3002\u5efa\u8bae\u6700\u4f4e 3\u3002"
+        },
+        {
+            "type": "construction_next_build_refund_pp",
+            "name": "\u4e0b\u4e00\u6b21\u5efa\u8bbe\u5de5\u4e1a\u8fd4\u8fd8 PP",
+            "category": "construction",
+            "targetScope": "self",
+            "triggerTiming": "after_action",
+            "durationTurns": null,
+            "stacking": "replace",
+            "params": {
+                "refundPP": "number",
+                "uses": "number"
+            },
+            "example": {
+                "type": "construction_next_build_refund_pp",
+                "refundPP": 2,
+                "uses": 1
+            },
+            "remarks": "\u6bd4\u6c38\u4e45\u964d\u4ef7\u66f4\u5b89\u5168\uff0c\u9002\u5408\u4e00\u6b21\u6027\u5de5\u7a0b\u56fd\u7b56\u3002"
+        },
+        {
+            "type": "construction_increase_node_industry_cap",
+            "name": "\u63d0\u9ad8\u8282\u70b9\u5de5\u4e1a\u4e0a\u9650",
+            "category": "construction",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "capIncrease": "number"
+            },
+            "example": {
+                "type": "construction_increase_node_industry_cap",
+                "capIncrease": 1
+            },
+            "remarks": "\u8ba9\u67d0\u4e9b\u8d85\u7ea7\u57ce\u5e02\u7a81\u7834\u666e\u901a\u5de5\u4e1a\u4e0a\u9650\u3002"
+        },
+        {
+            "type": "combat_attack_modifier",
+            "name": "\u5168\u5c40\u8fdb\u653b\u4fee\u6b63",
+            "category": "combat",
+            "targetScope": "self",
+            "triggerTiming": "before_battle",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "modifier": "number"
+            },
+            "example": {
+                "type": "combat_attack_modifier",
+                "modifier": 0.1
+            },
+            "remarks": "+10% \u8fdb\u653b\u3002\u9002\u5408\u6fc0\u8fdb\u3001\u519b\u65b9\u3001\u5148\u950b\u8def\u7ebf\u3002"
+        },
+        {
+            "type": "combat_defense_modifier",
+            "name": "\u5168\u5c40\u9632\u5b88\u4fee\u6b63",
+            "category": "combat",
+            "targetScope": "self",
+            "triggerTiming": "before_battle",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "modifier": "number"
+            },
+            "example": {
+                "type": "combat_defense_modifier",
+                "modifier": 0.15
+            },
+            "remarks": "+15% \u9632\u5b88\u3002\u9002\u5408\u65b0\u82f1\u683c\u5170\u3001\u897f\u90e8\u6307\u6325\u519b\u533a\u3001\u5baa\u653f\u9632\u7ebf\u3002"
+        },
+        {
+            "type": "combat_terrain_attack_modifier",
+            "name": "\u6307\u5b9a\u5730\u5f62\u8fdb\u653b\u4fee\u6b63",
+            "category": "combat",
+            "targetScope": "battle",
+            "triggerTiming": "before_battle",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "terrain": "string",
+                "modifier": "number"
+            },
+            "example": {
+                "type": "combat_terrain_attack_modifier",
+                "terrain": "mountain",
+                "modifier": 0.15
+            },
+            "remarks": "\u9002\u5408\u843d\u57fa\u5c71\u7a81\u7834\u3001\u57ce\u5e02\u7a81\u51fb\u3001\u6cbc\u6cfd\u4f5c\u6218\u7b49\u3002"
+        },
+        {
+            "type": "combat_terrain_defense_modifier",
+            "name": "\u6307\u5b9a\u5730\u5f62\u9632\u5b88\u4fee\u6b63",
+            "category": "combat",
+            "targetScope": "battle",
+            "triggerTiming": "before_battle",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "terrain": "string",
+                "modifier": "number"
+            },
+            "example": {
+                "type": "combat_terrain_defense_modifier",
+                "terrain": "city",
+                "modifier": 0.1
+            },
+            "remarks": "\u9002\u5408 CSA \u57ce\u5e02\u6218\u3001\u65b0\u82f1\u683c\u5170\u6e2f\u53e3\u57ce\u9632\u3002"
+        },
+        {
+            "type": "combat_tagged_node_defense_modifier",
+            "name": "\u6307\u5b9a\u6807\u7b7e\u8282\u70b9\u9632\u5b88\u4fee\u6b63",
+            "category": "combat",
+            "targetScope": "owned_nodes_with_tag",
+            "triggerTiming": "before_battle",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "tag": "string",
+                "modifier": "number"
+            },
+            "example": {
+                "type": "combat_tagged_node_defense_modifier",
+                "tag": "coastal",
+                "modifier": 0.1
+            },
+            "remarks": "\u6240\u6709\u6cbf\u6d77\u8282\u70b9\u9632\u5b88 +10%\u3002"
+        },
+        {
+            "type": "combat_first_attack_loss_reduction",
+            "name": "\u9996\u6b21\u8fdb\u653b\u635f\u8017\u964d\u4f4e",
+            "category": "combat",
+            "targetScope": "self",
+            "triggerTiming": "after_battle",
+            "durationTurns": null,
+            "stacking": "replace",
+            "params": {
+                "lossReduction": "number",
+                "usesPerTurn": "number"
+            },
+            "example": {
+                "type": "combat_first_attack_loss_reduction",
+                "lossReduction": 0.1,
+                "usesPerTurn": 1
+            },
+            "remarks": "\u9002\u5408\u7a81\u51fb\u3001\u7a7a\u5730\u534f\u540c\u3002\u9700\u8981\u6218\u6597\u635f\u8017\u7b97\u6cd5\u652f\u6301\u3002"
+        },
+        {
+            "type": "combat_min_survivors_bonus",
+            "name": "\u80dc\u5229\u540e\u6700\u4f4e\u5e78\u5b58\u5175\u529b\u63d0\u9ad8",
+            "category": "combat",
+            "targetScope": "battle",
+            "triggerTiming": "after_battle",
+            "durationTurns": null,
+            "stacking": "max",
+            "params": {
+                "minSurvivors": "number"
+            },
+            "example": {
+                "type": "combat_min_survivors_bonus",
+                "minSurvivors": 2
+            },
+            "remarks": "\u9ed8\u8ba4\u5e78\u5b58\u5175\u529b max(1, ...)\uff0c\u8fd9\u4e2a\u80fd\u8ba9\u7cbe\u9510\u8def\u7ebf\u81f3\u5c11\u5269 2\u3002"
+        },
+        {
+            "type": "movement_extra_move_after_action",
+            "name": "\u79fb\u52a8\u884c\u52a8\u540e\u989d\u5916\u8f6c\u79fb",
+            "category": "movement",
+            "targetScope": "self",
+            "triggerTiming": "after_action",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "extraStacks": "number",
+                "distance": "number",
+                "requiresTag": "string"
+            },
+            "example": {
+                "type": "movement_extra_move_after_action",
+                "extraStacks": 1,
+                "distance": 1,
+                "requiresTag": "rail"
+            },
+            "remarks": "\u9002\u5408\u94c1\u8def\u3001\u9ad8\u901f\u516c\u8def\u3001\u673a\u52a8\u53f8\u4ee4\u90e8\u3002\u6ce8\u610f\u9632\u65e0\u9650\u8fde\u52a8\u3002"
+        },
+        {
+            "type": "movement_range_modifier",
+            "name": "\u79fb\u52a8\u8ddd\u79bb\u4fee\u6b63",
+            "category": "movement",
+            "targetScope": "self",
+            "triggerTiming": "after_action",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "extraDistance": "number",
+                "conditions": "array"
+            },
+            "example": {
+                "type": "movement_range_modifier",
+                "extraDistance": 1,
+                "conditions": [
+                    {
+                        "nodeTag": "rail"
+                    }
+                ]
+            },
+            "remarks": "\u5982\u679c\u9996\u7248\u53ea\u505a 1 \u683c\u79fb\u52a8\uff0c\u8fd9\u4e2a\u53ef\u4ee5\u665a\u70b9\u4e0a\u3002"
+        },
+        {
+            "type": "movement_unlock_naval_transfer",
+            "name": "\u89e3\u9501\u6d77\u8fd0\u8c03\u52a8",
+            "category": "movement",
+            "targetScope": "coastal_nodes",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "maxTroops": "number",
+                "costPP": "number",
+                "cooldownTurns": "number"
+            },
+            "example": {
+                "type": "movement_unlock_naval_transfer",
+                "maxTroops": 4,
+                "costPP": 1,
+                "cooldownTurns": 2
+            },
+            "remarks": "\u6e2f\u53e3\u4e4b\u95f4\u79fb\u52a8\uff0c\u9002\u5408 PSA\u3001\u65b0\u82f1\u683c\u5170\u3002\u8981\u9632\u5077\u5bb6\u8fc7\u5f3a\u3002"
+        },
+        {
+            "type": "movement_ignore_terrain_once",
+            "name": "\u4e00\u6b21\u6027\u65e0\u89c6\u5730\u5f62\u79fb\u52a8\u9650\u5236",
+            "category": "movement",
+            "targetScope": "self",
+            "triggerTiming": "after_action",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "uses": "number"
+            },
+            "example": {
+                "type": "movement_ignore_terrain_once",
+                "uses": 1
+            },
+            "remarks": "\u9002\u5408\u843d\u57fa\u5c71\u7a81\u7834\u3001\u7a7a\u8fd0\u8865\u7ed9\u3002"
+        },
+        {
+            "type": "action_cost_modifier_by_type",
+            "name": "\u6307\u5b9a\u884c\u52a8 PP \u6d88\u8017\u4fee\u6b63",
+            "category": "rule_modifier",
+            "targetScope": "self",
+            "triggerTiming": "before_action_cost",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "actionType": "string",
+                "ppCostDelta": "number"
+            },
+            "example": {
+                "type": "action_cost_modifier_by_type",
+                "actionType": "move",
+                "ppCostDelta": -1
+            },
+            "remarks": "\u5f3a\u5ea6\u5f88\u9ad8\u3002\u6700\u4f4e\u6210\u672c\u5efa\u8bae\u4e0d\u80fd\u4f4e\u4e8e 1\u3002"
+        },
+        {
+            "type": "action_next_extra_cost_modifier",
+            "name": "\u4e0b\u4e00\u6b21\u884c\u52a8\u9012\u589e\u6d88\u8017\u4fee\u6b63",
+            "category": "rule_modifier",
+            "targetScope": "self",
+            "triggerTiming": "before_action_cost",
+            "durationTurns": null,
+            "stacking": "replace",
+            "params": {
+                "extraCostDelta": "number",
+                "uses": "number"
+            },
+            "example": {
+                "type": "action_next_extra_cost_modifier",
+                "extraCostDelta": -1,
+                "uses": 1
+            },
+            "remarks": "\u548c\u4f60\u7684\u884c\u52a8\u9012\u589e\u673a\u5236\u5f3a\u76f8\u5173\uff0c\u9002\u5408\u884c\u653f\u6548\u7387/\u7d27\u6025\u6388\u6743\u3002"
+        },
+        {
+            "type": "action_free_action_token",
+            "name": "\u83b7\u5f97\u514d\u8d39\u884c\u52a8\u6b21\u6570",
+            "category": "rule_modifier",
+            "targetScope": "self",
+            "triggerTiming": "before_action_cost",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "actionType": "string",
+                "uses": "number"
+            },
+            "example": {
+                "type": "action_free_action_token",
+                "actionType": "move",
+                "uses": 1
+            },
+            "remarks": "\u5efa\u8bae\u53ea\u7ed9\u7279\u5b9a\u884c\u52a8\uff0c\u4e0d\u8981\u7ed9 any\u3002"
+        },
+        {
+            "type": "map_add_node_tag",
+            "name": "\u7ed9\u8282\u70b9\u6dfb\u52a0\u6807\u7b7e",
+            "category": "map_node",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "unique",
+            "params": {
+                "tag": "string"
+            },
+            "example": {
+                "type": "map_add_node_tag",
+                "tag": "fortified"
+            },
+            "remarks": "\u7528\u4e8e\u628a\u666e\u901a\u8282\u70b9\u53d8\u6210\u6e2f\u53e3\u3001\u6cb9\u7530\u3001\u8981\u585e\u3001\u94c1\u8def\u67a2\u7ebd\u7b49\u3002"
+        },
+        {
+            "type": "map_add_temporary_fortification",
+            "name": "\u6dfb\u52a0\u4e34\u65f6\u5de5\u4e8b",
+            "category": "map_node",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 1,
+            "stacking": "additive",
+            "params": {
+                "defenseModifier": "number"
+            },
+            "example": {
+                "type": "map_add_temporary_fortification",
+                "defenseModifier": 0.2,
+                "durationTurns": 1
+            },
+            "remarks": "\u9002\u5408\u6218\u672f\u9632\u5b88\u3001\u7d27\u6025\u6212\u4e25\u3002"
+        },
+        {
+            "type": "map_permanent_fortification",
+            "name": "\u6c38\u4e45\u5de5\u4e8b",
+            "category": "map_node",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "level": "number",
+                "maxLevel": "number",
+                "defensePerLevel": "number"
+            },
+            "example": {
+                "type": "map_permanent_fortification",
+                "level": 1,
+                "maxLevel": 3,
+                "defensePerLevel": 0.1
+            },
+            "remarks": "\u5982\u679c\u4f60\u4e0d\u60f3\u589e\u52a0\u5efa\u7b51\u7cfb\u7edf\uff0c\u53ef\u4ee5\u5148\u4e0d\u505a\u3002"
+        },
+        {
+            "type": "map_convert_empty_adjacent_node",
+            "name": "\u548c\u5e73\u5360\u9886\u76f8\u90bb\u7a7a\u8282\u70b9",
+            "category": "map_node",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "maxNodes": "number",
+                "mustBeAdjacent": "boolean"
+            },
+            "example": {
+                "type": "map_convert_empty_adjacent_node",
+                "maxNodes": 1,
+                "mustBeAdjacent": true
+            },
+            "remarks": "\u9002\u5408\u8fb9\u5883\u534f\u8bae\u3001\u5730\u65b9\u5f52\u9644\u3002"
+        },
+        {
+            "type": "map_damage_enemy_industry",
+            "name": "\u7834\u574f\u654c\u65b9\u8282\u70b9\u5de5\u4e1a",
+            "category": "map_node",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "amount": "number",
+                "mustBeEnemy": "boolean"
+            },
+            "example": {
+                "type": "map_damage_enemy_industry",
+                "amount": 1,
+                "mustBeEnemy": true
+            },
+            "remarks": "\u9002\u5408\u8f70\u70b8\u3001\u7834\u574f\u884c\u52a8\u3002\u5efa\u8bae\u6709\u51b7\u5374\u3002"
+        },
+        {
+            "type": "diplomacy_change_relation",
+            "name": "\u6539\u53d8\u5916\u4ea4\u5173\u7cfb",
+            "category": "diplomacy",
+            "targetScope": "enemy",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "replace",
+            "params": {
+                "targetFaction": "string",
+                "relation": "string"
+            },
+            "example": {
+                "type": "diplomacy_change_relation",
+                "targetFaction": "NEN",
+                "relation": "truce"
+            },
+            "remarks": "\u9002\u5408\u505c\u6218\u3001\u4e92\u4e0d\u4fb5\u72af\u3001\u5171\u540c\u4f5c\u6218\u3002\u8054\u673a\u5c40\u8981\u53cc\u65b9\u786e\u8ba4\u6216\u7cfb\u7edf\u5f3a\u5236\u3002"
+        },
+        {
+            "type": "diplomacy_create_truce",
+            "name": "\u521b\u5efa\u505c\u6218",
+            "category": "diplomacy",
+            "targetScope": "enemy",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "replace",
+            "params": {
+                "targetFaction": "string",
+                "durationTurns": "number"
+            },
+            "example": {
+                "type": "diplomacy_create_truce",
+                "targetFaction": "USA",
+                "durationTurns": 3
+            },
+            "remarks": "\u5efa\u8bae\u9700\u8981\u53cc\u65b9\u540c\u610f\uff0c\u9664\u975e\u662f\u4e8b\u4ef6\u5f3a\u5236\u3002"
+        },
+        {
+            "type": "diplomacy_send_aid",
+            "name": "\u63f4\u52a9\u91d1\u94b1\u6216\u5175\u529b",
+            "category": "diplomacy",
+            "targetScope": "ally",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "targetFaction": "string",
+                "money": "number",
+                "troops": "number"
+            },
+            "example": {
+                "type": "diplomacy_send_aid",
+                "targetFaction": "NEN",
+                "money": 4,
+                "troops": 0
+            },
+            "remarks": "\u73a9\u5bb6\u4e4b\u95f4\u7684\u5916\u4ea4\u4ea4\u6613\u3002\u540e\u7aef\u5fc5\u987b\u6821\u9a8c\u8d44\u6e90\u3002"
+        },
+        {
+            "type": "visibility_reveal_nodes",
+            "name": "\u63ed\u793a\u8282\u70b9\u4fe1\u606f",
+            "category": "visibility",
+            "targetScope": "enemy",
+            "triggerTiming": "instant",
+            "durationTurns": 2,
+            "stacking": "replace",
+            "params": {
+                "targetFaction": "string",
+                "nodeFilter": "string",
+                "durationTurns": "number"
+            },
+            "example": {
+                "type": "visibility_reveal_nodes",
+                "targetFaction": "CSA",
+                "nodeFilter": "border",
+                "durationTurns": 2
+            },
+            "remarks": "\u53ea\u6709\u505a\u6218\u4e89\u8ff7\u96fe\u65f6\u624d\u9700\u8981\u3002\u9996\u7248\u53ef\u4ee5\u4e0d\u505a\u3002"
+        },
+        {
+            "type": "visibility_hide_troops",
+            "name": "\u9690\u85cf\u5df1\u65b9\u5175\u529b",
+            "category": "visibility",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": 2,
+            "stacking": "unique",
+            "params": {
+                "durationTurns": "number",
+                "scope": "string"
+            },
+            "example": {
+                "type": "visibility_hide_troops",
+                "durationTurns": 2,
+                "scope": "non_border_nodes"
+            },
+            "remarks": "\u8054\u673a\u535a\u5f08\u5473\u9053\u5f3a\uff0c\u4f46\u590d\u6742\u5ea6\u4e5f\u9ad8\u3002"
+        },
+        {
+            "type": "special_unlock_action",
+            "name": "\u89e3\u9501\u7279\u6b8a\u884c\u52a8",
+            "category": "special_action",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "actionId": "string"
+            },
+            "example": {
+                "type": "special_unlock_action",
+                "actionId": "war_bonds"
+            },
+            "remarks": "\u901a\u7528\u6269\u5c55\u5165\u53e3\uff0c\u4f8b\u5982\u6218\u65f6\u503a\u5238\u3001\u6d77\u8fd0\u8c03\u52a8\u3001\u7a7a\u8fd0\u8865\u7ed9\u3001\u4e34\u65f6\u5de5\u4e8b\u3002"
+        },
+        {
+            "type": "special_war_bonds",
+            "name": "\u6218\u65f6\u503a\u5238",
+            "category": "special_action",
+            "targetScope": "self",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "unique",
+            "params": {
+                "gainMoney": "number",
+                "futureMoneyPenalty": "number",
+                "penaltyTurns": "number"
+            },
+            "example": {
+                "type": "special_war_bonds",
+                "gainMoney": 10,
+                "futureMoneyPenalty": -2,
+                "penaltyTurns": 3
+            },
+            "remarks": "\u7acb\u5373\u7206\u94b1\uff0c\u672a\u6765\u51e0\u56de\u5408\u5c11\u6536\u5165\u3002\u6bd4\u5355\u7eaf\u52a0\u94b1\u66f4\u6709\u51b3\u7b56\u611f\u3002"
+        },
+        {
+            "type": "special_air_supply",
+            "name": "\u7a7a\u8fd0\u8865\u7ed9",
+            "category": "special_action",
+            "targetScope": "selected_node",
+            "triggerTiming": "instant",
+            "durationTurns": 1,
+            "stacking": "replace",
+            "params": {
+                "ignoreIsolation": "boolean",
+                "defenseModifier": "number"
+            },
+            "example": {
+                "type": "special_air_supply",
+                "ignoreIsolation": true,
+                "defenseModifier": 0.1
+            },
+            "remarks": "\u9700\u8981\u8865\u7ed9/\u5b64\u7acb\u89c4\u5219\u624d\u5b8c\u6574\u3002\u4e5f\u53ef\u7b80\u5316\u4e3a\u8be5\u8282\u70b9\u672c\u56de\u5408\u9632\u5b88 +10%\u3002"
+        },
+        {
+            "type": "special_emergency_mobilization",
+            "name": "\u7d27\u6025\u52a8\u5458",
+            "category": "special_action",
+            "targetScope": "self",
+            "triggerTiming": "instant",
+            "durationTurns": 1,
+            "stacking": "replace",
+            "params": {
+                "capitalTroops": "number",
+                "upkeepModifierNextTurn": "number"
+            },
+            "example": {
+                "type": "special_emergency_mobilization",
+                "capitalTroops": 6,
+                "upkeepModifierNextTurn": 0.25
+            },
+            "remarks": "\u672c\u56de\u5408\u7206\u5175\uff0c\u4e0b\u56de\u5408\u7ef4\u62a4\u538b\u529b\u53d8\u5927\u3002"
+        },
+        {
+            "type": "special_propaganda_campaign",
+            "name": "\u5ba3\u4f20\u6218",
+            "category": "special_action",
+            "targetScope": "self",
+            "triggerTiming": "instant",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "gainPP": "number",
+                "gainMoney": "number"
+            },
+            "example": {
+                "type": "special_propaganda_campaign",
+                "gainPP": 1,
+                "gainMoney": 3
+            },
+            "remarks": "\u65e0\u7a33\u5b9a\u5ea6\u7cfb\u7edf\u65f6\uff0c\u5ba3\u4f20\u53ef\u76f4\u63a5\u8f6c\u6210 PP/\u94b1/\u5175\u3002"
+        },
+        {
+            "type": "trigger_on_capture_gain_money",
+            "name": "\u5360\u9886\u8282\u70b9\u540e\u83b7\u5f97\u91d1\u94b1",
+            "category": "triggered",
+            "targetScope": "self",
+            "triggerTiming": "on_node_capture",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "amount": "number",
+                "cooldownPerTurn": "number"
+            },
+            "example": {
+                "type": "trigger_on_capture_gain_money",
+                "amount": 2,
+                "cooldownPerTurn": 3
+            },
+            "remarks": "\u9002\u5408\u63a0\u593a\u3001\u5feb\u901f\u6269\u5f20\u8def\u7ebf\u3002\u5fc5\u987b\u8bbe\u6bcf\u56de\u5408\u4e0a\u9650\u3002"
+        },
+        {
+            "type": "trigger_on_capture_gain_troops",
+            "name": "\u5360\u9886\u8282\u70b9\u540e\u83b7\u5f97\u6b65\u5175",
+            "category": "triggered",
+            "targetScope": "selected_node",
+            "triggerTiming": "on_node_capture",
+            "durationTurns": null,
+            "stacking": "additive",
+            "params": {
+                "amount": "number",
+                "cooldownPerTurn": "number"
+            },
+            "example": {
+                "type": "trigger_on_capture_gain_troops",
+                "amount": 1,
+                "cooldownPerTurn": 2
+            },
+            "remarks": "\u8868\u793a\u5730\u65b9\u5f52\u9644/\u5f81\u53ec\uff0c\u6269\u5f20\u8def\u7ebf\u5f88\u723d\u3002"
+        },
+        {
+            "type": "trigger_when_capital_lost_gain_pp",
+            "name": "\u9996\u90fd\u5931\u5b88\u65f6\u83b7\u5f97\u653f\u6cbb\u70b9",
+            "category": "triggered",
+            "targetScope": "self",
+            "triggerTiming": "on_capital_lost",
+            "durationTurns": 0,
+            "stacking": "unique",
+            "params": {
+                "amount": "number"
+            },
+            "example": {
+                "type": "trigger_when_capital_lost_gain_pp",
+                "amount": 3
+            },
+            "remarks": "\u6700\u540e\u62b5\u6297\u673a\u5236\u3002"
+        },
+        {
+            "type": "trigger_after_battle_refund_action_cost",
+            "name": "\u6218\u6597\u540e\u8fd4\u8fd8\u884c\u52a8\u6d88\u8017",
+            "category": "triggered",
+            "targetScope": "self",
+            "triggerTiming": "after_battle",
+            "durationTurns": null,
+            "stacking": "replace",
+            "params": {
+                "condition": "string",
+                "refundPP": "number",
+                "usesPerTurn": "number"
+            },
+            "example": {
+                "type": "trigger_after_battle_refund_action_cost",
+                "condition": "win_attack",
+                "refundPP": 1,
+                "usesPerTurn": 1
+            },
+            "remarks": "\u9002\u5408\u95ea\u51fb/\u673a\u52a8\u6218\uff0c\u4f46\u8981\u9632\u6b62\u6eda\u96ea\u7403\u3002"
+        },
+        {
+            "type": "rule_unlock_focus_branch",
+            "name": "\u89e3\u9501\u56fd\u7b56\u5206\u652f",
+            "category": "rule_modifier",
+            "targetScope": "route",
+            "triggerTiming": "on_focus_completed",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "branchId": "string"
+            },
+            "example": {
+                "type": "rule_unlock_focus_branch",
+                "branchId": "PSA_SHARED_WAR_ENDGAME"
+            },
+            "remarks": "\u7528\u4e8e\u590d\u6742\u56fd\u7b56\u6811\u5408\u6d41\u6216\u9690\u85cf\u5206\u652f\u3002"
+        },
+        {
+            "type": "rule_lock_focus_branch",
+            "name": "\u9501\u5b9a\u56fd\u7b56\u5206\u652f",
+            "category": "rule_modifier",
+            "targetScope": "route",
+            "triggerTiming": "on_focus_completed",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "branchId": "string"
+            },
+            "example": {
+                "type": "rule_lock_focus_branch",
+                "branchId": "PSA_HUGHES_ROUTE"
+            },
+            "remarks": "\u7528\u4e8e\u4e92\u65a5\u8def\u7ebf\u3002\u4e5f\u53ef\u4ee5\u7531 mutualGroup \u81ea\u52a8\u5904\u7406\u3002"
+        },
+        {
+            "type": "rule_change_victory_threshold",
+            "name": "\u4fee\u6539\u9738\u6743\u80dc\u5229\u8282\u70b9\u6bd4\u4f8b",
+            "category": "rule_modifier",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "replace",
+            "params": {
+                "nodeControlRatio": "number"
+            },
+            "example": {
+                "type": "rule_change_victory_threshold",
+                "nodeControlRatio": 0.55
+            },
+            "remarks": "\u4f8b\u5982\u67d0\u4e9b\u7edf\u4e00\u8def\u7ebf\u53ea\u8981 55% \u8282\u70b9\u5373\u53ef\u5ba3\u5e03\u80dc\u5229\u3002\u5f3a\u5ea6\u5f88\u9ad8\uff0c\u614e\u7528\u3002"
+        },
+        {
+            "type": "ui_add_country_modifier_badge",
+            "name": "\u6dfb\u52a0\u56fd\u5bb6\u4fee\u6b63\u5fbd\u7ae0",
+            "category": "ui_only",
+            "targetScope": "self",
+            "triggerTiming": "passive",
+            "durationTurns": null,
+            "stacking": "unique",
+            "params": {
+                "badgeId": "string",
+                "label": "string",
+                "icon": "string"
+            },
+            "example": {
+                "type": "ui_add_country_modifier_badge",
+                "badgeId": "war_bonds_active",
+                "label": "\u6218\u65f6\u503a\u5238",
+                "icon": "bond"
+            },
+            "remarks": "\u7eaf UI \u6548\u679c\uff0c\u5e2e\u52a9\u73a9\u5bb6\u770b\u61c2\u81ea\u5df1\u6709\u54ea\u4e9b\u88ab\u52a8\u3002"
+        },
+        {
+            "type": "ui_show_world_news",
+            "name": "\u663e\u793a\u4e16\u754c\u65b0\u95fb\u5f39\u7a97",
+            "category": "ui_only",
+            "targetScope": "all_players",
+            "triggerTiming": "on_focus_completed",
+            "durationTurns": 0,
+            "stacking": "additive",
+            "params": {
+                "title": "string",
+                "body": "string",
+                "image": "string"
+            },
+            "example": {
+                "type": "ui_show_world_news",
+                "title": "\u592a\u5e73\u6d0b\u56fd\u5ba3\u5e03\u65b0\u5baa\u7ae0",
+                "body": "\u897f\u6d77\u5cb8\u7684\u672a\u6765\u5df2\u7ecf\u88ab\u91cd\u65b0\u4e66\u5199\u3002",
+                "image": "psa_constitution.png"
+            },
+            "remarks": "\u9002\u5408\u8def\u7ebf\u7ec8\u70b9\u3001\u653f\u53d8\u3001\u7edf\u4e00\u5ba3\u8a00\u3002"
+        }
+    ],
+    "conditionTypes": [
+        {
+            "type": "requires_owned_node_tag",
+            "name": "\u9700\u8981\u62e5\u6709\u6307\u5b9a\u6807\u7b7e\u8282\u70b9",
+            "example": {
+                "condition": "requires_owned_node_tag",
+                "tag": "port",
+                "count": 2
+            }
+        },
+        {
+            "type": "requires_focus_completed",
+            "name": "\u9700\u8981\u5df2\u5b8c\u6210\u56fd\u7b56",
+            "example": {
+                "condition": "requires_focus_completed",
+                "focusId": "PSA_C024"
+            }
+        },
+        {
+            "type": "requires_route_selected",
+            "name": "\u9700\u8981\u5df2\u9009\u62e9\u8def\u7ebf",
+            "example": {
+                "condition": "requires_route_selected",
+                "routeId": "PSA_HUGHES"
+            }
+        },
+        {
+            "type": "requires_money",
+            "name": "\u9700\u8981\u91d1\u94b1",
+            "example": {
+                "condition": "requires_money",
+                "amount": 6
+            }
+        },
+        {
+            "type": "requires_pp",
+            "name": "\u9700\u8981\u653f\u6cbb\u70b9",
+            "example": {
+                "condition": "requires_pp",
+                "amount": 3
+            }
+        },
+        {
+            "type": "requires_at_war_with",
+            "name": "\u9700\u8981\u4e0e\u6307\u5b9a\u52bf\u529b\u6218\u4e89",
+            "example": {
+                "condition": "requires_at_war_with",
+                "factionId": "CSA"
+            }
+        },
+        {
+            "type": "requires_capital_controlled",
+            "name": "\u9700\u8981\u63a7\u5236\u9996\u90fd",
+            "example": {
+                "condition": "requires_capital_controlled",
+                "value": true
+            }
+        },
+        {
+            "type": "requires_node_count",
+            "name": "\u9700\u8981\u63a7\u5236\u8282\u70b9\u6570",
+            "example": {
+                "condition": "requires_node_count",
+                "operator": ">=",
+                "count": 8
+            }
+        },
+        {
+            "type": "requires_industry_total",
+            "name": "\u9700\u8981\u603b\u5de5\u4e1a\u503c",
+            "example": {
+                "condition": "requires_industry_total",
+                "operator": ">=",
+                "amount": 18
+            }
+        }
+    ],
+    "sampleFocusNode": {
+        "id": "PSA_HUG_012",
+        "name": "\u4f11\u65af\u822a\u7a7a\u96c6\u56e2\uff1a\u6218\u65f6\u6267\u884c\u4ee4",
+        "route": "\u4f11\u65af\u8def\u7ebf",
+        "baseCostPP": 1,
+        "prerequisites": [
+            "PSA_HUG_007",
+            "PSA_HUG_008"
+        ],
+        "mutualGroup": null,
+        "effects": [
+            {
+                "type": "income_money_per_turn",
+                "amount": 2
+            },
+            {
+                "type": "special_unlock_action",
+                "actionId": "air_supply"
+            },
+            {
+                "type": "combat_first_attack_loss_reduction",
+                "lossReduction": 0.1,
+                "usesPerTurn": 1
+            }
+        ],
+        "conditions": [
+            {
+                "condition": "requires_owned_node_tag",
+                "tag": "industrial",
+                "count": 2
+            }
+        ],
+        "ui": {
+            "icon": "aircraft_factory",
+            "color": "#5f8fc5",
+            "worldNews": false
+        },
+        "remarks": "\u7ec4\u5408\u56fd\u7b56\uff1a\u7ed9\u6536\u5165\u3001\u89e3\u9501\u7279\u6b8a\u884c\u52a8\u3001\u7ed9\u4e00\u6b21\u6027\u6218\u6597\u635f\u8017\u51cf\u514d\u3002"
+    },
+    "recommendedBalanceLimits": {
+        "maxGlobalAttackModifierRecommended": 0.3,
+        "maxGlobalDefenseModifierRecommended": 0.35,
+        "minRecruitCostRecommended": 0.5,
+        "minBuildIndustryPPCostRecommended": 3,
+        "maxPPPerTurnBonusRecommended": 1,
+        "maxMoneyPerTurnSingleFocusRecommended": 3,
+        "notes": [
+            "\u5168\u5c40\u8fdb\u653b/\u9632\u5b88\u4e0d\u8981\u5806\u592a\u9ad8\uff0c\u5426\u5219\u6218\u6597\u4f1a\u53d8\u6210\u7eaf\u6570\u503c\u78be\u538b\u3002",
+            "\u6bcf\u56de\u5408 +PP \u662f\u6700\u5f3a\u6548\u679c\u4e4b\u4e00\uff0c\u5efa\u8bae\u53ea\u653e\u5728\u8def\u7ebf\u7ec8\u70b9\u6216\u5927\u4ee3\u4ef7\u8282\u70b9\u3002",
+            "\u5efa\u8bbe\u5de5\u4e1a\u964d\u5230 3 PP \u5df2\u7ecf\u5f88\u5f3a\uff0c\u4e0d\u5efa\u8bae\u964d\u5230 2\u3002",
+            "\u7279\u6b8a\u884c\u52a8\u6bd4\u7eaf\u6570\u503c\u66f4\u6709\u8da3\uff0c\u4f46\u9996\u7248\u8981\u5c11\u91cf\u4f7f\u7528\uff0c\u907f\u514d\u89c4\u5219\u7206\u70b8\u3002"
+        ]
+    }
+}

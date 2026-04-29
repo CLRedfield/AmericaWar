@@ -1,0 +1,25 @@
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.cursor/
+
+# 日志 & 临时
+*.log
+*.tmp
+*.cache
+node_modules/
+dist/
+build/
+
+# 截图等本地产物（如有）
+screenshots/
+
+# 不要把私人 firebase 配置覆盖（如果将来你拆分公开/私有配置可启用）
+# firebase-config.local.js
