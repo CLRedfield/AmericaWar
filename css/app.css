@@ -393,6 +393,24 @@ button:disabled {
     flex-direction: column;
     gap: var(--spacing-2);
     margin-top: var(--spacing-3);
+    max-height: 56vh;
+    overflow-y: auto;
+    padding-right: 6px;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.slot-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.slot-list::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+}
+
+.slot-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
 }
 
 .slot-row {
