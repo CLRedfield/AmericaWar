@@ -1,13 +1,38 @@
 const GamePageView = {
     render() {
+        const mobilePanel = window.app.mobilePanel || 'none';
         return `
-            <div class="view-game-page">
+            <div class="view-game-page mobile-panel-${mobilePanel}">
                 ${this.renderTopStatusBar()}
                 ${this.renderLeftFactionPanel()}
                 <main class="game-map-container">${MapView.render()}</main>
                 ${this.renderRightActionPanel()}
                 ${this.renderBottomLogPanel()}
+                ${this.renderMobilePanelDock()}
             </div>
+        `;
+    },
+
+    renderMobilePanelDock() {
+        const active = window.app.mobilePanel || 'none';
+        const items = [
+            { id: 'actions', label: '行动' },
+            { id: 'intel', label: '情报' },
+            { id: 'logs', label: '战报' },
+            { id: 'none', label: '地图' }
+        ];
+
+        return `
+            <nav class="mobile-panel-dock" aria-label="手机端面板切换">
+                ${items.map(item => {
+                    const panel = item.id === 'none' ? null : item.id;
+                    return `
+                        <button class="${active === item.id ? 'active' : ''}" onclick="window.app.setMobilePanel(${panel ? `'${panel}'` : 'null'})">
+                            ${item.label}
+                        </button>
+                    `;
+                }).join('')}
+            </nav>
         `;
     },
 

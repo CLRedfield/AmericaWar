@@ -28,8 +28,11 @@ const App = {
     root: null,
     modalRoot: null,
     rankingMetric: 'nodes',
+    mobilePanel: null,
     timerId: null,
     mapDrag: null,
+    mapPointers: new Map(),
+    mapTouchGesture: null,
     focusTreeDrag: null,
     focusTreeCentered: false,
     pendingFocusTreeScroll: null,
@@ -75,6 +78,15 @@ const App = {
 
     navigateTo(viewName) {
         GameState.setView(viewName);
+    },
+
+    isMobileLayout() {
+        return typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches;
+    },
+
+    setMobilePanel(panel) {
+        this.mobilePanel = this.mobilePanel === panel ? null : panel;
+        this.render();
     },
 
     setPlayerName(rawName) {
@@ -891,6 +903,7 @@ const App = {
             return;
         }
 
+        if (this.isMobileLayout()) this.mobilePanel = 'actions';
         GameState.setSelectedNode(nodeId);
     },
 
@@ -1747,9 +1760,72 @@ const App = {
         this.alignFocusTree();
     },
 
+    getPointerDistance(a, b) {
+        return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    },
+
+    getPointerMidpoint(a, b) {
+        return {
+            clientX: (a.clientX + b.clientX) / 2,
+            clientY: (a.clientY + b.clientY) / 2
+        };
+    },
+
+    getMapTouchPair() {
+        const points = Array.from(this.mapPointers.values());
+        return points.length >= 2 ? [points[0], points[1]] : null;
+    },
+
+    startMapTouchGesture(svg) {
+        const pair = this.getMapTouchPair();
+        if (!pair) return;
+
+        const [first, second] = pair;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const center = this.getPointerMidpoint(first, second);
+        const viewport = { ...GameState.game.mapViewport };
+        this.mapTouchGesture = {
+            distance: Math.max(12, this.getPointerDistance(first, second)),
+            viewport,
+            anchorMapX: viewport.x + ((center.clientX - rect.left) / rect.width) * viewport.width,
+            anchorMapY: viewport.y + ((center.clientY - rect.top) / rect.height) * viewport.height
+        };
+        this.mapDrag = null;
+    },
+
+    updateMapTouchGesture(svg) {
+        const pair = this.getMapTouchPair();
+        if (!pair) return;
+        if (!this.mapTouchGesture) this.startMapTouchGesture(svg);
+        if (!this.mapTouchGesture) return;
+
+        const [first, second] = pair;
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const center = this.getPointerMidpoint(first, second);
+        const currentDistance = Math.max(12, this.getPointerDistance(first, second));
+        const factor = this.mapTouchGesture.distance / currentDistance;
+        const sourceViewport = this.mapTouchGesture.viewport;
+        const newWidth = Math.min(1300, Math.max(420, sourceViewport.width * factor));
+        const newHeight = Math.min(806, Math.max(260, sourceViewport.height * factor));
+        const viewport = GameState.game.mapViewport;
+
+        viewport.x = this.mapTouchGesture.anchorMapX - ((center.clientX - rect.left) / rect.width) * newWidth;
+        viewport.y = this.mapTouchGesture.anchorMapY - ((center.clientY - rect.top) / rect.height) * newHeight;
+        viewport.width = newWidth;
+        viewport.height = newHeight;
+        this.updateSvgViewBox(svg);
+    },
+
     attachMapInteraction() {
         const svg = document.getElementById('svg-map');
         if (!svg) return;
+
+        this.mapPointers = new Map();
+        this.mapTouchGesture = null;
 
         svg.addEventListener('wheel', event => {
             event.preventDefault();
@@ -1758,10 +1834,26 @@ const App = {
         }, { passive: false });
 
         svg.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'touch') {
+                this.mapPointers.set(event.pointerId, {
+                    pointerId: event.pointerId,
+                    clientX: event.clientX,
+                    clientY: event.clientY
+                });
+                svg.setPointerCapture(event.pointerId);
+
+                if (this.mapPointers.size >= 2) {
+                    this.startMapTouchGesture(svg);
+                    event.preventDefault();
+                    return;
+                }
+            }
+
             if (event.target.closest('.map-node')) return;
 
             this.mapDrag = {
                 pointerId: event.pointerId,
+                pointerType: event.pointerType,
                 lastX: event.clientX,
                 lastY: event.clientY
             };
@@ -1769,6 +1861,20 @@ const App = {
         });
 
         svg.addEventListener('pointermove', event => {
+            if (event.pointerType === 'touch' && this.mapPointers.has(event.pointerId)) {
+                this.mapPointers.set(event.pointerId, {
+                    pointerId: event.pointerId,
+                    clientX: event.clientX,
+                    clientY: event.clientY
+                });
+
+                if (this.mapPointers.size >= 2) {
+                    this.updateMapTouchGesture(svg);
+                    event.preventDefault();
+                    return;
+                }
+            }
+
             if (!this.mapDrag || this.mapDrag.pointerId !== event.pointerId) return;
 
             const viewport = GameState.game.mapViewport;
@@ -1780,15 +1886,22 @@ const App = {
             this.mapDrag.lastX = event.clientX;
             this.mapDrag.lastY = event.clientY;
             this.updateSvgViewBox(svg);
+            if (event.pointerType === 'touch') event.preventDefault();
         });
 
         const stopDrag = event => {
+            if (event.pointerType === 'touch') {
+                this.mapPointers.delete(event.pointerId);
+                this.mapTouchGesture = null;
+            }
+
             if (!this.mapDrag || this.mapDrag.pointerId !== event.pointerId) return;
             this.mapDrag = null;
         };
 
         svg.addEventListener('pointerup', stopDrag);
         svg.addEventListener('pointercancel', stopDrag);
+        svg.addEventListener('lostpointercapture', stopDrag);
     },
 
     zoomMap(factor, pointer = null) {
