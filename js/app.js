@@ -129,6 +129,18 @@ const App = {
         GameState.setView('main-menu');
     },
 
+    async exitGame() {
+        const confirmed = window.confirm('确认退出当前战局并返回主菜单？当前战局进度不会保留。');
+        if (!confirmed) return;
+
+        if (window.Multiplayer && Multiplayer.isOnline) {
+            await Multiplayer.leaveRoom();
+        }
+        GameState.closeModals();
+        GameState.initLocalLobby();
+        GameState.setView('main-menu');
+    },
+
     copyInviteLink() {
         const code = GameState.lobby.roomCode;
         const url = `${location.origin}${location.pathname}#room=${encodeURIComponent(code)}`;
@@ -471,6 +483,15 @@ const App = {
         const confirm = GameState.game.actionConfirm;
         if (!confirm) return;
 
+        if (confirm.action === 'move') {
+            const source = MapData.getNode(confirm.nodeId);
+            const movingTroops = this.getSelectedMoveAmount(source);
+            GameState.game.selectedNodeId = confirm.nodeId;
+            GameState.game.actionConfirm = null;
+            this.performMove(confirm.targetId, movingTroops);
+            return;
+        }
+
         const availability = this.getActionAvailability(confirm.action, confirm.nodeId);
         if (!availability.enabled) {
             GameState.addLog(availability.reason, 'system');
@@ -513,11 +534,15 @@ const App = {
         return Math.min(max, Math.max(1, Math.floor(draft)));
     },
 
-    setRecruitDraftAmount(amount) {
+    setRecruitDraftAmount(amount, shouldNotify = true) {
         const cost = Math.max(1, 2 + GameState.getEffectiveRecruitCostDelta());
         const max = this.getMaxRecruitAmount(cost);
         GameState.game.recruitDraftAmount = Math.min(max, Math.max(1, Math.floor(Number(amount) || 1)));
-        GameState.notify();
+        if (shouldNotify) {
+            GameState.notify();
+        } else {
+            this.syncRecruitSliderDisplay();
+        }
     },
 
     adjustRecruitDraftAmount(delta) {
@@ -536,13 +561,18 @@ const App = {
         return Math.min(maxAmount, Math.max(1, Math.floor(draft)));
     },
 
-    setMoveDraftAmount(amount) {
-        const source = MapData.getNode(GameState.game.selectedNodeId);
+    setMoveDraftAmount(amount, shouldNotify = true) {
+        const confirm = GameState.game.actionConfirm;
+        const source = MapData.getNode(confirm && confirm.action === 'move' ? confirm.nodeId : GameState.game.selectedNodeId);
         const maxAmount = GameState.getNodeMovableTroops(source);
         GameState.game.moveDraftAmount = maxAmount > 0
             ? Math.min(maxAmount, Math.max(1, Math.floor(Number(amount) || 1)))
             : 1;
-        GameState.notify();
+        if (shouldNotify) {
+            GameState.notify();
+        } else {
+            this.syncMoveSliderDisplay();
+        }
     },
 
     adjustMoveDraftAmount(delta) {
@@ -550,8 +580,83 @@ const App = {
     },
 
     selectMaxMoveAmount() {
-        const source = MapData.getNode(GameState.game.selectedNodeId);
+        const confirm = GameState.game.actionConfirm;
+        const source = MapData.getNode(confirm && confirm.action === 'move' ? confirm.nodeId : GameState.game.selectedNodeId);
         this.setMoveDraftAmount(GameState.getNodeMovableTroops(source));
+    },
+
+    syncRecruitSliderDisplay() {
+        const confirm = GameState.game.actionConfirm;
+        if (!confirm || confirm.action !== 'recruit') return;
+
+        const meta = this.getActionCost('recruit', confirm.nodeId);
+        const max = this.getMaxRecruitAmount(meta.costPerSoldier);
+        const draft = this.getSelectedRecruitAmount(meta.costPerSoldier);
+        document.querySelectorAll('.recruit-range, .recruit-amount-input').forEach(input => {
+            input.value = draft;
+            input.max = max;
+        });
+        document.querySelectorAll('[data-recruit-count]').forEach(element => {
+            element.textContent = `${draft} / ${max} 人`;
+        });
+        document.querySelectorAll('[data-recruit-cost]').forEach(element => {
+            element.textContent = `每人 $${meta.costPerSoldier}，本次共需 $${meta.costMoney}（PP 不随数量变化）`;
+        });
+        document.querySelectorAll('[data-recruit-effect]').forEach(element => {
+            element.textContent = `驻军 +${meta.recruitAmount}`;
+        });
+        document.querySelectorAll('[data-action-cost]').forEach(element => {
+            element.textContent = meta.costText;
+        });
+    },
+
+    syncMoveSliderDisplay() {
+        const confirm = GameState.game.actionConfirm;
+        const isMoveConfirm = confirm && confirm.action === 'move';
+        const source = MapData.getNode(isMoveConfirm ? confirm.nodeId : GameState.game.selectedNodeId);
+        const target = isMoveConfirm ? MapData.getNode(confirm.targetId) : null;
+        const max = GameState.getNodeMovableTroops(source);
+        const amount = this.getSelectedMoveAmount(source);
+        document.querySelectorAll('.move-range, .move-amount-input').forEach(input => {
+            input.value = amount;
+            input.max = max;
+        });
+        document.querySelectorAll('[data-move-count]').forEach(element => {
+            element.textContent = `${amount} / ${max} 支`;
+        });
+        document.querySelectorAll('[data-move-summary]').forEach(element => {
+            element.textContent = `${source ? source.name : ''} → ${target ? target.name : ''}，调动 ${amount} 支部队`;
+        });
+        document.querySelectorAll('[data-move-target-amount]').forEach(element => {
+            element.textContent = `调动 ${amount}`;
+        });
+    },
+
+    openMoveConfirm(targetId) {
+        const source = MapData.getNode(GameState.game.selectedNodeId);
+        const target = MapData.getNode(targetId);
+        const playerFactionId = GameState.getPlayerFactionId();
+
+        if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
+            GameState.addLog('请先激活“移动士兵”行动。', 'system');
+            return;
+        }
+
+        if (!source || !target || source.factionId !== playerFactionId || target.factionId !== playerFactionId || !MapData.areAdjacent(source.id, target.id)) {
+            GameState.addLog('移动条件不满足。', 'system');
+            return;
+        }
+
+        const maxAmount = GameState.getNodeMovableTroops(source);
+        if (maxAmount < 1) {
+            GameState.addLog('该节点没有可移动士兵。', 'system');
+            return;
+        }
+
+        GameState.game.moveDraftAmount = Math.min(maxAmount, Math.max(1, Number(GameState.game.moveDraftAmount) || maxAmount));
+        GameState.game.actionConfirm = { action: 'move', nodeId: source.id, targetId: target.id };
+        GameState.game.battlePreview = null;
+        GameState.notify();
     },
 
     performMove(targetId, amount = null) {
@@ -594,7 +699,7 @@ const App = {
 
         if (GameState.game.currentAction === 'move' && selectedNode && selectedNode.factionId === playerFactionId) {
             if (MapData.areAdjacent(selectedNode.id, node.id) && node.factionId === playerFactionId) {
-                this.performMove(node.id);
+                this.openMoveConfirm(node.id);
                 return;
             }
 
@@ -757,7 +862,9 @@ const App = {
         GameState.game.playerResources.pp -= ppCost;
         GameState.game.actionCountThisTurn += 1;
         GameState.game.battlePreview = null;
-        GameState.game.currentAction = null;
+        GameState.game.movementOrdersActive = true;
+        GameState.game.currentAction = 'move';
+        GameState.game.actionConfirm = null;
         const attackerReadyBeforeBattle = GameState.getNodeMoveReady(attacker);
         attacker.moveReady = Math.max(0, attackerReadyBeforeBattle - participatingTroops);
         attacker.movedThisTurn = true;
@@ -869,7 +976,7 @@ const App = {
     endTurn(auto = false) {
         if (GameState.game.gameOver) return;
 
-        const turnLimit = Number(GameState.lobby.settings.turnLimit) || 90;
+        const turnLimit = Number(GameState.lobby.settings.turnLimit) || 180;
         const turnOrder = (GameState.game.turnOrder && GameState.game.turnOrder.length)
             ? GameState.game.turnOrder
             : GameState.factions.map(f => f.id);
@@ -927,7 +1034,7 @@ const App = {
             const baseIncome = totals.totalIndustry + 1;
             const maintenance = Math.max(0, totals.totalTroops * 0.25 - 3);
             r.money = Math.max(0, r.money + baseIncome - maintenance);
-            r.pp = Math.min(GameState.ppCap, r.pp + 2);
+            r.pp = Math.min(GameState.ppCap, r.pp + GameState.basePPIncome);
         });
     },
 
@@ -1292,12 +1399,16 @@ const App = {
 
     getFocusTreeScale() {
         const viewport = GameState.game.focusTreeViewport || { scale: 1 };
-        return Math.min(1.45, Math.max(0.65, Number(viewport.scale) || 1));
+        return this.clampFocusTreeScale(Number(viewport.scale) || 1);
+    },
+
+    clampFocusTreeScale(scale) {
+        return Math.min(1.45, Math.max(0.1, Number(scale) || 1));
     },
 
     setFocusTreeScale(scale) {
         GameState.game.focusTreeViewport = GameState.game.focusTreeViewport || { scale: 1 };
-        GameState.game.focusTreeViewport.scale = Math.min(1.45, Math.max(0.65, Number(scale) || 1));
+        GameState.game.focusTreeViewport.scale = this.clampFocusTreeScale(scale);
         this.applyFocusTreeTransform();
     },
 
@@ -1312,6 +1423,12 @@ const App = {
         stage.style.width = `${baseWidth * scale}px`;
         stage.style.height = `${baseHeight * scale}px`;
         canvas.style.transform = `scale(${scale})`;
+        this.updateFocusZoomLabel(scale);
+    },
+
+    updateFocusZoomLabel(scale = this.getFocusTreeScale()) {
+        const label = document.querySelector('[data-focus-zoom-label]');
+        if (label) label.textContent = `${Math.round(scale * 100)}%`;
     },
 
     captureFocusTreeScroll() {
@@ -1362,7 +1479,7 @@ const App = {
             event.preventDefault();
             const oldScale = this.getFocusTreeScale();
             const factor = event.deltaY > 0 ? 0.9 : 1.1;
-            const newScale = Math.min(1.45, Math.max(0.65, oldScale * factor));
+            const newScale = this.clampFocusTreeScale(oldScale * factor);
             if (Math.abs(newScale - oldScale) < 0.001) return;
 
             const rect = scroller.getBoundingClientRect();

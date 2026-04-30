@@ -88,6 +88,9 @@ const GamePageView = {
                     <button class="btn btn-primary" ${isPlayerTurn && !game.gameOver ? '' : 'disabled'} onclick="window.app.endTurn()">
                         结束回合
                     </button>
+                    <button class="btn btn-danger top-exit-button" onclick="window.app.exitGame()">
+                        退出
+                    </button>
                 </div>
                 <div class="current-player-strip" style="--current-color: ${playerFaction.color}"></div>
             </header>
@@ -134,7 +137,7 @@ const GamePageView = {
                         </div>
                     </div>
                     ${ideology ? this.renderIdeologyCard(ideology) : ''}
-                    <div class="passive-line">基础政治点收入：每回合 +2 PP；步兵维护：每人 $0.25</div>
+                    <div class="passive-line">基础政治点收入：每回合 +${GameState.basePPIncome} PP；步兵维护：每人 $0.25</div>
                     <div class="panel-actions">
                         <button class="btn btn-primary" onclick="window.app.openFocusModal()">国策</button>
                         <button class="btn btn-outline" onclick="window.app.openDiplomacyModal()">外交</button>
@@ -309,7 +312,7 @@ const GamePageView = {
             </div>
             <div class="action-help-block">
                 当前可用 PP：${GameState.game.playerResources.pp}<br>
-                下一回合基础收入：+2 PP
+                下一回合基础收入：+${GameState.basePPIncome} PP
             </div>
         `;
     },
@@ -416,22 +419,24 @@ const GamePageView = {
                 <div class="move-order-heading">
                     <div>
                         <span>调动数量</span>
-                        <strong>${amount} / ${maxAmount}</strong>
+                        <strong data-move-count>${amount} / ${maxAmount} 支</strong>
                     </div>
                     <button class="mini-control-btn" onclick="window.app.selectMaxMoveAmount()">最大</button>
                 </div>
                 <div class="move-amount-controls">
                     <button class="mini-control-btn" onclick="window.app.adjustMoveDraftAmount(-1)">−</button>
-                    <input type="range" min="1" max="${maxAmount}" value="${amount}" onchange="window.app.setMoveDraftAmount(this.value)">
+                    <input type="range" class="move-range tactical-range" min="1" max="${maxAmount}" value="${amount}"
+                        oninput="window.app.setMoveDraftAmount(this.value, false)"
+                        onchange="window.app.setMoveDraftAmount(this.value)">
                     <input class="move-amount-input" type="number" min="1" max="${maxAmount}" value="${amount}" onchange="window.app.setMoveDraftAmount(this.value)">
                     <button class="mini-control-btn" onclick="window.app.adjustMoveDraftAmount(1)">+</button>
                 </div>
                 <div class="target-list move-target-list">
                     <span>移动目标</span>
                     ${targets.map(target => `
-                        <button onclick="window.app.performMove('${target.id}')">
+                        <button onclick="window.app.openMoveConfirm('${target.id}')">
                             <strong>${target.name}</strong>
-                            <small>调动 ${amount}</small>
+                            <small data-move-target-amount>调动 ${amount}</small>
                         </button>
                     `).join('')}
                 </div>
@@ -491,10 +496,14 @@ const GamePageView = {
 
     renderActionConfirmModal(confirm) {
         const node = MapData.getNode(confirm.nodeId);
+        const targetNode = confirm.targetId ? MapData.getNode(confirm.targetId) : null;
         const actionMeta = window.app.getActionCost(confirm.action, confirm.nodeId);
         const isRecruit = confirm.action === 'recruit';
+        const isMove = confirm.action === 'move';
         const recruitMax = isRecruit ? window.app.getMaxRecruitAmount(actionMeta.costPerSoldier) : 0;
         const recruitDraft = isRecruit ? window.app.getSelectedRecruitAmount(actionMeta.costPerSoldier) : 0;
+        const moveMax = isMove ? GameState.getNodeMovableTroops(node) : 0;
+        const moveDraft = isMove ? window.app.getSelectedMoveAmount(node) : 0;
 
         return `
             <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
@@ -504,32 +513,54 @@ const GamePageView = {
                         <button class="modal-close" onclick="window.app.closeModals()">×</button>
                     </header>
                     <div class="modal-body">
-                        <div class="confirm-line"><span>节点</span><strong>${node.name}</strong></div>
+                        <div class="confirm-line"><span>${isMove ? '出发节点' : '节点'}</span><strong>${node.name}</strong></div>
+                        ${isMove && targetNode ? `<div class="confirm-line"><span>目标节点</span><strong>${targetNode.name}</strong></div>` : ''}
                         ${isRecruit ? `
                             <div class="recruit-slider-block">
                                 <div class="recruit-slider-heading">
                                     <span>征兵数量</span>
-                                    <strong>${recruitDraft} / ${recruitMax} 人</strong>
+                                    <strong data-recruit-count>${recruitDraft} / ${recruitMax} 人</strong>
                                 </div>
                                 <div class="recruit-slider-row">
                                     <button class="mini-control-btn" onclick="window.app.adjustRecruitDraftAmount(-1)">−</button>
-                                    <input type="range" class="recruit-range" min="1" max="${recruitMax}" value="${recruitDraft}"
-                                        oninput="window.app.setRecruitDraftAmount(this.value)">
+                                    <input type="range" class="recruit-range tactical-range" min="1" max="${recruitMax}" value="${recruitDraft}"
+                                        oninput="window.app.setRecruitDraftAmount(this.value, false)"
+                                        onchange="window.app.setRecruitDraftAmount(this.value)">
                                     <input class="recruit-amount-input" type="number" min="1" max="${recruitMax}" value="${recruitDraft}"
                                         onchange="window.app.setRecruitDraftAmount(this.value)">
                                     <button class="mini-control-btn" onclick="window.app.adjustRecruitDraftAmount(1)">+</button>
                                     <button class="mini-control-btn" onclick="window.app.selectMaxRecruitAmount()">最大</button>
                                 </div>
-                                <div class="recruit-slider-hint text-muted">
+                                <div class="recruit-slider-hint text-muted" data-recruit-cost>
                                     每人 $${actionMeta.costPerSoldier}，本次共需 $${actionMeta.costMoney}（PP 不随数量变化）
                                 </div>
                             </div>
-                            <div class="confirm-line"><span>实际增援</span><strong>驻军 +${actionMeta.recruitAmount}</strong></div>
+                            <div class="confirm-line"><span>实际增援</span><strong data-recruit-effect>驻军 +${actionMeta.recruitAmount}</strong></div>
+                        ` : isMove ? `
+                            <div class="move-slider-block">
+                                <div class="recruit-slider-heading">
+                                    <span>移动数量</span>
+                                    <strong data-move-count>${moveDraft} / ${moveMax} 支</strong>
+                                </div>
+                                <div class="recruit-slider-row">
+                                    <button class="mini-control-btn" onclick="window.app.adjustMoveDraftAmount(-1)">−</button>
+                                    <input type="range" class="move-range tactical-range" min="1" max="${moveMax}" value="${moveDraft}"
+                                        oninput="window.app.setMoveDraftAmount(this.value, false)"
+                                        onchange="window.app.setMoveDraftAmount(this.value)">
+                                    <input class="move-amount-input" type="number" min="1" max="${moveMax}" value="${moveDraft}"
+                                        onchange="window.app.setMoveDraftAmount(this.value)">
+                                    <button class="mini-control-btn" onclick="window.app.adjustMoveDraftAmount(1)">+</button>
+                                    <button class="mini-control-btn" onclick="window.app.selectMaxMoveAmount()">最大</button>
+                                </div>
+                                <div class="recruit-slider-hint text-muted" data-move-summary>
+                                    ${node.name} → ${targetNode ? targetNode.name : ''}，调动 ${moveDraft} 支部队
+                                </div>
+                            </div>
                         ` : `
                             <div class="confirm-line"><span>效果</span><strong>${actionMeta.effect}</strong></div>
                         `}
-                        <div class="confirm-line"><span>消耗</span><strong>${actionMeta.costText}</strong></div>
-                        <div class="confirm-line"><span>行动次数</span><strong>${GameState.game.actionCountThisTurn + 1}</strong></div>
+                        <div class="confirm-line"><span>消耗</span><strong data-action-cost>${isMove ? '已支付移动令' : actionMeta.costText}</strong></div>
+                        <div class="confirm-line"><span>行动次数</span><strong>${isMove ? GameState.game.actionCountThisTurn : GameState.game.actionCountThisTurn + 1}</strong></div>
                     </div>
                     <footer class="modal-actions">
                         <button class="btn btn-outline" onclick="window.app.closeModals()">取消</button>
@@ -607,7 +638,7 @@ const GamePageView = {
                         </div>
                         <div class="focus-zoom-controls">
                             <button class="map-icon-btn" title="缩小国策树" onclick="window.app.zoomFocusTree(-1)">−</button>
-                            <span>${Math.round(scale * 100)}%</span>
+                            <span data-focus-zoom-label>${Math.round(scale * 100)}%</span>
                             <button class="map-icon-btn" title="放大国策树" onclick="window.app.zoomFocusTree(1)">+</button>
                             <button class="btn btn-outline" onclick="window.app.resetFocusTreeView()">居中</button>
                         </div>
@@ -630,10 +661,10 @@ const GamePageView = {
     },
 
     getFocusTreeLayout(tree) {
-        const cellWidth = 184;
-        const cellHeight = 152;
-        const cardWidth = 154;
-        const cardHeight = 118;
+        const cellWidth = 226;
+        const cellHeight = 184;
+        const cardWidth = 190;
+        const cardHeight = 150;
         const padding = 36;
         const maxX = Math.max(...tree.map(focus => focus.x), 0);
         const maxY = Math.max(...tree.map(focus => focus.y), 0);

@@ -63,7 +63,7 @@ const LobbyView = {
                         <div class="settings-grid">
                             ${this.renderSelect('maxPlayers', '最大玩家数', ['4', '6', '8'], !isHost)}
                             ${this.renderSelect('mapScale', '地图规模', ['小型', '标准', '最大'], !isHost)}
-                            ${this.renderSelect('turnLimit', '回合限时', ['60', '90', '120', '无限'], !isHost)}
+                            ${this.renderSelect('turnLimit', '回合限时', ['60', '90', '120', '180', '无限'], !isHost)}
                             ${this.renderSelect('victory', '胜利条件', ['统一', '霸权'], !isHost)}
                             ${this.renderSwitch('diplomacy', '启用外交', !isHost)}
                             ${this.renderSwitch('ai', '允许 AI', !isHost)}

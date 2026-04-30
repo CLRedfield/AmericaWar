@@ -67,7 +67,7 @@ const Multiplayer = {
             settings: {
                 maxPlayers: '8',
                 mapScale: '标准',
-                turnLimit: '90',
+                turnLimit: '180',
                 victory: '统一',
                 diplomacy: true,
                 ai: true
@@ -140,7 +140,7 @@ const Multiplayer = {
             settings: lobby.settings || {
                 maxPlayers: '8',
                 mapScale: '标准',
-                turnLimit: '90',
+                turnLimit: '180',
                 victory: '统一',
                 diplomacy: true,
                 ai: true

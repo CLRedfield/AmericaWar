@@ -694,6 +694,227 @@
         return tree;
     }
 
+    function extendSignatureArcs() {
+        addUnique(GameState.focusTrees.USA, [
+            f('usa_league_of_american_states', '美洲国家联盟', '门罗主义', 22, 5, 9, '把门罗主义从口号改造成战时外交机器，向南北邻国输出联邦秩序。', [E.moneyIncome(1), E.pp(6), E.tagMoney('港口', 8)], ['usa_rebuild_monroe_doctrine']),
+            f('usa_entente_embarkation', '远征军登船', '介入世界', 24, 5, 9, '美国不再只是内战的幸存者，而是世界战争的新砝码。', [E.gAtk(0.05), E.tagT('港口', 2), E.capTroop(1)], ['usa_enter_the_fray']),
+            f('usa_continental_fortress_line', '大陆堡垒线', '美洲堡垒', 26, 5, 9, '把铁路、港口和首都圈接成长期隔离主义防线。', [E.gDef(0.05), E.allCapT(3), E.maint(-0.03)], ['usa_fortress_america']),
+            f('usa_victory_in_the_civil_war', '内战胜利规划', '战后重建', 24, 6, 10, '胜利还没有到来，但战后秩序必须先写在总参谋部墙上。', [E.ppCap(3), E.money(20), E.allCapT(2)], ['usa_hemisphere_defense'], { progressRequired: 5 }),
+            f('usa_begin_reconstruction', '启动重建署', '战后重建', 22, 7, 9, '用一个独立重建署处理收复州、铁路和临时财政。', [E.moneyIncome(2), E.actionCost('build', -1), E.allI(1, 4)], ['usa_victory_in_the_civil_war']),
+            f('usa_occupation_or_amnesty', '赦免还是占领', '战后重建', 24, 7, 9, '给叛乱州一条回归道路，同时保留军管铁拳。', [E.maint(-0.03), E.crisis(4), E.freeT(4)], ['usa_victory_in_the_civil_war']),
+            f('usa_democracy_triumphs', '民主胜利', '战后重建', 21, 8, 11, '让临时军政府把权力交回选票、法院和州议会。', [E.ppIncome(1), E.ppCap(4), E.actionCost('focus', -1), E.ideo('wartime_democracy')], ['usa_begin_reconstruction', 'usa_national_reconciliation_board']),
+            f('usa_the_american_caesar', '凯撒加冕', '战后重建', 24, 8, 11, '麦克阿瑟把胜利解释为个人使命，联邦成为一座军营共和国。', [E.gAtk(0.08), E.capMoney(4), E.allCapT(4), E.ideo('military_junta')], ['usa_occupation_or_amnesty', 'usa_supreme_war_authority']),
+            f('usa_managed_republic', '受控共和国', '战后重建', 27, 8, 11, '用工程官僚、州长和有限选举缝合一个不再失控的共和国。', [E.allI(1, 5), E.moneyIncome(2), E.actionCost('all', -1), E.ideo('technocracy')], ['usa_begin_reconstruction', 'usa_managed_transition']),
+            f('usa_state_readmission_acts', '各州重新准入法', '战后重建', 22, 9, 10, '为每个收复州规定不同的回归条件、警备规模和预算公式。', [E.pp(8), E.recruitCost(-1), E.freeT(5)], [], { prerequisiteAny: [['usa_democracy_triumphs'], ['usa_the_american_caesar'], ['usa_managed_republic']] }),
+            f('usa_billions_for_roads', '十亿修路法案', '战后重建', 26, 9, 10, '把战时军运网络变成统一美国的骨架。', [E.money(30), E.allI(1, 6), E.maint(-0.02)], [], { prerequisiteAny: [['usa_league_of_american_states'], ['usa_entente_embarkation'], ['usa_continental_fortress_line']] }),
+            f('usa_union_forever', '合众国万岁', '战后重建', 24, 10, 12, '战火没有消灭合众国，反而给它铸出了新的国家神话。', [E.ppIncome(2), E.ppCap(5), E.gAtk(0.05), E.gDef(0.05), E.badge('合众国万岁')], ['usa_state_readmission_acts', 'usa_billions_for_roads'], { progressRequired: 6 })
+        ]);
+
+        addUnique(GameState.focusTrees.CSA, [
+            f('CSA_second_chicago_congress', '第二次芝加哥大会', '工团终局', 4, 9, 9, '胜利路线确定后，各派必须决定革命美国究竟归谁管理。', [E.pp(6), E.ppCap(2)], ['CSA_socialist_america']),
+            f('CSA_iww_commonwealth', '世界产业工人共和国', '工团终局', 0, 10, 10, '把所有地方公社并入横跨大陆的产业工人网络。', [E.recruitCost(-1), E.freeT(6), E.ppIncome(1)], ['CSA_second_chicago_congress', 'CSA_federal_syndicate_assembly']),
+            f('CSA_five_year_war_plan', '五年战争计划', '工团终局', 2, 10, 10, '计划委员会把战争、生产和城市粮票写成五年表。', [E.allI(1, 6), E.capBoost(1, 4), E.ideo('central_planning')], ['CSA_second_chicago_congress', 'CSA_planned_revolution']),
+            f('CSA_red_officer_schools', '红军军官学校', '工团终局', 5, 10, 10, '赤卫队不再只是民兵，而是革命军官阶层。', [E.gAtk(0.05), E.allCapT(5), E.capTroop(1)], ['CSA_second_chicago_congress', 'CSA_revolutionary_garrison']),
+            f('CSA_outfit_national_union', '地下组织全国化', '工团终局', 8, 10, 10, '卡彭机器将走私、码头和现金工资铺到所有收复城市。', [E.moneyIncome(2), E.capMoney(4), E.bonds(25, 4, 3)], ['CSA_second_chicago_congress', 'CSA_crime_commissariat']),
+            f('CSA_continent_of_councils', '委员会大陆', '工团终局', 4, 11, 12, '无论由工会、计划局、赤卫军还是黑帮执行，旧美国都将被委员会替代。', [E.actionCost('all', -1), E.ppIncome(1), E.allCapT(3), E.badge('委员会大陆')], [], { prerequisiteAny: [['CSA_iww_commonwealth'], ['CSA_five_year_war_plan'], ['CSA_red_officer_schools'], ['CSA_outfit_national_union']] })
+        ]);
+
+        addUnique(GameState.focusTrees.AUS, [
+            f('AUS_every_man_a_king', '人人皆王', '联盟国终局', 4, 9, 9, '联盟国要把南方动员从临时政治变成全新的国家信条。', [E.ppIncome(1), E.pp(6)], ['AUS_mandate_of_union']),
+            f('AUS_court_of_the_kingfish', '王鱼宫廷', '联盟国终局', 0, 10, 10, '朗派俱乐部变成分配职位、预算和恩惠的宫廷。', [E.ppCap(4), E.recruitAmount(1), E.ideo('populism')], ['AUS_every_man_a_king', 'AUS_kingfish_dynasty']),
+            f('AUS_southern_commonwealth', '南方州联邦', '联盟国终局', 2, 10, 10, '州长们保留自己的地盘，但承认巴吞鲁日的战时仲裁权。', [E.moneyIncome(3), E.freeT(5), E.ideo('federalism')], ['AUS_every_man_a_king', 'AUS_federalism_reborn']),
+            f('AUS_total_levy_state', '总征召国家', '联盟国终局', 5, 10, 10, '每个县都必须交出粮食、卡车和一个连。', [E.recruitAmount(2), E.allCapT(4), E.actionCost('recruit', -1)], ['AUS_every_man_a_king', 'AUS_national_union_state']),
+            f('AUS_silver_crusade', '银色十字军', '联盟国终局', 8, 10, 10, '银军团把战争包装成全国净化，进攻从此带有政治审判性质。', [E.gAtk(0.08), E.damage(1, 3), E.ideo('fascism')], ['AUS_every_man_a_king', 'AUS_national_revolution']),
+            f('AUS_new_baton_rouge_order', '巴吞鲁日新秩序', '联盟国终局', 4, 11, 12, '联盟国终于不再只是反对派联盟，而是一套可以统治大陆的制度。', [E.ppCap(4), E.capMoney(4), E.allCapT(3), E.badge('巴吞鲁日新秩序')], [], { prerequisiteAny: [['AUS_court_of_the_kingfish'], ['AUS_southern_commonwealth'], ['AUS_total_levy_state'], ['AUS_silver_crusade']] })
+        ]);
+
+        addUnique(GameState.focusTrees.CON, [
+            f('CON_atlanta_accords', '亚特兰大协定', '深南方终局', 10, 8, 9, '摄政府把金融、铁路、宪兵和州议会锁进同一份协定。', [E.money(20), E.gDef(0.05), E.pp(4)], ['CON_regency_mandate']),
+            f('CON_birmingham_black_budget', '伯明翰黑预算', '深南方终局', 12, 9, 10, '秘密预算绕过公开议会，直接喂给钢铁、军火和保安承包商。', [E.allI(1, 5), E.bonds(30, 5, 4), E.moneyIncome(1)], ['CON_atlanta_accords', 'CON_inland_arsenal']),
+            f('CON_carolina_cordon', '卡罗来纳封锁线', '深南方终局', 10, 10, 10, '把沿海港口、内陆河谷和山口连成一条反叛乱防线。', [E.gDef(0.08), E.tagD('港口', 0.15), E.allCapT(3)], ['CON_atlanta_accords', 'CON_south_atlantic_strategy']),
+            f('CON_counterrevolutionary_courts', '反革命军事法庭', '深南方终局', 14, 10, 10, '每次推进都伴随审判，缴获与恐惧一起成为制度。', [E.capMoney(4), E.crisis(4), E.maint(-0.03)], ['CON_atlanta_accords'], { prerequisiteAny: [['CON_order_above_all'], ['CON_crusade_against_north']] }),
+            f('CON_southern_counterrevolution', '南方反革命', '深南方终局', 12, 11, 12, '宪政国的核心玩法转向堡垒化：不急着扩张，但每寸土地都更难被拿走。', [E.gDef(0.05), E.ppIncome(1), E.allCapT(4), E.badge('南方反革命')], [], { prerequisiteAny: [['CON_birmingham_black_budget'], ['CON_carolina_cordon'], ['CON_counterrevolutionary_courts']] })
+        ]);
+
+        addUnique(GameState.focusTrees.NEN, [
+            f('NEN_starry_wisdom_cells', '星之智慧小组', '普罗维登斯深层', 12, 8, 9, '学社开始在港口、大学和州府布置只听梦境命令的小组。', [E.ppIncome(1), E.crisis(4), E.freeT(3)], ['NEN_eldritch_revelation']),
+            f('NEN_miskatonic_black_lab', '密斯卡塔尼克黑实验室', '普罗维登斯深层', 13, 9, 10, '研究者把不可解释的标本直接投入军工与情报。', [E.capI(2), E.capBoost(1, 4), E.damage(1, 2)], ['NEN_starry_wisdom_cells']),
+            f('NEN_codex_of_providence', '普罗维登斯秘典', '普罗维登斯深层', 12, 10, 11, '所有路线都必须承认洛夫克拉夫特手中的秘典才是最终法源。', [E.ppCap(4), E.actionCost('focus', -1), E.badge('普罗维登斯秘典')], ['NEN_miskatonic_black_lab'], { progressRequired: 5 }),
+            f('NEN_cthulhu_tides_of_madness', '疯潮上岸', '克苏鲁觉醒', 4, 11, 10, '海岸城镇在夜里开门，敌人的港口防线开始自己崩解。', [E.tagT('港口', 2), E.damage(2, 3), E.gAtk(0.05)], ['NEN_cthulhu_dread_fleet', 'NEN_codex_of_providence']),
+            f('NEN_cthulhu_raid_from_the_deeps', '深海突袭令', '克苏鲁觉醒', 5, 12, 11, '占领不再只带来土地，还会带来被恐惧驱赶来的俘虏与物资。', [E.capTroop(2), E.capMoney(5), E.ideo('cthulhu_cult')], ['NEN_cthulhu_tides_of_madness']),
+            f('NEN_yog_non_euclidean_staff', '非欧几里得参谋部', '犹格-索托斯之钥', 8, 11, 10, '参谋部按不存在的直线规划进军，补给表居然全部对上了。', [E.actionCost('move', -1), E.actionCost('build', -1), E.allI(1, 4)], ['NEN_yog_silver_key', 'NEN_codex_of_providence']),
+            f('NEN_yog_time_table', '时间表已经完成', '犹格-索托斯之钥', 8, 12, 11, '国策不是被推进的，而是在正确时刻被发现已经完成。', [E.actionCost('all', -1), E.ppIncome(1), E.ideo('eldritch_knowledge')], ['NEN_yog_non_euclidean_staff']),
+            f('NEN_nyarl_mask_ministry', '千面部', '奈亚拉托提普化身', 11, 11, 10, '每个地方官都收到一张新面具，谁戴上谁就能命令全城。', [E.ppIncome(2), E.maint(-0.04), E.crisis(4)], ['NEN_nyarl_black_pharaoh', 'NEN_codex_of_providence']),
+            f('NEN_nyarl_laughter_coup', '笑声政变', '奈亚拉托提普化身', 12, 12, 11, '敌方高层开始互相怀疑，战线在没有枪声的夜里裂开。', [E.damage(2, 4), E.freeT(6), E.ideo('crawling_chaos')], ['NEN_nyarl_mask_ministry']),
+            f('NEN_answer_call_of_providence', '回应普罗维登斯之召', '普罗维登斯深层', 8, 13, 13, '新英格兰从一个小共和国变成了故事本身，玩家选择的旧日分支获得最终形态。', [E.ppCap(5), E.gAtk(0.05), E.gDef(0.05), E.allCapT(5), E.badge('回应普罗维登斯之召')], [], { prerequisiteAny: [['NEN_cthulhu_raid_from_the_deeps'], ['NEN_yog_time_table'], ['NEN_nyarl_laughter_coup']], progressRequired: 6 })
+        ]);
+
+        addUnique(GameState.focusTrees.PAC, [
+            f('PAC_west_coast_showcase', '西海岸样板国', '太平洋终局', 1, 8, 9, '萨克拉门托把太平洋国包装成一个比旧联邦更现代的美国。', [E.ppIncome(1), E.ppCap(3), E.money(15)], ['PAC_west_mandate']),
+            f('PAC_hollywood_war_pictures', '好莱坞战争片厂', '太平洋终局', 0, 9, 10, '电影、广播和募债海报共同把西海岸神话卖给每座城市。', [E.pp(8), E.bonds(25, 3, 3), E.crisis(4)], ['PAC_west_coast_showcase']),
+            f('PAC_hughes_air_bridge', '休斯空中桥梁', '太平洋终局', 3, 9, 10, '航空工坊承担远距离机动，让山口不再是绝对边界。', [E.actionCost('move', -1), E.capI(1), E.gAtk(0.05)], ['PAC_west_coast_showcase', 'PAC_engineered_state']),
+            f('PAC_sierran_line', '内华达山铁线', '太平洋终局', 5, 9, 10, '山口、防空和铁路机修厂组成太平洋国的硬壳。', [E.gDef(0.08), E.maint(-0.03), E.allCapT(3)], ['PAC_west_coast_showcase', 'PAC_fortress_pacific']),
+            f('PAC_oceanic_mandate', '大洋授权', '太平洋终局', 8, 9, 10, '太平洋帝国路线把港口变成跳板，收益来自每一次占领。', [E.capMoney(5), E.capTroop(1), E.tagT('港口', 2)], ['PAC_west_coast_showcase', 'PAC_pacific_imperium']),
+            f('PAC_california_century', '加利福尼亚世纪', '太平洋终局', 4, 10, 12, '太平洋国的差异化终点：高科技、宣传、山口防守和海上扩张合成一套西海岸玩法。', [E.moneyIncome(2), E.actionCost('build', -1), E.allI(1, 5), E.badge('加利福尼亚世纪')], [], { prerequisiteAny: [['PAC_hollywood_war_pictures'], ['PAC_hughes_air_bridge'], ['PAC_sierran_line'], ['PAC_oceanic_mandate']] })
+        ]);
+
+        addUnique(GameState.focusTrees.WDC, [
+            f('WDC_patton_table_map', '巴顿桌面地图', '西部终局', 11, 7, 9, '所有公路、水井、山口和小镇仓库都被画进一张可行军地图。', [E.actionCost('move', -1), E.pp(5), E.capT(3)], ['WDC_western_battle_plan']),
+            f('WDC_desert_raid_columns', '荒漠突击纵队', '西部终局', 9, 8, 10, '西部军区不靠工业堆正面，而靠远程突击掏穿敌方边缘。', [E.gAtk(0.08), E.capMoney(3), E.damage(1, 3)], ['WDC_patton_table_map']),
+            f('WDC_salt_lake_depots', '盐湖城仓储网', '西部终局', 12, 8, 10, '把低工业地区最稀缺的补给集中成一个可移动后方。', [E.moneyIncome(1), E.maint(-0.04), E.freeT(5)], ['WDC_patton_table_map', 'WDC_thrift_economy']),
+            f('WDC_high_plains_war', '高平原战争', '西部终局', 14, 8, 10, '前线越长，西部军区越能发挥侦察、补给和骑巡优势。', [E.allT(2), E.recruitCost(-1), E.gDef(0.05)], ['WDC_patton_table_map', 'WDC_west_survival']),
+            f('WDC_army_of_the_west', '西部军团', '西部终局', 11, 9, 12, '稀薄工业没有拖垮军区，反而逼出一套移动、节约、突袭的玩法。', [E.actionCost('all', -1), E.allCapT(4), E.badge('西部军团'), E.ideo('military_junta')], [], { prerequisiteAny: [['WDC_desert_raid_columns'], ['WDC_salt_lake_depots'], ['WDC_high_plains_war']] })
+        ]);
+
+        addUnique(GameState.focusTrees.TEX, [
+            f('TEX_oilfield_cabinet_showdown', '油田内阁摊牌', '孤星终局', 11, 8, 9, '德州的最终路线围绕石油、边境和游骑兵神话展开。', [E.tagInc('油田', 1), E.pp(5), E.money(18)], ['TEX_lone_star_mandate']),
+            f('TEX_gulf_oil_blockade', '墨西哥湾油锁', '孤星终局', 9, 9, 10, '石油寡头把港口、炼油厂和油井串成财政锁链。', [E.moneyIncome(2), E.tagMoney('油田', 10), E.ideo('plutocracy')], ['TEX_oilfield_cabinet_showdown', 'TEX_petroleum_state']),
+            f('TEX_ranger_republic_ride', '游骑共和国骑巡', '孤星终局', 11, 9, 10, '游骑兵不只是军队，而是法院、税吏和宣传队。', [E.recruitCost(-1), E.gAtk(0.05), E.maint(-0.03)], ['TEX_oilfield_cabinet_showdown'], { prerequisiteAny: [['TEX_lone_star_populism'], ['TEX_lone_star_republic']] }),
+            f('TEX_border_kingdoms', '边境诸王', '孤星终局', 13, 9, 10, '大德州派把新墨西哥、平原和海湾看成未来藩篱。', [E.capMoney(5), E.capTroop(2), E.ideo('expansionism')], ['TEX_oilfield_cabinet_showdown', 'TEX_greater_texas']),
+            f('TEX_lone_star_manifest_destiny', '孤星昭昭天命', '孤星终局', 11, 10, 12, '德州不再像别的树：它靠油钱启动，靠游骑兵推进，靠边境神话结束。', [E.tagInc('油田', 1), E.actionCost('move', -1), E.gAtk(0.05), E.badge('孤星昭昭天命')], [], { prerequisiteAny: [['TEX_gulf_oil_blockade'], ['TEX_ranger_republic_ride'], ['TEX_border_kingdoms']] })
+        ]);
+    }
+
+    function addStrategicDetours() {
+        addUnique(GameState.focusTrees.USA, [
+            f('usa_pentagon_planning_rooms', '五角大楼规划室', '军事改革', 7, 4, 7, '把各战区计划搬进同一套墙图，解决联邦军多头指挥的问题。', [E.actionCost('move', -1), E.pp(3)], ['usa_mcarthur_in_command']),
+            f('usa_corps_area_commands', '军管区司令部', '军事改革', 10, 7, 9, '沿旧陆军军管区恢复后方训练、补员和治安职责。', [E.allCapT(2), E.gDef(0.05), E.freeT(3)], [], { prerequisiteAny: [['usa_joint_operations'], ['usa_pentagon_planning_rooms']] }),
+            f('usa_federal_rail_contracts', '联邦铁路合同', '经济动员', 15, 6, 8, '把军列优先权写进合同而不只是命令，减少城市工业的摩擦。', [E.maint(-0.03), E.moneyIncome(1)], ['usa_treasury_reorganization']),
+            f('usa_capital_shipyard_ring', '首都船厂环', '海空军', 18, 4, 8, '诺福克、巴尔的摩和费城船厂组成首都外圈补给链。', [E.tagT('港口', 1), E.tagInc('港口', 1)], ['usa_chief_of_combined_operations'])
+        ]);
+
+        addUnique(GameState.focusTrees.CSA, [
+            f('CSA_lakefront_fortress_belt', '湖岸堡垒带', '军事路线', 12, 5, 8, '把芝加哥、密尔沃基和克利夫兰之间的湖岸变成可轮换防线。', [E.tagD('港口', 0.12), E.allCapT(2)], ['CSA_industrial_reserves']),
+            f('CSA_auto_union_tank_lines', '汽车工会坦克线', '军事路线', 14, 6, 9, '底特律汽车工人直接参与装甲纵队的维修和补员。', [E.nodeI('DET', 1), E.gAtk(0.05), E.actionCost('move', -1)], ['CSA_rapid_columns']),
+            f('CSA_great_lakes_convoys', '五大湖运输队', '经济路线', 18, 5, 8, '湖运工会承担煤炭、粮食和武器的闭环调度。', [E.maint(-0.03), E.tagInc('港口', 1)], ['CSA_lakes_rail_priority']),
+            f('CSA_factory_childcare_shift', '工厂托育轮班', '经济路线', 16, 6, 8, '用社区托育和食堂维持长班制，让劳动力不被战争耗空。', [E.moneyIncome(1), E.freeT(3)], [], { prerequisiteAny: [['CSA_lakes_arsenal_expansion'], ['CSA_cooperative_workshops']] })
+        ]);
+
+        addUnique(GameState.focusTrees.AUS, [
+            f('AUS_delta_barge_bridge', '三角洲驳船桥', '军事路线', 11, 5, 8, '把密西西比河驳船改成临时浮桥和炮兵补给点。', [E.tagT('港口', 1), E.actionCost('move', -1)], ['AUS_river_artillery']),
+            f('AUS_county_arsenal_bazaars', '县城军械集市', '军事路线', 14, 5, 8, '地方队长以现金、粮食和人情采购轻武器，速度快但很难审计。', [E.recruitCost(-1), E.money(10), E.maint(0.01)], ['AUS_deep_raid_command']),
+            f('AUS_oil_cotton_swap', '油棉互换局', '经济路线', 18, 5, 8, '用棉花票据换取油料预支，联盟国经济线不再只是单纯增产。', [E.bonds(20, 3, 3), E.tagInc('油田', 1)], ['AUS_refinery_expansion']),
+            f('AUS_river_grain_elevators', '河谷粮仓', '经济路线', 14, 5, 8, '沿河谷粮仓建立征购、转运和民兵补给三合一节点。', [E.moneyIncome(1), E.freeT(4)], ['AUS_township_workshops'])
+        ]);
+
+        addUnique(GameState.focusTrees.CON, [
+            f('CON_appalachian_chokeholds', '阿巴拉契亚隘口', '军事路线', 9, 5, 8, '宪政国不追求大纵深突击，而是把山口切成一系列杀伤区。', [E.gDef(0.05), E.maint(-0.02), E.allT(1)], ['CON_local_defense_command']),
+            f('CON_regular_counterpunch', '正规军反击拳', '军事路线', 14, 5, 8, '保留少数精锐集团军，等敌人撞上防线后再集中反击。', [E.gAtk(0.05), E.capT(3)], ['CON_corps_command']),
+            f('CON_savannah_convoys', '萨凡纳护航合同', '经济路线', 15, 5, 8, '海岸商船不归海军直接管，而按财阀合同承担补给。', [E.tagInc('港口', 1), E.bonds(20, 3, 3)], ['CON_machine_shop_expansion']),
+            f('CON_birmingham_night_shifts', '伯明翰夜班', '经济路线', 18, 5, 8, '钢厂实行战时夜班，换来产能但也加重治安负担。', [E.nodeI('BHM', 1), E.money(12), E.crisis(2)], ['CON_inland_arsenal'])
+        ]);
+
+        addUnique(GameState.focusTrees.NEN, [
+            f('NEN_green_mountain_redoubt', '绿山堡垒', '军事路线', 9, 5, 8, '新英格兰把内陆山地当成最后防区，而不是平原决战场。', [E.gDef(0.05), E.freeT(3)], ['NEN_harbor_command']),
+            f('NEN_yankee_ranger_paths', '扬基游骑小径', '军事路线', 14, 5, 8, '游骑兵沿森林、港湾和铁路支线机动，专打敌方薄弱节点。', [E.actionCost('move', -1), E.damage(1, 2)], ['NEN_ranger_command']),
+            f('NEN_boston_tech_triangle', '波士顿技术三角', '经济路线', 18, 5, 8, '大学、精密工坊和港口金融构成小国高效经济的三角。', [E.capBoost(1, 3), E.moneyIncome(1)], ['NEN_precision_arsenal']),
+            f('NEN_war_insurance_exchange', '战争保险交易所', '经济路线', 15, 5, 8, '新英格兰用保险合同分摊港口损失，经济线更像金融网络。', [E.bonds(20, 2, 3), E.tagInc('港口', 1)], ['NEN_procurement_office'])
+        ]);
+
+        addUnique(GameState.focusTrees.PAC, [
+            f('PAC_boulder_pass_airfields', '山口简易机场', '军事路线', 10, 5, 8, '山口防线修出短跑道，守势和机动作战能互相支援。', [E.gDef(0.05), E.actionCost('move', -1)], ['PAC_passes_command']),
+            f('PAC_shipyard_school', '船厂陆战学校', '军事路线', 15, 5, 8, '旧金山和洛杉矶船厂直接训练登陆、维修和港口突击。', [E.tagT('港口', 2), E.recruitAmount(1)], ['PAC_marine_command']),
+            f('PAC_orange_county_airframes', '橙县机身厂', '经济路线', 18, 5, 8, '航空工坊沿海岸铺开，太平洋国经济线从港口拐向飞机。', [E.capI(1), E.capBoost(1, 3)], ['PAC_aero_factories']),
+            f('PAC_longshore_credit_union', '码头工信用社', '经济路线', 14, 5, 8, '港口工会和银行共同承担短期战费，避免单纯依赖债券。', [E.moneyIncome(1), E.tagMoney('港口', 6)], ['PAC_coastal_arsenal'])
+        ]);
+
+        addUnique(GameState.focusTrees.WDC, [
+            f('WDC_water_cache_network', '荒漠水窖网', '军事路线', 10, 5, 8, '西部军区的军事线绕着水源展开，水窖比工厂更关键。', [E.maint(-0.04), E.freeT(3)], ['WDC_pass_command']),
+            f('WDC_railhead_raids', '铁路尽头袭扰', '军事路线', 15, 5, 8, '突击队从铁路尽头出发，专门破坏敌方工业节点。', [E.damage(1, 3), E.gAtk(0.05)], ['WDC_long_range_command']),
+            f('WDC_mormon_supply_compact', '盐湖补给协定', '经济路线', 17, 5, 8, '盐湖城商会和地方教会承担仓储、修械与粮食分配。', [E.moneyIncome(1), E.freeT(4)], ['WDC_local_arsenals']),
+            f('WDC_copper_wire_drives', '铜线征集', '经济路线', 14, 5, 8, '矿区优先产出通信线材，使低工业军区获得指挥效率。', [E.capBoost(1, 2), E.actionCost('focus', -1)], ['WDC_mountain_workshops'])
+        ]);
+
+        addUnique(GameState.focusTrees.TEX, [
+            f('TEX_panhandle_truck_roads', '狭长地带卡车路', '军事路线', 10, 5, 8, '德州军队沿狭长地带建立燃油补给路，军事线明显偏机动。', [E.actionCost('move', -1), E.tagT('油田', 1)], ['TEX_long_patrol_command']),
+            f('TEX_border_ranger_courts', '边境游骑法庭', '军事路线', 13, 5, 8, '游骑兵带着临时法庭推进，占领收益和治安一起结算。', [E.capMoney(3), E.maint(-0.02)], ['TEX_fuel_columns']),
+            f('TEX_gulf_refinery_loop', '海湾炼油回路', '经济路线', 15, 5, 8, '海湾炼油厂、铁路和油井形成闭环，让石油线弯回财政线。', [E.moneyIncome(2), E.tagInc('油田', 1)], ['TEX_refinery_expansion']),
+            f('TEX_border_customs_ring', '边境关税环', '经济路线', 18, 5, 8, '德州把边境贸易做成环形税网，而不是单纯商队补给。', [E.money(18), E.bonds(20, 3, 3)], ['TEX_border_workshops'])
+        ]);
+    }
+
+    function applyAsymmetricLayouts() {
+        const branchPlans = {
+            USA: {
+                '军事改革': [[9, 1], [8, 2], [6, 3], [10, 3], [8, 4], [6, 5], [10, 5], [9, 6], [7, 7], [10, 8]],
+                '经济动员': [[14, 1], [13, 2], [12, 3], [11, 4], [15, 4], [14, 5], [15, 6], [14, 7]],
+                '海空军': [[18, 1], [17, 2], [19, 2], [18, 3], [20, 4]],
+                '战后路线': [[24, 1], [24, 2]],
+                '外交路线': [[22, 3], [24, 3], [27, 3], [24, 4]]
+            },
+            CSA: {
+                '政治路线': [[4, 1], [3, 3], [7, 3], [4, 6], [4, 8]],
+                '军事路线': [[12, 1], [9, 2], [14, 2], [8, 3], [15, 3], [8, 4], [16, 4], [11, 5], [13, 5], [11, 6], [14, 6], [12, 7]],
+                '经济路线': [[18, 1], [15, 2], [21, 2], [14, 3], [21, 3], [15, 4], [20, 4], [18, 5], [17, 6], [20, 6], [18, 7], [16, 8]],
+                '地区外交': [[23, 1], [22, 2], [25, 2], [21, 3], [25, 3], [21, 4], [26, 4], [23, 5]]
+            },
+            AUS: {
+                '政治路线': [[4, 1], [3, 3], [7, 3], [4, 6], [4, 8]],
+                '军事路线': [[11, 1], [9, 2], [14, 2], [9, 3], [15, 3], [10, 4], [16, 4], [11, 5], [14, 5], [12, 6], [16, 6], [13, 7]],
+                '经济路线': [[16, 1], [13, 2], [19, 2], [12, 3], [20, 3], [13, 4], [19, 4], [15, 5], [18, 5], [16, 6], [14, 7], [18, 7]],
+                '地区外交': [[22, 1], [20, 2], [24, 2], [19, 3], [24, 3], [19, 4], [25, 4], [22, 5]]
+            },
+            CON: {
+                '政治路线': [[4, 1], [2, 3], [7, 3], [4, 6], [4, 8]],
+                '军事路线': [[12, 1], [10, 2], [14, 2], [9, 3], [15, 3], [9, 4], [15, 4], [10, 5], [14, 5], [12, 6], [11, 7], [13, 8]],
+                '经济路线': [[17, 1], [15, 2], [19, 2], [15, 3], [19, 3], [15, 4], [19, 4], [16, 5], [18, 5], [17, 6], [15, 7], [19, 7]],
+                '地区外交': [[22, 1], [20, 2], [24, 2], [20, 3], [24, 3], [19, 4], [25, 4], [22, 5]]
+            },
+            NEN: {
+                '政治路线': [[4, 1], [3, 3], [6, 3], [4, 6], [4, 8]],
+                '军事路线': [[10, 1], [8, 2], [13, 2], [8, 3], [14, 3], [9, 4], [14, 4], [9, 5], [13, 5], [11, 6], [10, 7], [13, 7]],
+                '经济路线': [[17, 1], [15, 2], [19, 2], [14, 3], [20, 3], [15, 4], [20, 4], [15, 5], [18, 5], [17, 6], [14, 7], [20, 7]],
+                '地区外交': [[23, 1], [21, 2], [25, 2], [20, 3], [25, 3], [20, 4], [26, 4], [23, 5]]
+            },
+            PAC: {
+                '政治路线': [[4, 1], [2, 3], [7, 3], [4, 6], [4, 8]],
+                '军事路线': [[12, 1], [9, 2], [15, 2], [8, 3], [16, 3], [9, 4], [15, 4], [10, 5], [15, 5], [12, 6], [10, 7], [15, 7]],
+                '经济路线': [[17, 1], [14, 2], [20, 2], [13, 3], [21, 3], [14, 4], [20, 4], [14, 5], [18, 5], [17, 6], [13, 7], [21, 7]],
+                '地区外交': [[23, 1], [21, 2], [25, 2], [20, 3], [25, 3], [20, 4], [26, 4], [23, 5]]
+            },
+            WDC: {
+                '政治路线': [[4, 1], [3, 3], [6, 3], [4, 6], [4, 8]],
+                '军事路线': [[11, 1], [9, 2], [13, 2], [8, 3], [14, 3], [8, 4], [15, 4], [10, 5], [15, 5], [11, 6], [9, 7], [14, 7]],
+                '经济路线': [[17, 1], [15, 2], [19, 2], [14, 3], [20, 3], [14, 4], [19, 4], [14, 5], [17, 5], [18, 6], [15, 7], [19, 7]],
+                '地区外交': [[22, 1], [20, 2], [24, 2], [19, 3], [24, 3], [19, 4], [25, 4], [22, 5]]
+            },
+            TEX: {
+                '政治路线': [[4, 1], [3, 3], [6, 3], [4, 6], [4, 8]],
+                '军事路线': [[12, 1], [9, 2], [14, 2], [8, 3], [15, 3], [9, 4], [15, 4], [10, 5], [13, 5], [12, 6], [9, 7], [14, 7]],
+                '经济路线': [[17, 1], [15, 2], [19, 2], [14, 3], [20, 3], [15, 4], [20, 4], [15, 5], [18, 5], [17, 6], [14, 7], [20, 7]],
+                '地区外交': [[22, 1], [19, 2], [25, 2], [18, 3], [25, 3], [18, 4], [26, 4], [22, 6]]
+            }
+        };
+
+        Object.entries(branchPlans).forEach(([factionId, plans]) => {
+            const tree = GameState.focusTrees[factionId];
+            if (!tree) return;
+
+            Object.entries(plans).forEach(([branch, coords]) => {
+                tree
+                    .filter(focus => focus.branch === branch)
+                    .sort((a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id))
+                    .forEach((focus, index) => {
+                        if (!coords[index]) return;
+                        focus.x = coords[index][0];
+                        focus.y = coords[index][1];
+                    });
+            });
+        });
+
+        Object.values(GameState.focusTrees).forEach(tree => {
+            const occupied = new Set();
+            [...tree]
+                .sort((a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id))
+                .forEach(focus => {
+                    while (occupied.has(`${focus.x},${focus.y}`)) {
+                        focus.x += 1;
+                    }
+                    occupied.add(`${focus.x},${focus.y}`);
+                });
+        });
+    }
+
     // ============================================================
     // 入口
     // ============================================================
@@ -705,4 +926,7 @@
     GameState.focusTrees.PAC = buildPacTree();
     GameState.focusTrees.WDC = buildWdcTree();
     GameState.focusTrees.TEX = buildTexTree();
+    addStrategicDetours();
+    extendSignatureArcs();
+    applyAsymmetricLayouts();
 })();

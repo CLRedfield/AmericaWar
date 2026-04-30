@@ -386,14 +386,16 @@ button:disabled {
 
 .lobby-slots-panel {
     grid-column: 1 / -1;
+    min-height: 0;
 }
 
 .slot-list {
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2);
     margin-top: var(--spacing-3);
-    max-height: 56vh;
+    max-height: min(56vh, calc(100vh - 250px));
     overflow-y: auto;
     padding-right: 6px;
     overscroll-behavior: contain;
@@ -543,7 +545,8 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-6);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .lobby-header {
@@ -564,7 +567,7 @@ button:disabled {
 }
 
 .lobby-grid {
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(360px, 2fr) minmax(280px, 1fr) minmax(280px, 1fr);
@@ -727,6 +730,12 @@ button:disabled {
     display: flex;
     align-items: center;
     gap: var(--spacing-3);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.top-exit-button {
+    padding-inline: var(--spacing-3);
 }
 
 .current-player-strip {
@@ -1154,7 +1163,8 @@ button:disabled {
 /* ==========================================================================
    Recruit slider (in confirm modal)
    ========================================================================== */
-.recruit-slider-block {
+.recruit-slider-block,
+.move-slider-block {
     margin: var(--spacing-2) 0 var(--spacing-3);
     padding: var(--spacing-3);
     border: 1px solid rgba(34, 197, 94, 0.35);
@@ -1163,6 +1173,11 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2);
+}
+
+.move-slider-block {
+    border-color: rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.07);
 }
 
 .recruit-slider-heading {
@@ -1186,12 +1201,69 @@ button:disabled {
     gap: var(--spacing-2);
 }
 
-.recruit-range {
+.recruit-range,
+.move-range,
+.move-amount-controls input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
     flex: 1;
     min-width: 0;
+    height: 30px;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
 }
 
-.recruit-amount-input {
+.recruit-range:active,
+.move-range:active,
+.move-amount-controls input[type="range"]:active {
+    cursor: grabbing;
+}
+
+.recruit-range::-webkit-slider-runnable-track,
+.move-range::-webkit-slider-runnable-track,
+.move-amount-controls input[type="range"]::-webkit-slider-runnable-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.24);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.recruit-range::-webkit-slider-thumb,
+.move-range::-webkit-slider-thumb,
+.move-amount-controls input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    margin-top: -10px;
+    border-radius: 50%;
+    border: 2px solid rgba(248, 250, 252, 0.95);
+    background: var(--color-primary);
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.16), 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.recruit-range::-moz-range-track,
+.move-range::-moz-range-track,
+.move-amount-controls input[type="range"]::-moz-range-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.24);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.recruit-range::-moz-range-thumb,
+.move-range::-moz-range-thumb,
+.move-amount-controls input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(248, 250, 252, 0.95);
+    background: var(--color-primary);
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.16), 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.recruit-amount-input,
+.move-amount-input {
     width: 64px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -1575,6 +1647,8 @@ button:disabled {
 .focus-modal {
     width: min(1180px, calc(100vw - 32px));
     max-height: min(90vh, 820px);
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
@@ -1605,13 +1679,16 @@ button:disabled {
 }
 
 .focus-modal-body {
+    flex: 1 1 auto;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 320px;
+    height: min(68vh, 720px);
     min-height: 0;
 }
 
 .focus-tree-scroll {
-    height: min(68vh, 720px);
+    height: 100%;
+    min-height: 0;
     overflow: auto;
     cursor: grab;
     user-select: none;
@@ -1660,11 +1737,11 @@ button:disabled {
     appearance: none;
     position: absolute;
     z-index: 1;
-    width: 154px;
-    height: 118px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    width: 190px;
+    height: 150px;
+    display: grid;
+    grid-template-rows: auto minmax(3.35em, auto) auto auto auto;
+    gap: 0.28rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     padding: 0.62rem;
@@ -1719,13 +1796,14 @@ button:disabled {
 .focus-title {
     color: var(--color-text-main);
     font-weight: 800;
-    font-size: 0.82rem;
-    line-height: 1.22;
-    min-height: 2.45em;
+    font-size: 0.8rem;
+    line-height: 1.18;
+    min-height: 3.35em;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     overflow: hidden;
+    overflow-wrap: anywhere;
 }
 
 .focus-card-row {
@@ -1776,7 +1854,13 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
-    min-height: min(68vh, 720px);
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-gutter: stable;
     padding: var(--spacing-4);
     border-left: 1px solid var(--color-border);
     background: rgba(15, 23, 42, 0.76);
@@ -1844,9 +1928,13 @@ button:disabled {
 }
 
 .focus-detail-actions {
+    position: sticky;
+    bottom: 0;
     margin-top: auto;
     padding-top: var(--spacing-4);
     border-top: 1px solid var(--color-border);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.96) 28%);
+    z-index: 2;
 }
 
 .diplomacy-modal {
@@ -1960,6 +2048,11 @@ button:disabled {
         grid-template-columns: 1fr;
     }
 
+    .slot-list {
+        max-height: none;
+        overflow: visible;
+    }
+
     .view-game-page {
         height: 100vh;
         grid-template-columns: 1fr;
@@ -2044,15 +2137,19 @@ button:disabled {
     }
 
     .focus-tree-scroll {
-        height: 66vh;
+        height: min(50vh, 420px);
+        min-height: 300px;
     }
 
     .focus-modal-body {
+        flex: 1 1 auto;
         grid-template-columns: 1fr;
+        height: auto;
+        overflow-y: auto;
     }
 
     .focus-detail-panel {
-        min-height: auto;
+        max-height: min(58vh, 520px);
         border-left: 0;
         border-top: 1px solid var(--color-border);
     }

@@ -7,6 +7,7 @@ const GameState = {
     currentView: 'main-menu', // main-menu, lobby, faction-select, game-page
     selectedFactionId: null,
     ppCap: 100,
+    basePPIncome: 3,
 
     /**
      * 意识形态表。每个意识形态包含一组在游戏中持续生效的加成（与国策效果同语义）。
@@ -306,7 +307,7 @@ const GameState = {
         settings: {
             maxPlayers: '8',
             mapScale: '标准',
-            turnLimit: '90',
+            turnLimit: '180',
             victory: '统一',
             diplomacy: true,
             ai: true
@@ -319,7 +320,7 @@ const GameState = {
         currentTurn: 1,
         currentPlayerId: 'USA',
         currentIdeology: null,
-        timerRemaining: 90,
+        timerRemaining: 180,
         selectedNodeId: null,
         hoveredNodeId: null,
         currentAction: null,
@@ -653,7 +654,7 @@ const GameState = {
     },
 
     getTurnPPIncome() {
-        return Math.max(0, 2
+        return Math.max(0, this.basePPIncome
             + (this.getGameModifiers().ppIncome || 0)
             + this.getIdeologyBonus('ppIncome'));
     },
@@ -1059,7 +1060,7 @@ const GameState = {
             settings: this.lobby.settings || {
                 maxPlayers: '8',
                 mapScale: '标准',
-                turnLimit: '90',
+                turnLimit: '180',
                 victory: '统一',
                 diplomacy: true,
                 ai: true
@@ -1158,7 +1159,7 @@ const GameState = {
             currentIdeology: myFaction.ideology || 'wartime_democracy',
             turnOrder,
             firstPlayerId: firstFactionId,
-            timerRemaining: Number(this.lobby.settings.turnLimit) || 90,
+            timerRemaining: Number(this.lobby.settings.turnLimit) || 180,
             selectedNodeId: myFaction.capitalNodeId,
             hoveredNodeId: null,
             currentAction: null,
