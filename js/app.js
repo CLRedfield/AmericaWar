@@ -294,13 +294,12 @@ const App = {
 
         this._aiTurnRunning = true;
         window.GameAI.takeTurn(currentId, slot.aiDifficulty || 'normal', () => {
-            // 注意：必须先 endTurn 切到下家、再清 _aiTurnRunning，否则
-            // 在切换的 200ms 间隙里 maybeRunAi 会再次见到本 AI 处于 currentPlayerId
-            // 而 _aiTurnRunning=false → 又会重新启动一次 AI 回合，导致回合疯狂自旋。
             setTimeout(() => {
-                this.endTurn(false);
                 this._aiTurnRunning = false;
-            }, 200);
+                if (GameState.game && !GameState.game.gameOver && GameState.game.currentPlayerId === currentId) {
+                    this.endTurn(false);
+                }
+            }, 25);
         });
     },
 
@@ -1008,9 +1007,9 @@ const App = {
 
             const prefix = auto ? '计时结束' : '结束回合';
             const disbandText = settlement.disbanded > 0 ? `，财政不足自动解散 ${settlement.disbanded} 步兵` : '';
-            GameState.addLog(`${prefix}：收入 $${settlement.income}，维护 $${formatMoney(settlement.maintenance)}${disbandText}，获得 ${settlement.ppIncome} PP，第 ${GameState.game.currentTurn} 回合开始。`, 'system');
+            GameState.addLog(`${prefix}：收入 $${settlement.income}，维护 $${formatMoney(settlement.maintenance)}${disbandText}，获得 ${settlement.ppIncome} PP，第 ${GameState.game.currentTurn} 回合开始。`, 'system', false);
         } else {
-            GameState.addLog(`${GameState.getFactionName(currentId)} 结束行动，下一手：${GameState.getFactionName(nextId)}。`, 'system');
+            GameState.addLog(`${GameState.getFactionName(currentId)} 结束行动，下一手：${GameState.getFactionName(nextId)}。`, 'system', false);
         }
 
         GameState.game.currentPlayerId = nextId;

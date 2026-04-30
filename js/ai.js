@@ -17,6 +17,8 @@
 const GameAI = {
     isThinking: false,
     pendingTimeout: null,
+    actionDelayMs: 35,
+    turnBudgetMs: 4500,
 
     cancelPending() {
         if (this.pendingTimeout) {
@@ -37,7 +39,8 @@ const GameAI = {
         }
 
         const maxActions = difficulty === 'hard' ? 6 : difficulty === 'easy' ? 1 : 3;
-        const actionDelay = 280; // ms 之间，给 UI 一个可视化反馈
+        const actionDelay = this.actionDelayMs;
+        const startedAt = Date.now();
         let actionCount = 0;
 
         const finish = () => {
@@ -50,6 +53,7 @@ const GameAI = {
             this.pendingTimeout = null;
             if (GameState.game.gameOver) return finish();
             if (GameState.game.currentPlayerId !== factionId) return finish();
+            if (Date.now() - startedAt >= this.turnBudgetMs) return finish();
             if (actionCount >= maxActions) return finish();
 
             const acted = this.tryOneAction(factionId, difficulty);
