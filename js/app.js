@@ -19,6 +19,11 @@ function formatMoney(value) {
     return Number.isInteger(safeValue) ? String(safeValue) : safeValue.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
+function formatSignedMoney(value) {
+    const safeValue = Math.abs(Number(value) || 0) < 0.005 ? 0 : Number(value) || 0;
+    return `${safeValue >= 0 ? '+' : ''}${formatMoney(safeValue)}`;
+}
+
 const App = {
     root: null,
     modalRoot: null,
@@ -201,6 +206,17 @@ const App = {
         }
     },
 
+    fillOpenSlotsWithAi(difficulty = 'normal') {
+        if (!GameState.isHost()) return alert('只有房主才能添加 AI');
+        const filled = GameState.fillOpenSlotsWithAi(difficulty);
+        const label = difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通';
+        GameState.lobby.statusMessage = filled > 0
+            ? `已将 ${filled} 个空席位设为 ${label} AI。`
+            : '没有可填充的空席位。';
+        GameState.notify();
+        if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushLobby();
+    },
+
     setAiDifficulty(factionId, difficulty) {
         if (!GameState.isHost()) return alert('只有房主才能调整 AI 难度');
         if (GameState.setAiDifficulty(factionId, difficulty)) {
@@ -369,8 +385,9 @@ const App = {
             build: {
                 label: '建设工业',
                 basePP: 5,
-                costMoney: 0,
-                effect: '节点工业 +1'
+                costMoney: 10,
+                effect: '节点工业 +1',
+                rulesHint: '建设工业同时消耗 $10'
             },
             focus: {
                 label: '推进国策',
@@ -400,6 +417,16 @@ const App = {
             cost: costText,
             costText
         };
+    },
+
+    getRecruitMoneyPreviewText(meta = this.getActionCost('recruit')) {
+        const current = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId());
+        const afterRecruit = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId(), {
+            extraTroops: meta.recruitAmount || 0,
+            moneySpent: meta.costMoney || 0,
+            ppSpent: meta.ppCost || 0
+        });
+        return `下回合金钱净变：${formatSignedMoney(current.moneyDelta)} → ${formatSignedMoney(afterRecruit.moneyDelta)}，预计余额 $${formatMoney(afterRecruit.projectedMoney)}`;
     },
 
     getActionAvailability(action, nodeId = GameState.game.selectedNodeId, options = {}) {
@@ -436,7 +463,7 @@ const App = {
             const cap = GameState.getNodeIndustryCap(node.id);
             if (node.industry >= cap) return { enabled: false, reason: `该节点工业已达到上限 ${cap}`, cost: meta.cost };
         }
-        if (resources.money < meta.costMoney) return { enabled: false, reason: `缺少 ${meta.costMoney - resources.money} 金钱`, cost: meta.cost };
+        if (meta.costMoney > 0 && resources.money < meta.costMoney) return { enabled: false, reason: `缺少 ${formatMoney(meta.costMoney - resources.money)} 金钱`, cost: meta.cost };
         if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${meta.ppCost - resources.pp} PP`, cost: meta.cost };
         if (action === 'move' && node.troops < 2) return { enabled: false, reason: '至少需要 2 支部队才能移动', cost: meta.cost };
         if (action === 'move' && requireFriendlyMoveTarget && MapData.getMoveTargets(node.id, playerFactionId).length === 0) {
@@ -478,6 +505,61 @@ const App = {
         GameState.setCurrentAction(nextAction);
     },
 
+    ensureMovementOrdersForAttack() {
+        if (GameState.game.movementOrdersActive) {
+            GameState.game.currentAction = 'move';
+            GameState.game.actionConfirm = null;
+            return true;
+        }
+
+        const availability = this.getActionAvailability('move');
+        if (!availability.enabled) {
+            GameState.addLog(availability.reason, 'system');
+            return false;
+        }
+
+        GameState.game.playerResources.pp -= availability.ppCost;
+        GameState.game.actionCountThisTurn += 1;
+        GameState.game.movementOrdersActive = true;
+        GameState.game.currentAction = 'move';
+        GameState.game.battlePreview = null;
+        GameState.game.actionConfirm = null;
+        GameState.addLog(`第 ${GameState.game.currentTurn} 回合：发布移动令，本回合未移动士兵各可移动或进攻 1 次。`, 'system', false);
+        return true;
+    },
+
+    openBattleWithMoveOrder(attackerId, defenderId) {
+        const attacker = MapData.getNode(attackerId);
+        const defender = MapData.getNode(defenderId);
+        const playerFactionId = GameState.getPlayerFactionId();
+        const relation = defender ? GameState.game.diplomacy[defender.factionId] : null;
+
+        if (!attacker || !defender) return;
+        if (attacker.factionId !== playerFactionId) {
+            GameState.addLog('你未选中己方可用节点。', 'system');
+            return;
+        }
+        if (defender.factionId === playerFactionId) {
+            GameState.addLog('无法进攻：目标不是敌方节点。', 'system');
+            return;
+        }
+        if (!MapData.areAdjacent(attacker.id, defender.id)) {
+            GameState.addLog('无法进攻：目标不相邻。', 'system');
+            return;
+        }
+        if (attacker.troops < 2 || GameState.getNodeMovableTroops(attacker) < 1) {
+            GameState.addLog('该节点没有可用于进攻的未移动士兵。', 'system');
+            return;
+        }
+        if (relation && relation.relation === '停战') {
+            GameState.addLog('无法进攻：当前外交协议处于停战。', 'system');
+            return;
+        }
+
+        if (!this.ensureMovementOrdersForAttack()) return;
+        this.openBattlePreview(attackerId, defenderId);
+    },
+
     confirmAction() {
         const confirm = GameState.game.actionConfirm;
         if (!confirm) return;
@@ -517,7 +599,7 @@ const App = {
         if (confirm.action === 'build') {
             const cap = GameState.getNodeIndustryCap(node.id);
             node.industry = Math.min(cap, node.industry + 1);
-            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：${node.name} 建设工业成功，工业 +1（上限 ${cap}）。`, 'system');
+            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：${node.name} 建设工业成功，工业 +1（消耗 $${formatMoney(meta.costMoney)}，上限 ${cap}）。`, 'system');
         }
     },
 
@@ -584,6 +666,45 @@ const App = {
         this.setMoveDraftAmount(GameState.getNodeMovableTroops(source));
     },
 
+    getSelectedBattleAmount(attacker = null) {
+        const preview = GameState.game.battlePreview;
+        const source = attacker || MapData.getNode(preview ? preview.attackerId : GameState.game.selectedNodeId);
+        const maxAmount = GameState.getNodeMovableTroops(source);
+        if (maxAmount <= 0) return 0;
+
+        const draft = Number(GameState.game.battleDraftAmount) || maxAmount;
+        return Math.min(maxAmount, Math.max(1, Math.floor(draft)));
+    },
+
+    setBattleDraftAmount(amount, shouldNotify = true) {
+        const preview = GameState.game.battlePreview;
+        const attacker = MapData.getNode(preview ? preview.attackerId : GameState.game.selectedNodeId);
+        const maxAmount = GameState.getNodeMovableTroops(attacker);
+        GameState.game.battleDraftAmount = maxAmount > 0
+            ? Math.min(maxAmount, Math.max(1, Math.floor(Number(amount) || 1)))
+            : 1;
+
+        if (preview) {
+            GameState.game.battlePreview = this.createBattlePreview(preview.attackerId, preview.defenderId, GameState.game.battleDraftAmount);
+        }
+
+        if (shouldNotify) {
+            GameState.notify();
+        } else {
+            this.syncBattlePreviewDisplay();
+        }
+    },
+
+    adjustBattleDraftAmount(delta) {
+        this.setBattleDraftAmount(this.getSelectedBattleAmount() + delta);
+    },
+
+    selectMaxBattleAmount() {
+        const preview = GameState.game.battlePreview;
+        const attacker = MapData.getNode(preview ? preview.attackerId : GameState.game.selectedNodeId);
+        this.setBattleDraftAmount(GameState.getNodeMovableTroops(attacker));
+    },
+
     syncRecruitSliderDisplay() {
         const confirm = GameState.game.actionConfirm;
         if (!confirm || confirm.action !== 'recruit') return;
@@ -599,7 +720,10 @@ const App = {
             element.textContent = `${draft} / ${max} 人`;
         });
         document.querySelectorAll('[data-recruit-cost]').forEach(element => {
-            element.textContent = `每人 $${meta.costPerSoldier}，本次共需 $${meta.costMoney}（PP 不随数量变化）`;
+            element.textContent = `每人 $${formatMoney(meta.costPerSoldier)}，本次共需 $${formatMoney(meta.costMoney)}（PP 不随数量变化）`;
+        });
+        document.querySelectorAll('[data-recruit-next-money]').forEach(element => {
+            element.textContent = this.getRecruitMoneyPreviewText(meta);
         });
         document.querySelectorAll('[data-recruit-effect]').forEach(element => {
             element.textContent = `驻军 +${meta.recruitAmount}`;
@@ -629,6 +753,50 @@ const App = {
         document.querySelectorAll('[data-move-target-amount]').forEach(element => {
             element.textContent = `调动 ${amount}`;
         });
+    },
+
+    getBattleSummaryText(preview) {
+        if (!preview) return '';
+        const outcome = preview.attackerWins
+            ? `预计攻下目标，${preview.remainingTroops} 支参战部队进入`
+            : `预计进攻失败，${preview.remainingTroops} 支参战部队撤回`;
+        return `本次使用 ${preview.attackerBase}/${preview.maxAttackers} 支可动兵进攻，消耗这些部队的本回合移动次数；${outcome}。`;
+    },
+
+    syncBattlePreviewDisplay() {
+        const preview = GameState.game.battlePreview;
+        if (!preview || typeof document === 'undefined') return;
+
+        const max = Math.max(1, preview.maxAttackers || 1);
+        const amount = Math.min(max, Math.max(1, preview.attackerBase || 1));
+        document.querySelectorAll('.battle-range, .battle-amount-input').forEach(input => {
+            input.value = amount;
+            input.max = max;
+        });
+        document.querySelectorAll('[data-battle-count]').forEach(element => {
+            element.textContent = `${amount} / ${max} 支`;
+        });
+        document.querySelectorAll('[data-battle-attacker-base]').forEach(element => {
+            element.textContent = amount;
+        });
+        document.querySelectorAll('[data-battle-attacker-power]').forEach(element => {
+            element.textContent = preview.attackerPower;
+        });
+        document.querySelectorAll('[data-battle-defender-power]').forEach(element => {
+            element.textContent = preview.defenderPower;
+        });
+        document.querySelectorAll('[data-battle-result-text]').forEach(element => {
+            element.textContent = preview.resultText;
+        });
+        document.querySelectorAll('[data-battle-summary]').forEach(element => {
+            element.textContent = this.getBattleSummaryText(preview);
+        });
+
+        const resultBlock = document.querySelector('[data-battle-result]');
+        if (resultBlock) {
+            resultBlock.classList.toggle('success', preview.attackerWins);
+            resultBlock.classList.toggle('danger', !preview.attackerWins);
+        }
     },
 
     openMoveConfirm(targetId) {
@@ -696,31 +864,30 @@ const App = {
         const playerFactionId = GameState.getPlayerFactionId();
         if (!node) return;
 
+        const isAdjacentEnemy = selectedNode &&
+            selectedNode.id !== node.id &&
+            selectedNode.factionId === playerFactionId &&
+            node.factionId !== playerFactionId &&
+            MapData.areAdjacent(selectedNode.id, node.id);
+
         if (GameState.game.currentAction === 'move' && selectedNode && selectedNode.factionId === playerFactionId) {
             if (MapData.areAdjacent(selectedNode.id, node.id) && node.factionId === playerFactionId) {
                 this.openMoveConfirm(node.id);
                 return;
             }
 
-            if (MapData.areAdjacent(selectedNode.id, node.id) && node.factionId !== playerFactionId) {
+            if (isAdjacentEnemy) {
                 if (GameState.getNodeMovableTroops(selectedNode) < 1) {
                     GameState.addLog('该节点没有可用于进攻的未移动士兵。', 'system');
                     return;
                 }
-                this.openBattlePreview(selectedNode.id, node.id);
+                this.openBattleWithMoveOrder(selectedNode.id, node.id);
                 return;
             }
         }
 
-        if (
-            selectedNode &&
-            selectedNode.id !== node.id &&
-            selectedNode.factionId === playerFactionId &&
-            node.factionId !== playerFactionId &&
-            MapData.areAdjacent(selectedNode.id, node.id) &&
-            GameState.getNodeMovableTroops(selectedNode) > 0
-        ) {
-            this.openBattlePreview(selectedNode.id, node.id);
+        if (isAdjacentEnemy) {
+            this.openBattleWithMoveOrder(selectedNode.id, node.id);
             return;
         }
 
@@ -745,16 +912,24 @@ const App = {
         mapContainer.insertAdjacentHTML('beforeend', MapView.renderTooltip());
     },
 
-    createBattlePreview(attackerId, defenderId) {
+    createBattlePreview(attackerId, defenderId, requestedAmount = null) {
         const attacker = MapData.getNode(attackerId);
         const defender = MapData.getNode(defenderId);
-        const baseDefenseBonus = defender.isCapital || defender.terrain.includes('城市') ? 20 : 10;
+        if (!attacker || !defender) return null;
+
+        const baseDefenseBonus = 15;
         const taggedDefenseBonus = Math.round((GameState.getTaggedDefenseBonus(defender) || 0) * 100);
         const globalDefenseBonus = Math.round((GameState.getEffectiveGlobalDefense() || 0) * 100);
         const isPlayerDefender = defender.factionId === GameState.getPlayerFactionId();
         const defenseBonus = baseDefenseBonus + (isPlayerDefender ? taggedDefenseBonus + globalDefenseBonus : 0);
-        const attackerAttackBonus = 10 + Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100);
-        const attackerBase = GameState.getNodeMovableTroops(attacker);
+        const attackerAttackBonus = Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100);
+        const maxAttackers = GameState.getNodeMovableTroops(attacker);
+        const draftAmount = requestedAmount === null || typeof requestedAmount === 'undefined'
+            ? (Number(GameState.game.battleDraftAmount) || maxAttackers)
+            : requestedAmount;
+        const attackerBase = maxAttackers > 0
+            ? Math.min(maxAttackers, Math.max(1, Math.floor(Number(draftAmount) || maxAttackers)))
+            : 0;
         const defenderBase = defender.troops;
         const attackerPower = Number((attackerBase * (1 + attackerAttackBonus / 100)).toFixed(1));
         const defenderPower = Number((defenderBase * (1 + defenseBonus / 100)).toFixed(1));
@@ -768,6 +943,7 @@ const App = {
             attackerId,
             defenderId,
             attackerTotalTroops: attacker.troops,
+            maxAttackers,
             attackerBase,
             defenderBase,
             attackerPower,
@@ -776,6 +952,7 @@ const App = {
             attackerAttackBonus,
             attackerWins,
             remainingTroops,
+            ppCost: 0,
             resultText: attackerWins
                 ? `预计结果：攻方胜利，预计 ${remainingTroops} 支参战部队进入目标。`
                 : `预计结果：守方优势，参战部队预计撤回 ${remainingTroops} 支。`
@@ -784,17 +961,18 @@ const App = {
 
     getBattleAvailability(attackerId) {
         const attacker = MapData.getNode(attackerId);
-        const meta = this.getActionCost('move', attackerId);
+        const moveMeta = this.getActionMeta('move');
+        const meta = { ...moveMeta, cost: '移动令内', costText: '移动令内', ppCost: 0, costMoney: 0 };
         const playerFactionId = GameState.getPlayerFactionId();
-        const resources = GameState.game.playerResources;
 
         if (!attacker) return { enabled: false, reason: '未选择进攻节点', ...meta };
         if (GameState.game.gameOver) return { enabled: false, reason: '游戏已经结束', ...meta };
         if (GameState.game.currentPlayerId !== playerFactionId) return { enabled: false, reason: '还未轮到你行动', ...meta };
         if (attacker.factionId !== playerFactionId) return { enabled: false, reason: '你未选中己方可用节点', ...meta };
+        if (!GameState.game.movementOrdersActive) return { enabled: false, reason: '请先使用“移动士兵”发布移动令，进攻会作为普通移动执行，不再额外花费 PP。', ...meta };
+        if (GameState.game.currentAction !== 'move') return { enabled: false, reason: '请点击“继续移动”后再选择进攻目标。', ...meta };
         if (attacker.troops < 2) return { enabled: false, reason: '至少需要 2 支部队才能进攻', ...meta };
         if (GameState.getNodeMovableTroops(attacker) < 1) return { enabled: false, reason: '该节点没有可用于进攻的未移动士兵', ...meta };
-        if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${meta.ppCost - resources.pp} PP`, ...meta };
 
         return { enabled: true, reason: '', ...meta };
     },
@@ -815,6 +993,10 @@ const App = {
             GameState.addLog('你未选中己方可用节点。', 'system');
             return;
         }
+        if (defender.factionId === playerFactionId) {
+            GameState.addLog('无法进攻：目标不是敌方节点。', 'system');
+            return;
+        }
         if (!MapData.areAdjacent(attacker.id, defender.id)) {
             GameState.addLog('无法进攻：目标不相邻。', 'system');
             return;
@@ -828,10 +1010,9 @@ const App = {
             return;
         }
 
-        GameState.setBattlePreview({
-            ...this.createBattlePreview(attacker.id, defender.id),
-            ppCost: availability.ppCost
-        });
+        const maxAttackers = GameState.getNodeMovableTroops(attacker);
+        GameState.game.battleDraftAmount = maxAttackers;
+        GameState.setBattlePreview(this.createBattlePreview(attacker.id, defender.id, GameState.game.battleDraftAmount));
     },
 
     confirmBattle() {
@@ -842,7 +1023,14 @@ const App = {
         const defender = MapData.getNode(preview.defenderId);
         if (!attacker || !defender) return;
 
-        const participatingTroops = Math.min(preview.attackerBase || 0, GameState.getNodeMovableTroops(attacker));
+        if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
+            GameState.addLog('请先使用“移动士兵”发布移动令后再进攻。', 'system');
+            GameState.game.battlePreview = null;
+            GameState.notify();
+            return;
+        }
+
+        const participatingTroops = this.getSelectedBattleAmount(attacker);
         if (participatingTroops < 1) {
             GameState.addLog('无法进攻：该节点没有可参与进攻的未移动士兵。', 'system');
             GameState.game.battlePreview = null;
@@ -850,26 +1038,18 @@ const App = {
             return;
         }
 
-        const ppCost = preview.ppCost || GameState.getActionPPCost(this.getActionMeta('move').basePP);
-        if (GameState.game.playerResources.pp < ppCost) {
-            GameState.addLog(`无法进攻：缺少 ${ppCost - GameState.game.playerResources.pp} PP。`, 'system');
-            return;
-        }
-
         const attackerFaction = GameState.getFaction(attacker.factionId);
         const defenderFaction = GameState.getFaction(defender.factionId);
-        GameState.game.playerResources.pp -= ppCost;
-        GameState.game.actionCountThisTurn += 1;
+        const resolvedPreview = this.createBattlePreview(attacker.id, defender.id, participatingTroops);
         GameState.game.battlePreview = null;
-        GameState.game.movementOrdersActive = true;
         GameState.game.currentAction = 'move';
         GameState.game.actionConfirm = null;
         const attackerReadyBeforeBattle = GameState.getNodeMoveReady(attacker);
         attacker.moveReady = Math.max(0, attackerReadyBeforeBattle - participatingTroops);
         attacker.movedThisTurn = true;
 
-        if (preview.attackerWins) {
-            const enteringTroops = Math.max(1, Math.min(participatingTroops, preview.remainingTroops));
+        if (resolvedPreview.attackerWins) {
+            const enteringTroops = Math.max(1, Math.min(participatingTroops, resolvedPreview.remainingTroops));
             attacker.troops = Math.max(1, attacker.troops - participatingTroops);
             const wasEnemyOwned = defender.factionId !== attacker.factionId;
             defender.factionId = attacker.factionId;
@@ -884,7 +1064,7 @@ const App = {
             return;
         }
 
-        const returningTroops = Math.max(0, Math.min(participatingTroops, preview.remainingTroops));
+        const returningTroops = Math.max(0, Math.min(participatingTroops, resolvedPreview.remainingTroops));
         const attackerLosses = participatingTroops - returningTroops;
         attacker.troops = Math.max(1, attacker.troops - attackerLosses);
         defender.troops = Math.max(1, Math.ceil(defender.troops * 0.7));
@@ -896,15 +1076,12 @@ const App = {
     settleTurnStart(factionId) {
         GameState.recalculatePlayerResources();
         const resources = GameState.game.playerResources;
-        const taggedIncome = GameState.getTaggedIncomeTotal(factionId);
-        const warBondsPenalty = GameState.game.warBondsPenaltyTurns > 0 ? (GameState.game.warBondsPenalty || 0) : 0;
-        const incomeRaw = resources.totalIndustry + GameState.getMoneyIncomeBonus() + taggedIncome + warBondsPenalty;
-        const income = Math.max(0, incomeRaw);
+        const preview = GameState.getNextTurnResourcePreview(factionId);
+        const income = preview.grossIncome;
         const availableMoney = resources.money + income;
-        const maintenanceRate = GameState.getMaintenanceRate();
-        const freeTroops = Math.max(0, GameState.getEffectiveFreeTroops());
-        const billableTroops = Math.max(0, resources.totalTroops - freeTroops);
-        const ppIncome = GameState.getTurnPPIncome();
+        const maintenanceRate = preview.maintenanceRate;
+        const freeTroops = preview.freeTroops;
+        const ppIncome = preview.ppIncome;
         const capitalRegen = GameState.getCapitalTroopsPerTurn();
         if (capitalRegen > 0) {
             const capitalNode = MapData.getNode(GameState.getCapitalNodeId(factionId));
@@ -912,19 +1089,23 @@ const App = {
                 capitalNode.troops += capitalRegen;
             }
         }
-        const maintenanceBeforeDisband = billableTroops * maintenanceRate;
-        let disbanded = 0;
 
-        if (availableMoney < maintenanceBeforeDisband) {
-            const missingMoney = maintenanceBeforeDisband - availableMoney;
-            disbanded = this.disbandTroopsForMaintenance(factionId, Math.ceil(missingMoney / maintenanceRate));
-            GameState.recalculatePlayerResources();
-        }
-
+        GameState.recalculatePlayerResources();
         const finalBillableTroops = Math.max(0, GameState.game.playerResources.totalTroops - freeTroops);
         const finalMaintenance = finalBillableTroops * maintenanceRate;
-        resources.money = Math.max(0, availableMoney - finalMaintenance);
+        resources.money = availableMoney - finalMaintenance;
         resources.pp = Math.min(GameState.getEffectivePPCap(), resources.pp + ppIncome);
+
+        const debtPenalty = GameState.getDebtPenalty(resources.money);
+        let debtDeserted = 0;
+        if (debtPenalty.desertionRate > 0 && GameState.game.playerResources.totalTroops > 0) {
+            const targetDesertion = Math.max(
+                debtPenalty.minDesertion || 0,
+                Math.ceil(GameState.game.playerResources.totalTroops * debtPenalty.desertionRate)
+            );
+            debtDeserted = this.disbandTroopsForMaintenance(factionId, targetDesertion);
+            if (debtDeserted > 0) GameState.recalculatePlayerResources();
+        }
 
         if (GameState.game.warBondsPenaltyTurns > 0) {
             GameState.game.warBondsPenaltyTurns -= 1;
@@ -936,9 +1117,13 @@ const App = {
         return {
             income,
             maintenance: finalMaintenance,
-            disbanded,
+            disbanded: debtDeserted,
+            debtDeserted,
+            debtPenalty,
+            moneyDelta: income - finalMaintenance,
+            balance: resources.money,
             ppIncome,
-            taggedIncome,
+            taggedIncome: preview.taggedIncome,
             freeTroops
         };
     },
@@ -989,6 +1174,7 @@ const App = {
         GameState.game.currentAction = null;
         GameState.game.movementOrdersActive = false;
         GameState.game.moveDraftAmount = 1;
+        GameState.game.battleDraftAmount = 1;
         GameState.game.recruitDraftAmount = 1;
         GameState.game.battlePreview = null;
         GameState.game.actionConfirm = null;
@@ -1006,8 +1192,9 @@ const App = {
             GameState.resetMovementReadiness();
 
             const prefix = auto ? '计时结束' : '结束回合';
-            const disbandText = settlement.disbanded > 0 ? `，财政不足自动解散 ${settlement.disbanded} 步兵` : '';
-            GameState.addLog(`${prefix}：收入 $${settlement.income}，维护 $${formatMoney(settlement.maintenance)}${disbandText}，获得 ${settlement.ppIncome} PP，第 ${GameState.game.currentTurn} 回合开始。`, 'system', false);
+            const debtText = settlement.debtPenalty.threshold > 0 ? `，赤字状态：${settlement.debtPenalty.label}` : '';
+            const desertionText = settlement.debtDeserted > 0 ? `，财政崩溃逃散 ${settlement.debtDeserted} 步兵` : '';
+            GameState.addLog(`${prefix}：收入 $${formatMoney(settlement.income)}，维护 $${formatMoney(settlement.maintenance)}，金钱 ${formatSignedMoney(settlement.moneyDelta)}，余额 $${formatMoney(settlement.balance)}，获得 ${settlement.ppIncome} PP${debtText}${desertionText}，第 ${GameState.game.currentTurn} 回合开始。`, 'system', false);
         } else {
             GameState.addLog(`${GameState.getFactionName(currentId)} 结束行动，下一手：${GameState.getFactionName(nextId)}。`, 'system', false);
         }
@@ -1031,9 +1218,10 @@ const App = {
             }
             const r = GameState.game.aiResources[factionId];
             const baseIncome = totals.totalIndustry + 1;
-            const maintenance = Math.max(0, totals.totalTroops * 0.25 - 3);
-            r.money = Math.max(0, r.money + baseIncome - maintenance);
-            r.pp = Math.min(GameState.ppCap, r.pp + GameState.basePPIncome);
+            const maintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
+            r.money = r.money + baseIncome - maintenance;
+            const debtPenalty = GameState.getDebtPenalty(r.money);
+            r.pp = Math.min(GameState.ppCap, Math.max(0, r.pp + GameState.basePPIncome + debtPenalty.ppIncomeDelta));
         });
     },
 

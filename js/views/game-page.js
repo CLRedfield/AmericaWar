@@ -30,6 +30,8 @@ const GamePageView = {
         const isLowTime = game.timerRemaining <= 15;
         const isPlayerTurn = game.currentPlayerId === GameState.getPlayerFactionId();
         const currentSlot = GameState.getSlot(game.currentPlayerId);
+        const resourcePreview = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId());
+        const debtPenalty = GameState.getDebtPenalty(resources.money);
         let turnTag;
         if (isPlayerTurn) {
             turnTag = '你的回合';
@@ -63,11 +65,23 @@ const GamePageView = {
                     </div>
                     <div class="top-stat-item">
                         <span class="top-stat-label">$</span>
-                        <span class="top-stat-value">${formatMoney(resources.money)}</span>
+                        <span class="top-stat-value ${resources.money < 0 ? 'negative-money' : ''}">
+                            ${formatMoney(resources.money)}
+                            <span class="resource-delta ${this.deltaClass(resourcePreview.moneyDelta)}">(${formatSignedMoney(resourcePreview.moneyDelta)})</span>
+                        </span>
                     </div>
+                    ${debtPenalty.threshold > 0 ? `
+                        <div class="top-stat-item debt-top-indicator">
+                            <span class="top-stat-label">赤字</span>
+                            <span class="top-stat-value negative-money">${debtPenalty.label}</span>
+                        </div>
+                    ` : ''}
                     <div class="top-stat-item">
                         <span class="top-stat-label">PP</span>
-                        <span class="top-stat-value">${resources.pp}/${GameState.getEffectivePPCap()}</span>
+                        <span class="top-stat-value">
+                            ${resources.pp}/${GameState.getEffectivePPCap()}
+                            <span class="resource-delta ${this.deltaClass(resourcePreview.ppDelta)}">(${formatSignedMoney(resourcePreview.ppDelta)})</span>
+                        </span>
                     </div>
                     <div class="top-stat-item">
                         <span class="top-stat-label">行动递增</span>
@@ -97,6 +111,12 @@ const GamePageView = {
         `;
     },
 
+    deltaClass(value) {
+        if (value > 0) return 'positive';
+        if (value < 0) return 'negative';
+        return 'neutral';
+    },
+
     renderLeftFactionPanel() {
         const playerFaction = GameState.getFaction(GameState.getPlayerFactionId());
         const originalCapital = MapData.getNode(playerFaction.capitalNodeId);
@@ -105,6 +125,7 @@ const GamePageView = {
         const victoryProgress = Math.round((resources.nodes / MapData.nodes.length) * 100);
         const isOriginalCapitalHeld = originalCapital && originalCapital.factionId === playerFaction.id;
         const ideology = GameState.getIdeology();
+        const debtPenalty = GameState.getDebtPenalty(resources.money);
 
         return `
             <aside class="game-left-panel">
@@ -137,7 +158,8 @@ const GamePageView = {
                         </div>
                     </div>
                     ${ideology ? this.renderIdeologyCard(ideology) : ''}
-                    <div class="passive-line">基础政治点收入：每回合 +${GameState.basePPIncome} PP；步兵维护：每人 $0.25</div>
+                    ${debtPenalty.threshold > 0 ? this.renderDebtStatusCard(debtPenalty) : ''}
+                    <div class="passive-line">有效政治点收入：每回合 +${GameState.getTurnPPIncome()} PP；步兵维护：每人 $${formatMoney(GameState.getMaintenanceRate())}</div>
                     <div class="panel-actions">
                         <button class="btn btn-primary" onclick="window.app.openFocusModal()">国策</button>
                         <button class="btn btn-outline" onclick="window.app.openDiplomacyModal()">外交</button>
@@ -163,6 +185,36 @@ const GamePageView = {
                     <div class="diplomacy-badges">${this.renderDiplomacyBadges()}</div>
                 </section>
             </aside>
+        `;
+    },
+
+    renderDebtStatusCard(debtPenalty) {
+        const attackPenalty = debtPenalty.globalAttackDelta
+            ? `进攻 ${Math.round(debtPenalty.globalAttackDelta * 100)}%`
+            : '';
+        const defensePenalty = debtPenalty.globalDefenseDelta
+            ? `防守 ${Math.round(debtPenalty.globalDefenseDelta * 100)}%`
+            : '';
+        const actionPenalty = debtPenalty.actionCostDelta
+            ? `全部行动基础 PP +${debtPenalty.actionCostDelta}`
+            : '';
+        const ppPenalty = debtPenalty.ppIncomeDelta
+            ? `PP 收入 ${debtPenalty.ppIncomeDelta}`
+            : '';
+        const desertionPenalty = debtPenalty.desertionRate
+            ? `每回合逃散 ${Math.round(debtPenalty.desertionRate * 100)}% 部队`
+            : '';
+        const items = [ppPenalty, attackPenalty, defensePenalty, actionPenalty, desertionPenalty].filter(Boolean);
+
+        return `
+            <div class="debt-status-card severity-${debtPenalty.threshold}">
+                <div>
+                    <span>财政赤字 $${formatMoney(debtPenalty.debt)}</span>
+                    <strong>${debtPenalty.label}</strong>
+                </div>
+                <p>${debtPenalty.description}</p>
+                <small>${items.join('；')}</small>
+            </div>
         `;
     },
 
@@ -312,7 +364,7 @@ const GamePageView = {
             </div>
             <div class="action-help-block">
                 当前可用 PP：${GameState.game.playerResources.pp}<br>
-                下一回合基础收入：+${GameState.basePPIncome} PP
+                下一回合有效收入：+${GameState.getTurnPPIncome()} PP
             </div>
         `;
     },
@@ -362,7 +414,7 @@ const GamePageView = {
                     ${this.renderActionButton('build', '建设工业')}
                 </div>
                 ${GameState.game.currentAction === 'move' ? this.renderMoveTargets(node, moveTargets) : ''}
-                ${this.renderAttackTargets(attackTargets)}
+                ${this.renderAttackTargets(node, attackTargets)}
             ` : `
                 <div class="action-help-block hostile">
                     敌方节点。先选择相邻己方节点，再点击这里可打开战斗预览。
@@ -444,14 +496,14 @@ const GamePageView = {
         `;
     },
 
-    renderAttackTargets(targets) {
+    renderAttackTargets(source, targets) {
         if (!targets.length) return '';
 
         return `
             <div class="target-list attack-target-list">
                 <span>可进攻</span>
                 ${targets.map(target => `
-                    <button onclick="window.app.openBattlePreview('${GameState.game.selectedNodeId}', '${target.id}')">
+                    <button onclick="window.app.openBattleWithMoveOrder('${source.id}', '${target.id}')">
                         ${target.name}
                     </button>
                 `).join('')}
@@ -502,6 +554,7 @@ const GamePageView = {
         const isMove = confirm.action === 'move';
         const recruitMax = isRecruit ? window.app.getMaxRecruitAmount(actionMeta.costPerSoldier) : 0;
         const recruitDraft = isRecruit ? window.app.getSelectedRecruitAmount(actionMeta.costPerSoldier) : 0;
+        const recruitMoneyPreview = isRecruit ? window.app.getRecruitMoneyPreviewText(actionMeta) : '';
         const moveMax = isMove ? GameState.getNodeMovableTroops(node) : 0;
         const moveDraft = isMove ? window.app.getSelectedMoveAmount(node) : 0;
 
@@ -532,7 +585,10 @@ const GamePageView = {
                                     <button class="mini-control-btn" onclick="window.app.selectMaxRecruitAmount()">最大</button>
                                 </div>
                                 <div class="recruit-slider-hint text-muted" data-recruit-cost>
-                                    每人 $${actionMeta.costPerSoldier}，本次共需 $${actionMeta.costMoney}（PP 不随数量变化）
+                                    每人 $${formatMoney(actionMeta.costPerSoldier)}，本次共需 $${formatMoney(actionMeta.costMoney)}（PP 不随数量变化）
+                                </div>
+                                <div class="recruit-slider-hint recruit-income-preview" data-recruit-next-money>
+                                    ${recruitMoneyPreview}
                                 </div>
                             </div>
                             <div class="confirm-line"><span>实际增援</span><strong data-recruit-effect>驻军 +${actionMeta.recruitAmount}</strong></div>
@@ -576,6 +632,8 @@ const GamePageView = {
         const defender = MapData.getNode(preview.defenderId);
         const attackerFaction = GameState.getFaction(attacker.factionId);
         const defenderFaction = GameState.getFaction(defender.factionId);
+        const maxAttackers = Math.max(1, preview.maxAttackers || preview.attackerBase || 1);
+        const battleSummary = window.app.getBattleSummaryText(preview);
 
         return `
             <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
@@ -587,23 +645,39 @@ const GamePageView = {
                     <div class="battle-preview-grid">
                         <div class="battle-side" style="--faction-color: ${attackerFaction.color}">
                             <span>攻方：${attackerFaction.shortName}</span>
-                            <strong>${preview.attackerBase}</strong>
+                            <strong data-battle-attacker-base>${preview.attackerBase}</strong>
                             <div>总驻军：${attacker.troops}</div>
-                            <div>参战可动兵：${preview.attackerBase}</div>
-                            <div>进攻修正：+10%</div>
-                            <div>最终战力：${preview.attackerPower}</div>
+                            <div>参战可动兵：<span data-battle-attacker-base>${preview.attackerBase}</span> / ${maxAttackers}</div>
+                            <div>进攻修正：+${preview.attackerAttackBonus}%</div>
+                            <div>最终战力：<span data-battle-attacker-power>${preview.attackerPower}</span></div>
                         </div>
                         <div class="battle-side" style="--faction-color: ${defenderFaction.color}">
                             <span>守方：${defenderFaction.shortName}</span>
                             <strong>${defender.troops}</strong>
                             <div>基础战力：${preview.defenderBase}</div>
                             <div>地形防御：+${preview.defenseBonus}%</div>
-                            <div>最终战力：${preview.defenderPower}</div>
+                            <div>最终战力：<span data-battle-defender-power>${preview.defenderPower}</span></div>
                         </div>
                     </div>
-                    <div class="battle-result ${preview.attackerWins ? 'success' : 'danger'}">
-                        ${preview.resultText}
-                        <div class="text-muted">本次进攻消耗：${preview.ppCost || 1} PP（移动行动 + 递增消耗）</div>
+                    <div class="battle-slider-block">
+                        <div class="recruit-slider-heading">
+                            <span>参战数量</span>
+                            <strong data-battle-count>${preview.attackerBase} / ${maxAttackers} 支</strong>
+                        </div>
+                        <div class="recruit-slider-row battle-slider-row">
+                            <button class="mini-control-btn" onclick="window.app.adjustBattleDraftAmount(-1)">-</button>
+                            <input type="range" class="battle-range tactical-range" min="1" max="${maxAttackers}" value="${preview.attackerBase}"
+                                oninput="window.app.setBattleDraftAmount(this.value, false)"
+                                onchange="window.app.setBattleDraftAmount(this.value)">
+                            <input class="battle-amount-input" type="number" min="1" max="${maxAttackers}" value="${preview.attackerBase}" onchange="window.app.setBattleDraftAmount(this.value)">
+                            <button class="mini-control-btn" onclick="window.app.adjustBattleDraftAmount(1)">+</button>
+                            <button class="mini-control-btn" onclick="window.app.selectMaxBattleAmount()">最大</button>
+                        </div>
+                        <div class="recruit-slider-hint text-muted" data-battle-summary>${battleSummary}</div>
+                    </div>
+                    <div class="battle-result ${preview.attackerWins ? 'success' : 'danger'}" data-battle-result>
+                        <span data-battle-result-text>${preview.resultText}</span>
+                        <div class="text-muted">本次进攻消耗：移动令内，不额外花费 PP</div>
                     </div>
                     <footer class="modal-actions">
                         <button class="btn btn-outline" onclick="window.app.closeModals()">取消</button>
@@ -793,7 +867,7 @@ const GamePageView = {
         const title = availability.reason ? `title="${availability.reason}"` : '';
         const mutuals = focus.mutuallyExclusive || [];
         const prerequisiteHtml = this.renderFocusPrerequisites(focus);
-        const effectsHtml = (focus.effects || []).map(effect => `<li>${this.renderFocusEffect(effect)}</li>`).join('');
+        const effectsHtml = (focus.effects || []).map(effect => `<li>${this.renderFocusEffect(effect, focus)}</li>`).join('');
         const mutualHtml = mutuals.length
             ? `<div class="focus-detail-block danger-block">
                     <span>互斥国策</span>
@@ -854,44 +928,148 @@ const GamePageView = {
         return parts.length ? parts.join(' / ') : '无';
     },
 
-    renderFocusEffect(effect) {
+    renderFocusEffect(effect, focus = null) {
         const signed = effect.amount > 0 ? `+${effect.amount}` : String(effect.amount);
         const percent = (val) => `${val > 0 ? '+' : ''}${Math.round(val * 100)}%`;
+        const getComparisonPair = (current, delta, clamp = value => value) => {
+            const applied = this.isFocusCompleted(focus);
+            const before = applied ? clamp(current - delta) : current;
+            const after = applied ? current : clamp(current + delta);
+            return [before, after];
+        };
+        const compare = (current, delta, formatter = value => formatMoney(value), clamp = value => value) => {
+            const [before, after] = getComparisonPair(current, delta, clamp);
+            return `（${formatter(before)} → ${formatter(after)}）`;
+        };
+        const compareLabeled = (label, current, delta, formatter = value => formatMoney(value), clamp = value => value) => {
+            const [before, after] = getComparisonPair(current, delta, clamp);
+            return `（${label} ${formatter(before)} → ${formatter(after)}）`;
+        };
+        const compareRaw = (before, after, formatter = value => formatMoney(value)) => `（${formatter(before)} → ${formatter(after)}）`;
+        const moneyValue = value => `$${formatMoney(value)}`;
+        const signedMoneyValue = value => formatSignedMoney(value);
+        const percentValue = value => `${Math.round(value * 100)}%`;
+        const nonNegative = value => Math.max(0, value);
+        const playerFactionId = GameState.getPlayerFactionId();
+        const playerTotals = window.MapData
+            ? MapData.calculateFactionStats(playerFactionId)
+            : { totalIndustry: GameState.game.playerResources.totalIndustry || 0, totalTroops: GameState.game.playerResources.totalTroops || 0 };
+        const focusCompleted = this.isFocusCompleted(focus);
 
-        if (effect.type === 'money') return `金钱 ${signed}`;
-        if (effect.type === 'pp') return `PP ${signed}`;
+        if (effect.type === 'money') {
+            const current = GameState.game.playerResources.money || 0;
+            return `金钱 ${signed}${compare(current, effect.amount, moneyValue, nonNegative)}`;
+        }
+        if (effect.type === 'pp') {
+            const current = GameState.game.playerResources.pp || 0;
+            return `PP ${signed}${compare(current, effect.amount, value => `${formatMoney(value)} PP`, value => Math.max(0, Math.min(GameState.getEffectivePPCap(), value)))}`;
+        }
         if (effect.type === 'actionCost') {
             const names = { recruit: '征兵', move: '移动士兵', build: '建设工业', focus: '推进国策', all: '全部行动' };
-            return `${names[effect.action] || effect.action}基础 PP ${signed}`;
+            const actions = effect.action === 'all' ? ['recruit', 'move', 'build', 'focus'] : [effect.action];
+            const comparison = actions.map(action => {
+                const meta = window.app.getActionMeta(action);
+                const current = Math.max(0, meta.basePP + GameState.getActionBaseCostAdjustment(action));
+                const before = focusCompleted ? Math.max(0, current - effect.amount) : current;
+                const after = focusCompleted ? current : Math.max(0, current + effect.amount);
+                return `${names[action] || action} ${before}→${after}`;
+            }).join(' / ');
+            return `${names[effect.action] || effect.action}基础 PP ${signed}（${comparison}）`;
         }
-        if (effect.type === 'recruitAmount') return `征兵数量 ${signed}`;
-        if (effect.type === 'maintenanceRate') return `维护费率 ${percent(effect.amount)}`;
-        if (effect.type === 'ppIncome') return `每回合 PP ${signed}`;
-        if (effect.type === 'moneyIncome') return `每回合金钱 ${signed}`;
-        if (effect.type === 'capitalTroops') return `当前首都驻军 ${signed}`;
-        if (effect.type === 'capitalIndustry') return `当前首都工业 ${signed}`;
-        if (effect.type === 'allTroops') return `所有己方节点驻军 ${signed}`;
-        if (effect.type === 'allIndustry') return `最高工业的 ${effect.maxNodes || '全部'} 个己方节点工业 ${signed}`;
+        if (effect.type === 'recruitAmount') {
+            const current = GameState.getEffectiveRecruitAmount();
+            return `征兵数量 ${signed}${compare(current, effect.amount, value => `额外 +${formatMoney(Math.max(0, value))}`, nonNegative)}`;
+        }
+        if (effect.type === 'maintenanceRate') {
+            const current = GameState.getMaintenanceRate();
+            return `维护费率 ${percent(effect.amount)}${compare(current, effect.amount, value => `${moneyValue(value)}/兵`, value => Math.max(0.05, value))}`;
+        }
+        if (effect.type === 'ppIncome') {
+            const current = GameState.getTurnPPIncome();
+            return `每回合 PP ${signed}${compare(current, effect.amount, value => `${formatMoney(value)} PP/回合`, nonNegative)}`;
+        }
+        if (effect.type === 'moneyIncome') {
+            const current = GameState.getNextTurnResourcePreview(playerFactionId).moneyDelta;
+            return `每回合金钱 ${signed}${compare(current, effect.amount, value => `${signedMoneyValue(value)}/回合`)}`;
+        }
+        if (effect.type === 'capitalTroops') {
+            const capital = MapData.getNode(GameState.getCapitalNodeId(playerFactionId));
+            const current = capital ? capital.troops : 0;
+            return `当前首都驻军 ${signed}${capital ? compareLabeled(capital.name, current, effect.amount, value => formatMoney(value), nonNegative) : ''}`;
+        }
+        if (effect.type === 'capitalIndustry') {
+            const capital = MapData.getNode(GameState.getCapitalNodeId(playerFactionId));
+            if (!capital) return `当前首都工业 ${signed}`;
+            const cap = GameState.getNodeIndustryCap(capital.id);
+            return `当前首都工业 ${signed}${compareLabeled(capital.name, capital.industry, effect.amount, value => formatMoney(value), value => Math.max(0, Math.min(cap, value)))}`;
+        }
+        if (effect.type === 'allTroops') {
+            const nodeCount = MapData.getFactionNodes(playerFactionId).length;
+            return `所有己方节点驻军 ${signed}${compareLabeled('总兵力', playerTotals.totalTroops, effect.amount * nodeCount, value => formatMoney(value), nonNegative)}`;
+        }
+        if (effect.type === 'allIndustry') {
+            const maxNodes = effect.maxNodes || Infinity;
+            const targets = MapData.getFactionNodes(playerFactionId)
+                .filter(node => focusCompleted || node.industry < GameState.getNodeIndustryCap(node.id))
+                .sort((a, b) => b.industry - a.industry || b.troops - a.troops)
+                .slice(0, maxNodes);
+            const delta = focusCompleted
+                ? effect.amount * targets.length
+                : targets.reduce((sum, node) => sum + Math.max(0, Math.min(GameState.getNodeIndustryCap(node.id), node.industry + effect.amount) - node.industry), 0);
+            return `最高工业的 ${effect.maxNodes || '全部'} 个己方节点工业 ${signed}${compareLabeled('总工业', playerTotals.totalIndustry, delta, value => formatMoney(value), nonNegative)}`;
+        }
         if (effect.type === 'nodeIndustry') {
             const node = MapData.getNode(effect.nodeId);
-            return `${node ? node.name : '指定城市'} 工业 ${signed}（若失守则作用于当前首都）`;
+            const capital = MapData.getNode(GameState.getCapitalNodeId(playerFactionId));
+            const target = node && node.factionId === playerFactionId ? node : capital;
+            if (!target) return `${node ? node.name : '指定城市'} 工业 ${signed}（若失守则作用于当前首都）`;
+            const cap = GameState.getNodeIndustryCap(target.id);
+            return `${target.name} 工业 ${signed}${compare(target.industry, effect.amount, value => formatMoney(value), value => Math.max(0, Math.min(cap, value)))}${target.id !== effect.nodeId ? '（原目标失守，作用于当前首都）' : ''}`;
         }
-        if (effect.type === 'taggedTroops') return `${effect.tag}节点驻军 ${signed}`;
+        if (effect.type === 'taggedTroops') {
+            const count = GameState.getTaggedNodeCount(effect.tag, playerFactionId);
+            return `${effect.tag}节点驻军 ${signed}${compareLabeled('总兵力', playerTotals.totalTroops, count * effect.amount, value => formatMoney(value), nonNegative)}`;
+        }
 
-        if (effect.type === 'ppCapBonus') return `PP 上限 ${signed}`;
-        if (effect.type === 'recruitCost') return `征兵金钱成本 ${signed}（最低 1）`;
-        if (effect.type === 'freeTroops') return `免维护士兵 ${signed} 名`;
-        if (effect.type === 'globalAttack') return `全局进攻力 ${percent(effect.amount)}`;
-        if (effect.type === 'globalDefense') return `全局防守力 ${percent(effect.amount)}`;
-        if (effect.type === 'taggedDefense') return `${effect.tag}节点防守 ${percent(effect.amount)}`;
-        if (effect.type === 'taggedIncome') return `每个${effect.tag}节点每回合 ${signed} 金钱`;
-        if (effect.type === 'captureMoney') return `每次占领敌方节点立即 ${signed} 金钱`;
-        if (effect.type === 'captureTroops') return `每次占领敌方节点驻军 ${signed}`;
-        if (effect.type === 'crisisPP') return `首都失守时立即 ${signed} PP`;
-        if (effect.type === 'industryCapBonus') return `提升 ${effect.maxNodes || 1} 个最高工业节点工业上限 ${signed}`;
-        if (effect.type === 'taggedNodeMoney') return `立即获得：每个${effect.tag}节点 ${signed} 金钱`;
+        if (effect.type === 'ppCapBonus') return `PP 上限 ${signed}${compare(GameState.getEffectivePPCap(), effect.amount, value => `${formatMoney(value)} PP`, value => Math.max(20, value))}`;
+        if (effect.type === 'recruitCost') {
+            const current = Math.max(1, 2 + GameState.getEffectiveRecruitCostDelta());
+            return `征兵金钱成本 ${signed}${compare(current, effect.amount, value => `${moneyValue(value)}/兵`, value => Math.max(1, value))}`;
+        }
+        if (effect.type === 'freeTroops') return `免维护士兵 ${signed} 名${compare(GameState.getEffectiveFreeTroops(), effect.amount, value => `${formatMoney(value)} 名`, nonNegative)}`;
+        if (effect.type === 'globalAttack') return `全局进攻力 ${percent(effect.amount)}${compare(GameState.getEffectiveGlobalAttack(), effect.amount, percentValue)}`;
+        if (effect.type === 'globalDefense') return `全局防守力 ${percent(effect.amount)}${compare(GameState.getEffectiveGlobalDefense(), effect.amount, percentValue)}`;
+        if (effect.type === 'taggedDefense') {
+            const current = this.getTaggedEffectValue('taggedDefense', effect.tag);
+            return `${effect.tag}节点防守 ${percent(effect.amount)}${compare(current, effect.amount, percentValue)}`;
+        }
+        if (effect.type === 'taggedIncome') {
+            const currentPerNode = this.getTaggedEffectValue('taggedIncome', effect.tag);
+            const count = GameState.getTaggedNodeCount(effect.tag, playerFactionId);
+            return `每个${effect.tag}节点每回合 ${signed} 金钱${compare(currentPerNode * count, effect.amount * count, value => `${signedMoneyValue(value)}/回合`)}`;
+        }
+        if (effect.type === 'captureMoney') return `每次占领敌方节点立即 ${signed} 金钱${compare(GameState.getEffectiveCaptureMoney(), effect.amount, moneyValue, nonNegative)}`;
+        if (effect.type === 'captureTroops') return `每次占领敌方节点驻军 ${signed}${compare(GameState.getEffectiveCaptureTroops(), effect.amount, value => `${formatMoney(value)} 兵`, nonNegative)}`;
+        if (effect.type === 'crisisPP') return `首都失守时立即 ${signed} PP${compare(GameState.getEffectiveCrisisPP(), effect.amount, value => `${formatMoney(value)} PP`, nonNegative)}`;
+        if (effect.type === 'industryCapBonus') {
+            const targetCount = effect.maxNodes || 1;
+            const targets = MapData.getFactionNodes(playerFactionId)
+                .sort((a, b) => b.industry - a.industry || b.troops - a.troops)
+                .slice(0, targetCount);
+            const currentCapTotal = targets.reduce((sum, node) => sum + GameState.getNodeIndustryCap(node.id), 0);
+            return `提升 ${targetCount} 个最高工业节点工业上限 ${signed}${compareLabeled('总上限', currentCapTotal, effect.amount * targets.length, value => formatMoney(value), value => Math.max(0, value))}`;
+        }
+        if (effect.type === 'taggedNodeMoney') {
+            const count = GameState.getTaggedNodeCount(effect.tag, playerFactionId);
+            const total = count * effect.amount;
+            return `立即获得：每个${effect.tag}节点 ${signed} 金钱${compare(GameState.game.playerResources.money || 0, total, moneyValue, nonNegative)}`;
+        }
         if (effect.type === 'damageEnemyIndustry') return `破坏敌方工业最高的 ${effect.maxNodes || 3} 个节点工业 -${effect.amount || 1}`;
-        if (effect.type === 'warBonds') return `立即 +${effect.amount} 金钱，未来 ${effect.turns} 回合每回合 -${effect.penalty} 金钱`;
+        if (effect.type === 'warBonds') {
+            const currentMoney = GameState.game.playerResources.money || 0;
+            const currentDelta = GameState.getNextTurnResourcePreview(playerFactionId).moneyDelta;
+            return `立即 +${effect.amount} 金钱${compare(currentMoney, effect.amount, moneyValue, nonNegative)}，未来 ${effect.turns} 回合每回合 -${effect.penalty} 金钱${compareRaw(currentDelta, currentDelta - effect.penalty, value => `${signedMoneyValue(value)}/回合`)}`;
+        }
         if (effect.type === 'allCapitalsTroops') return `所有己方首都/原始首都驻军 ${signed}`;
         if (effect.type === 'badge') return `获得国家修正：${effect.label}`;
         if (effect.type === 'ideology') {
@@ -900,6 +1078,22 @@ const GamePageView = {
         }
 
         return `${effect.type} ${signed}`;
+    },
+
+    isFocusCompleted(focus) {
+        return Boolean(focus && GameState.game.completedFocuses.includes(focus.id));
+    },
+
+    getTaggedEffectValue(type, tag) {
+        const modifierKey = type === 'taggedIncome' ? 'taggedIncome' : 'taggedDefense';
+        const modifiers = GameState.getGameModifiers()[modifierKey] || {};
+        const ideology = GameState.getIdeology();
+        const ideologyValue = ideology && ideology.bonuses
+            ? ideology.bonuses
+                .filter(bonus => bonus.type === type && bonus.tag === tag)
+                .reduce((sum, bonus) => sum + (bonus.amount || 0), 0)
+            : 0;
+        return (modifiers[tag] || 0) + ideologyValue;
     },
 
     renderDiplomacyModal() {

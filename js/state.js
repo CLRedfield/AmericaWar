@@ -8,6 +8,42 @@ const GameState = {
     selectedFactionId: null,
     ppCap: 100,
     basePPIncome: 3,
+    baseMaintenanceRate: 0.5,
+    debtPenaltyTiers: [
+        {
+            threshold: 20,
+            label: '拖欠军饷',
+            description: '军饷开始拖欠，军心动摇。',
+            ppIncomeDelta: -1,
+            globalAttackDelta: -0.1,
+            globalDefenseDelta: -0.1,
+            actionCostDelta: 0,
+            desertionRate: 0,
+            minDesertion: 0
+        },
+        {
+            threshold: 40,
+            label: '补给断裂',
+            description: '补给链被债务压垮，行政效率下降。',
+            ppIncomeDelta: -2,
+            globalAttackDelta: -0.2,
+            globalDefenseDelta: -0.2,
+            actionCostDelta: 1,
+            desertionRate: 0,
+            minDesertion: 0
+        },
+        {
+            threshold: 80,
+            label: '财政崩溃',
+            description: '财政系统失序，部队开始逃散。',
+            ppIncomeDelta: -3,
+            globalAttackDelta: -0.4,
+            globalDefenseDelta: -0.4,
+            actionCostDelta: 2,
+            desertionRate: 0.08,
+            minDesertion: 2
+        }
+    ],
 
     /**
      * 意识形态表。每个意识形态包含一组在游戏中持续生效的加成（与国策效果同语义）。
@@ -199,7 +235,7 @@ const GameState = {
             playstyleTags: ['防守反击', '正统政府'],
             description: '作为合众国正统，你需要死守华盛顿并向四周出击，平息所有叛乱。',
             ideology: 'military_junta',
-            startingStats: { nodes: 6, industry: 16, troops: 27, money: 50, pp: 10 }
+            startingStats: { nodes: 6, industry: 14, troops: 24, money: 20, pp: 10 }
         },
         {
             id: 'CSA',
@@ -211,7 +247,7 @@ const GameState = {
             playstyleTags: ['工业爆兵', '五大湖防线'],
             description: '控制着五大湖工业区，拥有极高的工业潜力，可以用持续征兵压垮敌人。',
             ideology: 'syndicalism',
-            startingStats: { nodes: 6, industry: 15, troops: 31, money: 30, pp: 5 }
+            startingStats: { nodes: 6, industry: 15, troops: 31, money: 15, pp: 13 }
         },
         {
             id: 'AUS',
@@ -223,7 +259,7 @@ const GameState = {
             playstyleTags: ['中部走廊', '纵深机动'],
             description: '从北部平原一路压到密西西比河下游，能同时威胁五大湖、落基山和深南方。',
             ideology: 'populism',
-            startingStats: { nodes: 8, industry: 11, troops: 27, money: 40, pp: 8 }
+            startingStats: { nodes: 8, industry: 14, troops: 27, money: 24, pp: 10 }
         },
         {
             id: 'CON',
@@ -235,7 +271,7 @@ const GameState = {
             playstyleTags: ['深南方堡垒', '亚特兰大核心'],
             description: '以亚特兰大和卡罗莱纳为核心，夹在联邦军、联盟国和德州之间，扩张窗口很窄。',
             ideology: 'security_state',
-            startingStats: { nodes: 6, industry: 12, troops: 23, money: 35, pp: 10 }
+            startingStats: { nodes: 6, industry: 14, troops: 23, money: 20, pp: 10 }
         },
         {
             id: 'NEN',
@@ -247,7 +283,7 @@ const GameState = {
             playstyleTags: ['偏安一隅', '外援窗口'],
             description: '在东北角自保，依赖外部势力的援助和精密防守。',
             ideology: 'mercantile',
-            startingStats: { nodes: 4, industry: 8, troops: 13, money: 60, pp: 5 }
+            startingStats: { nodes: 4, industry: 8, troops: 13, money: 30, pp: 5 }
         },
         {
             id: 'PAC',
@@ -259,7 +295,7 @@ const GameState = {
             playstyleTags: ['民主堡垒', '落基山防线'],
             description: '退守西海岸，利用地理优势积蓄力量。',
             ideology: 'wartime_democracy',
-            startingStats: { nodes: 5, industry: 12, troops: 22, money: 55, pp: 10 }
+            startingStats: { nodes: 5, industry: 12, troops: 22, money: 20, pp: 7 }
         },
         {
             id: 'WDC',
@@ -271,7 +307,7 @@ const GameState = {
             playstyleTags: ['荒漠游击', '纵深防御'],
             description: '在大平原和沙漠中与各方周旋，节点多但工业薄弱。',
             ideology: 'military_junta',
-            startingStats: { nodes: 7, industry: 8, troops: 17, money: 20, pp: 10 }
+            startingStats: { nodes: 7, industry: 8, troops: 17, money: 18, pp: 10 }
         },
         {
             id: 'TEX',
@@ -283,7 +319,7 @@ const GameState = {
             playstyleTags: ['石油经济', '孤星防线'],
             description: '拥有丰富的油田资源，可以把金钱转化为持续战争潜力。',
             ideology: 'frontier_republic',
-            startingStats: { nodes: 4, industry: 10, troops: 16, money: 45, pp: 8 }
+            startingStats: { nodes: 4, industry: 10, troops: 16, money: 22.5, pp: 8 }
         }
     ],
 
@@ -327,6 +363,7 @@ const GameState = {
         actionCountThisTurn: 0,
         movementOrdersActive: false,
         moveDraftAmount: 1,
+        battleDraftAmount: 1,
         recruitDraftAmount: 1,
         battlePreview: null,
         actionConfirm: null,
@@ -369,7 +406,7 @@ const GameState = {
         showEndGameModal: false,
         mapViewport: { x: 0, y: 0, width: 1000, height: 620 },
         playerResources: {
-            money: 50,
+            money: 25,
             pp: 10,
             nodes: 0,
             totalIndustry: 0,
@@ -637,11 +674,12 @@ const GameState = {
 
     getActionBaseCostAdjustment(action) {
         return (this.getGameModifiers().actionBaseCost[action] || 0)
-            + this.getIdeologyActionCostDelta(action);
+            + this.getIdeologyActionCostDelta(action)
+            + this.getDebtPenalty().actionCostDelta;
     },
 
     getMaintenanceRate() {
-        return Math.max(0.05, 0.25
+        return Math.max(0.05, this.baseMaintenanceRate
             + (this.getGameModifiers().maintenanceRateDelta || 0)
             + this.getIdeologyBonus('maintenanceRateDelta'));
     },
@@ -653,10 +691,11 @@ const GameState = {
         return Math.max(20, total);
     },
 
-    getTurnPPIncome() {
+    getTurnPPIncome(money = this.game.playerResources.money) {
         return Math.max(0, this.basePPIncome
             + (this.getGameModifiers().ppIncome || 0)
-            + this.getIdeologyBonus('ppIncome'));
+            + this.getIdeologyBonus('ppIncome')
+            + this.getDebtPenalty(money).ppIncomeDelta);
     },
 
     getMoneyIncomeBonus() {
@@ -666,12 +705,39 @@ const GameState = {
 
     getEffectiveGlobalAttack() {
         return (this.getGameModifiers().globalAttack || 0)
-            + this.getIdeologyBonus('globalAttack');
+            + this.getIdeologyBonus('globalAttack')
+            + this.getDebtPenalty().globalAttackDelta;
     },
 
     getEffectiveGlobalDefense() {
         return (this.getGameModifiers().globalDefense || 0)
-            + this.getIdeologyBonus('globalDefense');
+            + this.getIdeologyBonus('globalDefense')
+            + this.getDebtPenalty().globalDefenseDelta;
+    },
+
+    getDebtAmount(money = this.game.playerResources.money) {
+        return Math.max(0, -(Number(money) || 0));
+    },
+
+    getDebtPenalty(money = this.game.playerResources.money) {
+        const debt = this.getDebtAmount(money);
+        const tier = [...this.debtPenaltyTiers]
+            .reverse()
+            .find(item => debt >= item.threshold);
+        return tier
+            ? { ...tier, debt }
+            : {
+                threshold: 0,
+                label: '财政稳定',
+                description: '没有赤字惩罚。',
+                debt,
+                ppIncomeDelta: 0,
+                globalAttackDelta: 0,
+                globalDefenseDelta: 0,
+                actionCostDelta: 0,
+                desertionRate: 0,
+                minDesertion: 0
+            };
     },
 
     getEffectiveCaptureMoney() {
@@ -725,6 +791,53 @@ const GameState = {
         return Object.entries(merged).reduce((total, [tag, perNode]) => (
             total + this.getTaggedNodeCount(tag, factionId) * perNode
         ), 0);
+    },
+
+    getNextTurnResourcePreview(factionId = this.getPlayerFactionId(), options = {}) {
+        const mapData = window.MapData;
+        const resources = this.game.playerResources || {};
+        const totals = mapData
+            ? mapData.calculateFactionStats(factionId)
+            : {
+                totalIndustry: resources.totalIndustry || 0,
+                totalTroops: resources.totalTroops || 0
+            };
+        const extraTroops = Number(options.extraTroops) || 0;
+        const extraIndustry = Number(options.extraIndustry) || 0;
+        const moneySpent = Math.max(0, Number(options.moneySpent) || 0);
+        const ppSpent = Math.max(0, Number(options.ppSpent) || 0);
+        const taggedIncome = this.getTaggedIncomeTotal(factionId);
+        const warBondsPenalty = this.game.warBondsPenaltyTurns > 0 ? (this.game.warBondsPenalty || 0) : 0;
+        const grossIncome = Math.max(0, totals.totalIndustry + extraIndustry + this.getMoneyIncomeBonus() + taggedIncome + warBondsPenalty);
+        const maintenanceRate = this.getMaintenanceRate();
+        const freeTroops = Math.max(0, this.getEffectiveFreeTroops());
+        const totalTroops = Math.max(0, totals.totalTroops + extraTroops);
+        const billableTroops = Math.max(0, totalTroops - freeTroops);
+        const maintenance = billableTroops * maintenanceRate;
+        const moneyDelta = grossIncome - maintenance;
+        const currentMoneyAfterAction = (resources.money || 0) - moneySpent;
+        const currentPPAfterAction = Math.max(0, (resources.pp || 0) - ppSpent);
+        const ppIncome = this.getTurnPPIncome(currentMoneyAfterAction);
+        const projectedPP = Math.min(this.getEffectivePPCap(), currentPPAfterAction + ppIncome);
+        const projectedMoney = currentMoneyAfterAction + moneyDelta;
+
+        return {
+            taggedIncome,
+            warBondsPenalty,
+            grossIncome,
+            maintenance,
+            moneyDelta,
+            projectedMoney,
+            ppIncome,
+            ppDelta: projectedPP - currentPPAfterAction,
+            projectedPP,
+            debtPenalty: this.getDebtPenalty(currentMoneyAfterAction),
+            projectedDebtPenalty: this.getDebtPenalty(projectedMoney),
+            maintenanceRate,
+            freeTroops,
+            totalTroops,
+            billableTroops
+        };
     },
 
     getTaggedDefenseBonus(node) {
@@ -1021,6 +1134,16 @@ const GameState = {
         return true;
     },
 
+    fillOpenSlotsWithAi(difficulty = 'normal') {
+        if (!this.isHost()) return 0;
+        let filled = 0;
+        (this.lobby.slots || []).forEach(slot => {
+            if (slot.kind !== 'open') return;
+            if (this.addAiToSlot(slot.factionId, difficulty)) filled += 1;
+        });
+        return filled;
+    },
+
     setAiDifficulty(factionId, difficulty) {
         if (!this.isHost()) return false;
         const slot = this.lobby.slots.find(s => s.factionId === factionId);
@@ -1166,6 +1289,7 @@ const GameState = {
             actionCountThisTurn: 0,
             movementOrdersActive: false,
             moveDraftAmount: 1,
+            battleDraftAmount: 1,
             recruitDraftAmount: 1,
             battlePreview: null,
             actionConfirm: null,

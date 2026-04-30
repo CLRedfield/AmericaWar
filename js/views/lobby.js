@@ -68,6 +68,7 @@ const LobbyView = {
                             ${this.renderSwitch('diplomacy', '启用外交', !isHost)}
                             ${this.renderSwitch('ai', '允许 AI', !isHost)}
                         </div>
+                        ${isHost ? this.renderAiFillControls() : ''}
                     </section>
 
                     <section class="lobby-panel lobby-chat-panel">
@@ -99,9 +100,9 @@ const LobbyView = {
                     <button class="btn btn-outline btn-sm" onclick="window.app.takeSlot('${slot.factionId}')">${GameState.getMySlot() ? '换到这里' : '我坐这里'}</button>
                     ${isHost ? `
                         <select class="compact-select" onchange="window.app.addAiToSlot('${slot.factionId}', this.value)">
-                            <option value="">+ 添加 AI</option>
+                            <option value="" selected>+ 添加 AI</option>
                             <option value="easy">AI · 简单</option>
-                            <option value="normal" selected>AI · 普通</option>
+                            <option value="normal">AI · 普通</option>
                             <option value="hard">AI · 困难</option>
                         </select>
                     ` : ''}
@@ -150,6 +151,28 @@ const LobbyView = {
         if (d === 'easy') return '简单';
         if (d === 'hard') return '困难';
         return '普通';
+    },
+
+    renderAiFillControls() {
+        return `
+            <div class="host-ai-fill">
+                <div>
+                    <strong>一键补 AI</strong>
+                    <span class="text-muted">把所有空席位转为同一难度 AI</span>
+                </div>
+                <div class="host-ai-fill-actions">
+                    <select id="host-fill-ai-difficulty" class="compact-select">
+                        <option value="easy">AI · 简单</option>
+                        <option value="normal" selected>AI · 普通</option>
+                        <option value="hard">AI · 困难</option>
+                    </select>
+                    <button class="btn btn-outline btn-sm"
+                            onclick="window.app.fillOpenSlotsWithAi(document.getElementById('host-fill-ai-difficulty').value)">
+                        一键填满空席
+                    </button>
+                </div>
+            </div>
+        `;
     },
 
     nameOf(factionId) {
