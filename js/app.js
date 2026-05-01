@@ -29,11 +29,19 @@ const App = {
     modalRoot: null,
     rankingMetric: 'nodes',
     mobilePanel: null,
+    mobileLobbyPanel: 'slots',
+    mobilePendingAttack: null,
+    mobilePendingMove: null,
+    focusMobileFilter: 'all',
     timerId: null,
     mapDrag: null,
     mapPointers: new Map(),
     mapTouchGesture: null,
+    lastMapTapAt: 0,
+    lastMapTapPoint: null,
     focusTreeDrag: null,
+    focusTreePointers: new Map(),
+    focusTreeTouchGesture: null,
     focusTreeCentered: false,
     pendingFocusTreeScroll: null,
     lastFocusDragEndedAt: 0,
@@ -69,6 +77,10 @@ const App = {
         };
         const view = views[GameState.currentView] || MainMenuView;
 
+        if (document.body) {
+            document.body.classList.toggle('is-game-view', GameState.currentView === 'game-page');
+            document.body.classList.toggle('is-lobby-view', GameState.currentView === 'lobby');
+        }
         this.root.innerHTML = view.render();
         this.modalRoot.innerHTML = typeof view.renderModals === 'function' ? view.renderModals() : '';
         this.attachMapInteraction();
@@ -87,6 +99,56 @@ const App = {
     setMobilePanel(panel) {
         this.mobilePanel = this.mobilePanel === panel ? null : panel;
         this.render();
+    },
+
+    setMobileLobbyPanel(panel) {
+        this.mobileLobbyPanel = panel || 'slots';
+        this.render();
+    },
+
+    setFocusMobileFilter(filter) {
+        this.captureFocusTreeScroll();
+        this.focusMobileFilter = filter || 'all';
+        GameState.notify();
+    },
+
+    openMobilePendingAttack() {
+        const pending = this.mobilePendingAttack;
+        if (!pending) return;
+        this.mobilePanel = null;
+        this.mobilePendingAttack = null;
+        this.openBattleWithMoveOrder(pending.attackerId, pending.defenderId);
+    },
+
+    openMobilePendingMove() {
+        const pending = this.mobilePendingMove;
+        if (!pending) return;
+        const source = MapData.getNode(pending.sourceId);
+        const target = MapData.getNode(pending.targetId);
+        this.mobilePendingMove = null;
+
+        if (!source || !target) return;
+        if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
+            GameState.addLog('请先使用“移动士兵”发布移动令。', 'system');
+            return;
+        }
+
+        GameState.game.selectedNodeId = source.id;
+        this.mobilePanel = null;
+        this.openMoveConfirm(target.id);
+    },
+
+    openMobileActionPanel() {
+        this.setMobilePanel('actions');
+    },
+
+    centerSelectedNode() {
+        if (GameState.game.selectedNodeId) this.centerNode(GameState.game.selectedNodeId);
+    },
+
+    centerCapital() {
+        const capitalId = GameState.getCapitalNodeId(GameState.getPlayerFactionId());
+        if (capitalId) this.centerNode(capitalId);
     },
 
     setPlayerName(rawName) {
@@ -881,6 +943,30 @@ const App = {
             selectedNode.factionId === playerFactionId &&
             node.factionId !== playerFactionId &&
             MapData.areAdjacent(selectedNode.id, node.id);
+        const isAdjacentFriendly = selectedNode &&
+            selectedNode.id !== node.id &&
+            selectedNode.factionId === playerFactionId &&
+            node.factionId === playerFactionId &&
+            MapData.areAdjacent(selectedNode.id, node.id);
+
+        if (this.isMobileLayout()) {
+            this.mobilePendingAttack = null;
+            this.mobilePendingMove = null;
+
+            if (isAdjacentEnemy && GameState.getNodeMovableTroops(selectedNode) > 0) {
+                this.mobilePendingAttack = { attackerId: selectedNode.id, defenderId: node.id };
+            } else if (
+                isAdjacentFriendly &&
+                GameState.game.movementOrdersActive &&
+                GameState.game.currentAction === 'move' &&
+                GameState.getNodeMovableTroops(selectedNode) > 0
+            ) {
+                this.mobilePendingMove = { sourceId: selectedNode.id, targetId: node.id };
+            }
+
+            GameState.setSelectedNode(nodeId);
+            return;
+        }
 
         if (GameState.game.currentAction === 'move' && selectedNode && selectedNode.factionId === playerFactionId) {
             if (MapData.areAdjacent(selectedNode.id, node.id) && node.factionId === playerFactionId) {
@@ -903,7 +989,6 @@ const App = {
             return;
         }
 
-        if (this.isMobileLayout()) this.mobilePanel = 'actions';
         GameState.setSelectedNode(nodeId);
     },
 
@@ -1230,11 +1315,15 @@ const App = {
                 GameState.game.aiResources[factionId] = { money: f.startingStats.money, pp: f.startingStats.pp };
             }
             const r = GameState.game.aiResources[factionId];
-            const baseIncome = totals.totalIndustry + 1;
+            const profile = window.GameAI
+                ? GameAI.getDifficultyProfile(slot.aiDifficulty || 'normal')
+                : { economyMultiplier: 1, ppMultiplier: 1 };
+            const baseIncome = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
             const maintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
             r.money = r.money + baseIncome - maintenance;
             const debtPenalty = GameState.getDebtPenalty(r.money);
-            r.pp = Math.min(GameState.ppCap, Math.max(0, r.pp + GameState.basePPIncome + debtPenalty.ppIncomeDelta));
+            const ppIncome = GameState.basePPIncome * (profile.ppMultiplier || 1);
+            r.pp = Math.min(GameState.ppCap, Math.max(0, r.pp + ppIncome + debtPenalty.ppIncomeDelta));
         });
     },
 
@@ -1669,11 +1758,53 @@ const App = {
         this.focusTreeCentered = true;
     },
 
+    getFocusTreeTouchPair() {
+        const points = Array.from(this.focusTreePointers.values());
+        return points.length >= 2 ? [points[0], points[1]] : null;
+    },
+
+    startFocusTreeTouchGesture(scroller) {
+        const pair = this.getFocusTreeTouchPair();
+        if (!pair) return;
+
+        const [first, second] = pair;
+        const rect = scroller.getBoundingClientRect();
+        const center = this.getPointerMidpoint(first, second);
+        const scale = this.getFocusTreeScale();
+        this.focusTreeTouchGesture = {
+            scale,
+            distance: Math.max(12, this.getPointerDistance(first, second)),
+            contentX: (scroller.scrollLeft + center.clientX - rect.left) / scale,
+            contentY: (scroller.scrollTop + center.clientY - rect.top) / scale
+        };
+        this.focusTreeDrag = null;
+        scroller.classList.add('is-panning');
+    },
+
+    updateFocusTreeTouchGesture(scroller) {
+        const pair = this.getFocusTreeTouchPair();
+        if (!pair) return;
+        if (!this.focusTreeTouchGesture) this.startFocusTreeTouchGesture(scroller);
+        if (!this.focusTreeTouchGesture) return;
+
+        const [first, second] = pair;
+        const rect = scroller.getBoundingClientRect();
+        const center = this.getPointerMidpoint(first, second);
+        const currentDistance = Math.max(12, this.getPointerDistance(first, second));
+        const nextScale = this.clampFocusTreeScale(this.focusTreeTouchGesture.scale * (currentDistance / this.focusTreeTouchGesture.distance));
+
+        this.setFocusTreeScale(nextScale);
+        scroller.scrollLeft = this.focusTreeTouchGesture.contentX * nextScale - (center.clientX - rect.left);
+        scroller.scrollTop = this.focusTreeTouchGesture.contentY * nextScale - (center.clientY - rect.top);
+    },
+
     attachFocusTreeInteraction() {
         const scroller = document.querySelector('.focus-tree-scroll');
         if (!scroller) return;
 
         this.applyFocusTreeTransform();
+        this.focusTreePointers = new Map();
+        this.focusTreeTouchGesture = null;
 
         scroller.addEventListener('wheel', event => {
             event.preventDefault();
@@ -1694,6 +1825,24 @@ const App = {
         }, { passive: false });
 
         scroller.addEventListener('pointerdown', event => {
+            if (event.pointerType === 'touch') {
+                if (event.target.closest('.focus-detail-panel')) return;
+                this.focusTreePointers.set(event.pointerId, {
+                    pointerId: event.pointerId,
+                    clientX: event.clientX,
+                    clientY: event.clientY
+                });
+                scroller.setPointerCapture(event.pointerId);
+
+                if (this.focusTreePointers.size >= 2) {
+                    this.startFocusTreeTouchGesture(scroller);
+                    event.preventDefault();
+                    return;
+                }
+
+                if (event.target.closest('button')) return;
+            }
+
             if (event.button !== 0) return;
             if (event.target.closest('button, .focus-detail-panel')) return;
 
@@ -1710,6 +1859,20 @@ const App = {
         });
 
         scroller.addEventListener('pointermove', event => {
+            if (event.pointerType === 'touch' && this.focusTreePointers.has(event.pointerId)) {
+                this.focusTreePointers.set(event.pointerId, {
+                    pointerId: event.pointerId,
+                    clientX: event.clientX,
+                    clientY: event.clientY
+                });
+
+                if (this.focusTreePointers.size >= 2) {
+                    this.updateFocusTreeTouchGesture(scroller);
+                    event.preventDefault();
+                    return;
+                }
+            }
+
             if (!this.focusTreeDrag || this.focusTreeDrag.pointerId !== event.pointerId) return;
 
             const dx = event.clientX - this.focusTreeDrag.startX;
@@ -1723,6 +1886,16 @@ const App = {
         });
 
         const stopDrag = event => {
+            if (event.pointerType === 'touch') {
+                const wasPinching = Boolean(this.focusTreeTouchGesture);
+                this.focusTreePointers.delete(event.pointerId);
+                if (this.focusTreePointers.size < 2) {
+                    if (wasPinching) this.lastFocusDragEndedAt = Date.now();
+                    this.focusTreeTouchGesture = null;
+                    scroller.classList.remove('is-panning');
+                }
+            }
+
             if (!this.focusTreeDrag || this.focusTreeDrag.pointerId !== event.pointerId) return;
             if (this.focusTreeDrag.moved) {
                 this.lastFocusDragEndedAt = Date.now();
@@ -1733,6 +1906,7 @@ const App = {
 
         scroller.addEventListener('pointerup', stopDrag);
         scroller.addEventListener('pointercancel', stopDrag);
+        scroller.addEventListener('lostpointercapture', stopDrag);
     },
 
     zoomFocusTree(direction) {
@@ -1820,6 +1994,23 @@ const App = {
         this.updateSvgViewBox(svg);
     },
 
+    handleMapDoubleTap(event) {
+        const now = Date.now();
+        const point = { clientX: event.clientX, clientY: event.clientY };
+        const previous = this.lastMapTapPoint;
+        const closeEnough = previous && Math.hypot(previous.clientX - point.clientX, previous.clientY - point.clientY) < 42;
+
+        if (now - this.lastMapTapAt < 300 && closeEnough) {
+            this.lastMapTapAt = 0;
+            this.lastMapTapPoint = null;
+            this.zoomMap(0.72, point);
+            return;
+        }
+
+        this.lastMapTapAt = now;
+        this.lastMapTapPoint = point;
+    },
+
     attachMapInteraction() {
         const svg = document.getElementById('svg-map');
         if (!svg) return;
@@ -1854,8 +2045,11 @@ const App = {
             this.mapDrag = {
                 pointerId: event.pointerId,
                 pointerType: event.pointerType,
+                startX: event.clientX,
+                startY: event.clientY,
                 lastX: event.clientX,
-                lastY: event.clientY
+                lastY: event.clientY,
+                moved: false
             };
             svg.setPointerCapture(event.pointerId);
         });
@@ -1881,6 +2075,9 @@ const App = {
             const rect = svg.getBoundingClientRect();
             const dx = event.clientX - this.mapDrag.lastX;
             const dy = event.clientY - this.mapDrag.lastY;
+            if (Math.abs(event.clientX - this.mapDrag.startX) + Math.abs(event.clientY - this.mapDrag.startY) > 8) {
+                this.mapDrag.moved = true;
+            }
             viewport.x -= dx * (viewport.width / rect.width);
             viewport.y -= dy * (viewport.height / rect.height);
             this.mapDrag.lastX = event.clientX;
@@ -1896,6 +2093,9 @@ const App = {
             }
 
             if (!this.mapDrag || this.mapDrag.pointerId !== event.pointerId) return;
+            if (event.pointerType === 'touch' && !this.mapDrag.moved) {
+                this.handleMapDoubleTap(event);
+            }
             this.mapDrag = null;
         };
 

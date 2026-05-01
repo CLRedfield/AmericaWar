@@ -8,7 +8,57 @@ const GamePageView = {
                 <main class="game-map-container">${MapView.render()}</main>
                 ${this.renderRightActionPanel()}
                 ${this.renderBottomLogPanel()}
+                ${this.renderMobileSelectedNodeChip()}
                 ${this.renderMobilePanelDock()}
+            </div>
+        `;
+    },
+
+    renderMobileSelectedNodeChip() {
+        const node = MapData.getNode(GameState.game.selectedNodeId);
+        if (!node) return '';
+
+        const pendingAttack = window.app.mobilePendingAttack;
+        const pendingMove = window.app.mobilePendingMove;
+        const faction = GameState.getFaction(node.factionId);
+        const playerFactionId = GameState.getPlayerFactionId();
+        const isFriendly = node.factionId === playerFactionId;
+        const movableTroops = GameState.getNodeMovableTroops(node);
+
+        let primaryAction = '';
+        let contextText = `${faction.shortName} · 兵力 ${node.troops} · 可动 ${movableTroops} · 工业 ${node.industry}`;
+
+        if (pendingAttack && pendingAttack.defenderId === node.id) {
+            const attacker = MapData.getNode(pendingAttack.attackerId);
+            if (attacker) {
+                contextText = `${attacker.name} → ${node.name} · 可动 ${GameState.getNodeMovableTroops(attacker)} / 守军 ${node.troops}`;
+                primaryAction = `<button class="btn btn-danger btn-sm" onclick="window.app.openMobilePendingAttack()">进攻预览</button>`;
+            }
+        } else if (pendingMove && pendingMove.targetId === node.id) {
+            const source = MapData.getNode(pendingMove.sourceId);
+            if (source) {
+                contextText = `${source.name} → ${node.name} · 可调动 ${GameState.getNodeMovableTroops(source)}`;
+                primaryAction = `<button class="btn btn-primary btn-sm" onclick="window.app.openMobilePendingMove()">移动确认</button>`;
+            }
+        } else if (isFriendly) {
+            primaryAction = `<button class="btn btn-primary btn-sm" onclick="window.app.openMobileActionPanel()">行动</button>`;
+        } else {
+            primaryAction = `<button class="btn btn-outline btn-sm" onclick="window.app.setMobilePanel('intel')">情报</button>`;
+        }
+
+        return `
+            <div class="mobile-node-chip" style="--faction-color: ${faction.color}">
+                <div class="mobile-node-chip-main">
+                    <span>${node.abbr}</span>
+                    <div>
+                        <strong>${node.name}</strong>
+                        <small>${contextText}</small>
+                    </div>
+                </div>
+                <div class="mobile-node-chip-actions">
+                    ${primaryAction}
+                    <button class="btn btn-outline btn-sm" onclick="window.app.centerSelectedNode()">定位</button>
+                </div>
             </div>
         `;
     },
@@ -76,19 +126,19 @@ const GamePageView = {
                 </div>
 
                 <div class="top-bar-stats">
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-core-stat">
                         <span class="top-stat-label">回合</span>
                         <span class="top-stat-value">${game.currentTurn}</span>
                     </div>
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-core-stat">
                         <span class="top-stat-label">当前</span>
                         <span class="top-stat-value" style="color: ${faction.color}">${faction.shortName}</span>
                     </div>
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">计时</span>
                         <span class="top-stat-value timer ${isLowTime ? 'danger' : ''}">${formatTimer(game.timerRemaining)}</span>
                     </div>
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-core-stat">
                         <span class="top-stat-label">$</span>
                         <span class="top-stat-value ${resources.money < 0 ? 'negative-money' : ''}">
                             ${formatMoney(resources.money)}
@@ -96,27 +146,27 @@ const GamePageView = {
                         </span>
                     </div>
                     ${debtPenalty.threshold > 0 ? `
-                        <div class="top-stat-item debt-top-indicator">
+                        <div class="top-stat-item debt-top-indicator mobile-core-stat">
                             <span class="top-stat-label">赤字</span>
                             <span class="top-stat-value negative-money">${debtPenalty.label}</span>
                         </div>
                     ` : ''}
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-core-stat">
                         <span class="top-stat-label">PP</span>
                         <span class="top-stat-value">
                             ${resources.pp}/${GameState.getEffectivePPCap()}
                             <span class="resource-delta ${this.deltaClass(resourcePreview.ppDelta)}">(${formatSignedMoney(resourcePreview.ppDelta)})</span>
                         </span>
                     </div>
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">行动递增</span>
                         <span class="top-stat-value">+${GameState.getActionExtraCost()} PP</span>
                     </div>
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">节点</span>
                         <span class="top-stat-value">${resources.nodes}</span>
                     </div>
-                    <div class="top-stat-item">
+                    <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">工业</span>
                         <span class="top-stat-value">${resources.totalIndustry}</span>
                     </div>
@@ -741,6 +791,18 @@ const GamePageView = {
                             <button class="map-icon-btn" title="放大国策树" onclick="window.app.zoomFocusTree(1)">+</button>
                             <button class="btn btn-outline" onclick="window.app.resetFocusTreeView()">居中</button>
                         </div>
+                        <div class="focus-mobile-filter">
+                            ${[
+                                { id: 'all', label: '全部' },
+                                { id: 'available', label: '可推进' },
+                                { id: 'done', label: '已完成' },
+                                { id: 'locked', label: '锁定' }
+                            ].map(item => `
+                                <button class="${window.app.focusMobileFilter === item.id ? 'active' : ''}" onclick="window.app.setFocusMobileFilter('${item.id}')">
+                                    ${item.label}
+                                </button>
+                            `).join('')}
+                        </div>
                     </div>
                     <div class="focus-modal-body">
                         <div class="focus-tree-scroll">
@@ -841,6 +903,12 @@ const GamePageView = {
                     : status === 'pp-blocked'
                         ? 'pp-blocked'
                         : 'locked';
+        const filter = window.app.focusMobileFilter || 'all';
+        const mobileHidden = filter !== 'all' && !(
+            (filter === 'done' && status === 'done') ||
+            (filter === 'available' && status === 'available') ||
+            (filter === 'locked' && status !== 'done' && status !== 'available')
+        );
         const statusText = status === 'done'
             ? '已完成'
             : status === 'mutually-blocked'
@@ -856,7 +924,7 @@ const GamePageView = {
         const progressPercent = Math.round(progress.ratio * 100);
 
         return `
-            <button class="focus-card ${stateClass} ${selected ? 'selected' : ''}" data-focus-id="${focus.id}"
+            <button class="focus-card ${stateClass} ${selected ? 'selected' : ''} ${mobileHidden ? 'mobile-focus-hidden' : ''}" data-focus-id="${focus.id}"
                 style="left: ${position.left}px; top: ${position.top}px;"
                 onclick="window.app.selectFocus('${focus.id}')">
                 <div class="focus-branch">${focus.branch}</div>

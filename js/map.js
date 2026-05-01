@@ -186,6 +186,8 @@ const MapView = {
                 <button class="btn btn-outline" onclick="window.app.toggleGridView()">网格视图</button>
                 <button class="map-icon-btn" title="放大" onclick="window.app.zoomMap(0.85)">+</button>
                 <button class="map-icon-btn" title="缩小" onclick="window.app.zoomMap(1.15)">-</button>
+                <button class="btn btn-outline mobile-map-shortcut" onclick="window.app.centerCapital()">首都</button>
+                <button class="btn btn-outline mobile-map-shortcut" onclick="window.app.centerSelectedNode()">选中</button>
                 <button class="btn btn-outline" onclick="window.app.resetMapViewport()">重置视角</button>
             </div>
             <svg id="svg-map" viewBox="${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}" aria-label="战略地图">
@@ -251,6 +253,7 @@ const MapView = {
                 onmouseleave="window.app.hoverNode(null)"
                 onclick="event.stopPropagation(); window.app.handleNodeClick('${node.id}')"
                 ondblclick="event.stopPropagation(); window.app.centerNode('${node.id}')">
+                <circle class="node-hit-area" r="30"></circle>
                 ${isMoveTarget ? '<circle class="target-pulse move" r="31"></circle>' : ''}
                 ${canAttack ? '<circle class="target-pulse attack" r="31"></circle>' : ''}
                 <circle class="control-ring" r="23" stroke="${color}"></circle>

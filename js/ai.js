@@ -23,6 +23,9 @@ const GameAI = {
     difficultyProfiles: {
         easy: {
             maxActions: 2,
+            minActions: 2,
+            economyMultiplier: 1,
+            ppMultiplier: 1,
             minAttackRatio: 1.45,
             minAttackScore: 30,
             lossAversion: 2.2,
@@ -34,6 +37,9 @@ const GameAI = {
         },
         normal: {
             maxActions: 6,
+            minActions: 2,
+            economyMultiplier: 1.25,
+            ppMultiplier: 1.25,
             minAttackRatio: 1.18,
             minAttackScore: 14,
             lossAversion: 1.45,
@@ -45,6 +51,9 @@ const GameAI = {
         },
         hard: {
             maxActions: 12,
+            minActions: 2,
+            economyMultiplier: 1.5,
+            ppMultiplier: 1.5,
             minAttackRatio: 1.03,
             minAttackScore: 2,
             lossAversion: 0.95,
@@ -97,11 +106,14 @@ const GameAI = {
             if (Date.now() - startedAt >= this.turnBudgetMs) return finish();
             if (actionCount >= maxActions) return finish();
 
-            const acted = this.tryOneAction(factionId, difficulty);
-            actionCount += 1;
+            let acted = this.tryOneAction(factionId, difficulty);
+            if (!acted && actionCount < profile.minActions) {
+                acted = this.aiHoldAction(factionId);
+            }
 
             if (!acted) return finish();
 
+            actionCount += 1;
             this.pendingTimeout = setTimeout(step, actionDelay);
         };
 
@@ -332,6 +344,36 @@ const GameAI = {
         return true;
     },
 
+    aiHoldAction(factionId) {
+        const situation = this.getFactionSituation(factionId);
+        const anchor = situation.frontNodes
+            .sort((a, b) => this.getEnemyPressure(b, factionId) - this.getEnemyPressure(a, factionId))
+            [0] || situation.capital || situation.nodes[0];
+
+        GameState.game.actionCountThisTurn = (GameState.game.actionCountThisTurn || 0) + 1;
+        if (anchor) GameState.game.selectedNodeId = anchor.id;
+        GameState.addLog(`${GameState.getFactionName(factionId)} AI 整军待命，巩固${anchor ? ` ${anchor.name}` : '防线'}。`, 'system', false);
+        GameState.notify();
+        return true;
+    },
+
+    estimateAiNextTurnMoney(factionId, resources, profile, extraTroops = 0, moneySpent = 0) {
+        const totals = MapData.calculateFactionStats(factionId);
+        const income = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
+        const totalTroops = totals.totalTroops + extraTroops;
+        const maintenance = Math.max(0, totalTroops * GameState.baseMaintenanceRate);
+        return resources.money - moneySpent + income - maintenance;
+    },
+
+    getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, minBalance = 1) {
+        const totals = MapData.calculateFactionStats(factionId);
+        const income = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
+        const currentMaintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
+        const room = resources.money + income - currentMaintenance - minBalance;
+        const fullCostPerSoldier = costPerSoldier + GameState.baseMaintenanceRate;
+        return Math.max(0, Math.floor(room / fullCostPerSoldier));
+    },
+
     getEnemyPressure(node, factionId) {
         if (!node) return 0;
         return MapData.getNeighbors(node.id)
@@ -385,7 +427,10 @@ const GameAI = {
     pickRecruitPlan(factionId, resources, profile, emergencyOnly = false) {
         const ppCost = this.getActionPPCost(1);
         const costPerSoldier = 2;
-        const maxAffordable = Math.floor(resources.money / costPerSoldier);
+        const maxAffordable = Math.min(
+            Math.floor(resources.money / costPerSoldier),
+            this.getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, 1)
+        );
         if (resources.pp < ppCost || maxAffordable < 1) return null;
 
         const candidates = MapData.getFactionNodes(factionId)
@@ -414,6 +459,8 @@ const GameAI = {
         const costPerSoldier = 2;
         if (!node || amount < 1) return false;
         if (resources.money < costPerSoldier * amount) return false;
+        const profile = this.getDifficultyProfile(GameState.getSlot(factionId)?.aiDifficulty || 'normal');
+        if (this.estimateAiNextTurnMoney(factionId, resources, profile, amount, costPerSoldier * amount) < 1) return false;
         if (!this.spendAction(resources, ppCost)) return false;
 
         resources.money -= costPerSoldier * amount;

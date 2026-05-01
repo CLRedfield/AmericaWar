@@ -7,6 +7,7 @@ const LobbyView = {
         const activeCount = (lobby.slots || []).filter(s => s.kind !== 'open').length;
         const humanCount = (lobby.slots || []).filter(s => s.kind === 'human').length;
         const canStart = isHost && humanCount >= 1 && activeCount >= 2;
+        const mobilePanel = window.app.mobileLobbyPanel || 'slots';
 
         const slotsHtml = (lobby.slots || []).map(slot => this.renderSlotRow(slot, isHost, isOnline, lobby)).join('');
 
@@ -22,7 +23,7 @@ const LobbyView = {
             : null;
 
         return `
-            <div class="view-lobby animate-fade-in">
+            <div class="view-lobby animate-fade-in mobile-lobby-panel-${mobilePanel}">
                 <header class="lobby-header">
                     <div>
                         <div class="eyebrow">${isOnline ? '联机房间' : '本地沙盒房间'}</div>
@@ -81,7 +82,26 @@ const LobbyView = {
                             onkeydown="window.app.handleLobbyChatKey(event)">
                     </section>
                 </div>
+                ${this.renderMobileLobbyDock(mobilePanel, activeCount, lobby.slots.length, isHost)}
             </div>
+        `;
+    },
+
+    renderMobileLobbyDock(active, activeCount, totalSlots, isHost) {
+        const items = [
+            { id: 'slots', label: `席位 ${activeCount}/${totalSlots}` },
+            { id: 'settings', label: isHost ? '房主设置' : '设置' },
+            { id: 'chat', label: '聊天' }
+        ];
+
+        return `
+            <nav class="mobile-lobby-dock" aria-label="手机版房间面板切换">
+                ${items.map(item => `
+                    <button class="${active === item.id ? 'active' : ''}" onclick="window.app.setMobileLobbyPanel('${item.id}')">
+                        ${item.label}
+                    </button>
+                `).join('')}
+            </nav>
         `;
     },
 
