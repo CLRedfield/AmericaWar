@@ -1450,7 +1450,7 @@ const App = {
             }
             const r = GameState.game.aiResources[factionId];
             const profile = window.GameAI
-                ? GameAI.getDifficultyProfile(slot.aiDifficulty || 'normal')
+                ? GameAI.getDifficultyProfile(slot.aiDifficulty || 'normal', factionId)
                 : { economyMultiplier: 1, ppMultiplier: 1 };
             if (window.GameAI && GameAI.settleAiTurnStart) {
                 const settlement = GameAI.settleAiTurnStart(factionId, r, profile);

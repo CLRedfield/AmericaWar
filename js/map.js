@@ -25,15 +25,16 @@ const MapData = {
         { id: 'OKC', abbr: 'OKC', name: '俄克拉荷马城', factionId: 'AUS', x: 526, y: 452, row: 4, col: 4, industry: 2, troops: 3, terrain: '平原油田', tags: ['油田'] },
         { id: 'STL', abbr: 'STL', name: '圣路易斯', factionId: 'AUS', x: 640, y: 342, row: 3, col: 5, industry: 3, troops: 4, terrain: '河港城市', tags: [] },
         { id: 'LRK', abbr: 'LRK', name: '小石城', factionId: 'AUS', x: 616, y: 438, row: 4, col: 5, industry: 1, troops: 3, terrain: '河谷城市', tags: [] },
-        { id: 'BAT', abbr: 'BAT', name: '巴吞鲁日', factionId: 'AUS', x: 642, y: 532, row: 5, col: 5, industry: 2, troops: 5, terrain: '联盟国首府', tags: ['首都', '油田'], isCapital: true },
-        { id: 'NOL', abbr: 'NOL', name: '新奥尔良', factionId: 'AUS', x: 688, y: 558, row: 5, col: 6, industry: 2, troops: 3, terrain: '港口城市', tags: ['港口'] },
+        { id: 'BAT', abbr: 'BAT', name: '巴吞鲁日', factionId: 'AUS', x: 642, y: 532, row: 5, col: 5, industry: 5, troops: 6, terrain: '联盟国首府', tags: ['首都', '油田'], isCapital: true },
+        { id: 'NOL', abbr: 'NOL', name: '新奥尔良', factionId: 'AUS', x: 688, y: 558, row: 5, col: 6, industry: 4, troops: 3, terrain: '港口城市', tags: ['港口'] },
+        { id: 'HOU', abbr: 'HOU', name: '休斯敦', factionId: 'AUS', x: 552, y: 580, row: 6, col: 4, industry: 2, troops: 4, terrain: '港口油田', tags: ['港口', '油田'] },
 
         { id: 'MSP', abbr: 'MSP', name: '明尼阿波利斯', factionId: 'CSA', x: 600, y: 166, row: 0, col: 5, industry: 2, troops: 4, terrain: '湖区城市', tags: [] },
         { id: 'MIL', abbr: 'MIL', name: '密尔沃基', factionId: 'CSA', x: 658, y: 174, row: 0, col: 6, industry: 2, troops: 4, terrain: '工业港口', tags: ['港口'] },
         { id: 'CHI', abbr: 'CHI', name: '芝加哥', factionId: 'CSA', x: 676, y: 238, row: 1, col: 6, industry: 4, troops: 8, terrain: '工团首府', tags: ['首都'], isCapital: true },
         { id: 'DET', abbr: 'DET', name: '底特律', factionId: 'CSA', x: 748, y: 212, row: 0, col: 7, industry: 3, troops: 6, terrain: '汽车工业城', tags: [] },
         { id: 'CLE', abbr: 'CLE', name: '克利夫兰', factionId: 'CSA', x: 798, y: 250, row: 1, col: 8, industry: 2, troops: 5, terrain: '湖岸工业城', tags: [] },
-        { id: 'PIT', abbr: 'PIT', name: '匹兹堡', factionId: 'CSA', x: 808, y: 300, row: 2, col: 8, industry: 2, troops: 4, terrain: '钢铁城市', tags: [] },
+        { id: 'PIT', abbr: 'PIT', name: '匹兹堡', factionId: 'CSA', x: 808, y: 300, row: 2, col: 8, industry: 2, troops: 1, terrain: '钢铁城市', tags: [] },
 
         { id: 'WAS', abbr: 'WAS', name: '华盛顿', factionId: 'USA', x: 860, y: 326, row: 2, col: 9, industry: 3, troops: 6, terrain: '军政府首都', tags: ['首都'], isCapital: true },
         { id: 'BAL', abbr: 'BAL', name: '巴尔的摩', factionId: 'USA', x: 842, y: 292, row: 2, col: 8, industry: 2, troops: 4, terrain: '港口城市', tags: ['港口'] },
@@ -47,7 +48,7 @@ const MapData = {
         { id: 'BOS', abbr: 'BOS', name: '波士顿', factionId: 'NEN', x: 944, y: 162, row: 0, col: 11, industry: 2, troops: 5, terrain: '新英格兰首府', tags: ['首都', '港口'], isCapital: true },
         { id: 'MNE', abbr: 'MNE', name: '缅因', factionId: 'NEN', x: 958, y: 104, row: 0, col: 12, industry: 1, troops: 2, terrain: '森林海岸', tags: [] },
 
-        { id: 'ATL', abbr: 'ATL', name: '亚特兰大', factionId: 'CON', x: 760, y: 456, row: 4, col: 7, industry: 2, troops: 6, terrain: '宪政国首府', tags: ['首都'], isCapital: true },
+        { id: 'ATL', abbr: 'ATL', name: '亚特兰大', factionId: 'CON', x: 760, y: 456, row: 4, col: 7, industry: 3, troops: 6, terrain: '宪政国首府', tags: ['首都'], isCapital: true },
         { id: 'BHM', abbr: 'BHM', name: '伯明翰', factionId: 'CON', x: 704, y: 486, row: 4, col: 6, industry: 2, troops: 3, terrain: '钢铁工业区', tags: [] },
         { id: 'CHA', abbr: 'CHA', name: '夏洛特', factionId: 'CON', x: 820, y: 424, row: 3, col: 8, industry: 2, troops: 3, terrain: '卡罗莱纳工业城', tags: [] },
         { id: 'CLM', abbr: 'CLM', name: '哥伦比亚', factionId: 'CON', x: 816, y: 458, row: 4, col: 8, industry: 1, troops: 3, terrain: '内陆城市', tags: [] },
@@ -55,8 +56,7 @@ const MapData = {
         { id: 'JAX', abbr: 'JAX', name: '杰克逊维尔', factionId: 'CON', x: 826, y: 564, row: 5, col: 9, industry: 1, troops: 3, terrain: '佛州港口', tags: ['港口'] },
 
         { id: 'ELP', abbr: 'ELP', name: '埃尔帕索', factionId: 'TEX', x: 408, y: 552, row: 5, col: 3, industry: 2, troops: 3, terrain: '边境城市', tags: [] },
-        { id: 'DAL', abbr: 'DAL', name: '达拉斯', factionId: 'TEX', x: 504, y: 520, row: 5, col: 4, industry: 3, troops: 6, terrain: '德克萨斯首府', tags: ['首都', '油田'], isCapital: true },
-        { id: 'HOU', abbr: 'HOU', name: '休斯敦', factionId: 'TEX', x: 552, y: 580, row: 6, col: 4, industry: 3, troops: 4, terrain: '港口油田', tags: ['港口', '油田'] },
+        { id: 'DAL', abbr: 'DAL', name: '达拉斯', factionId: 'TEX', x: 504, y: 520, row: 5, col: 4, industry: 3, troops: 7, terrain: '德克萨斯首府', tags: ['首都', '油田'], isCapital: true },
         { id: 'SAT', abbr: 'SAT', name: '圣安东尼奥', factionId: 'TEX', x: 456, y: 584, row: 6, col: 3, industry: 2, troops: 3, terrain: '边境城市', tags: [] }
     ],
 
@@ -69,7 +69,7 @@ const MapData = {
         ['MSP', 'MIL'], ['MIL', 'CHI'], ['CHI', 'DET'], ['CHI', 'CLE'], ['DET', 'CLE'], ['DET', 'ALB'], ['CLE', 'PIT'], ['PIT', 'CHA'], ['PIT', 'PHI'], ['PIT', 'BAL'], ['PIT', 'WAS'],
         ['ALB', 'NYC'], ['ALB', 'HFD'], ['HFD', 'BOS'], ['BOS', 'MNE'], ['HFD', 'NYC'], ['NYC', 'PHI'], ['PHI', 'BAL'], ['BAL', 'WAS'], ['WAS', 'RIC'], ['RIC', 'NOR'],
         ['RIC', 'CHA'], ['NOR', 'CLM'], ['ATL', 'BHM'], ['ATL', 'CHA'], ['ATL', 'CLM'], ['ATL', 'SAV'], ['BHM', 'LRK'], ['BHM', 'BAT'], ['CLM', 'CHA'], ['CLM', 'SAV'], ['SAV', 'JAX'],
-        ['ELP', 'ABQ'], ['ELP', 'SAT'], ['SAT', 'DAL'], ['SAT', 'HOU'], ['DAL', 'HOU'], ['DAL', 'OKC']
+        ['ELP', 'ABQ'], ['ELP', 'SAT'], ['SAT', 'DAL'], ['SAT', 'HOU'], ['DAL', 'HOU'], ['DAL', 'OKC'], ['WAS', 'BOS']
     ],
 
     nodes: [],

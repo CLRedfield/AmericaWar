@@ -456,15 +456,33 @@ const GamePageView = {
         let money = faction.startingStats.money;
         let pp = faction.startingStats.pp;
         let source = '开局基准';
+        let nextTurn = null;
 
         if (factionId === GameState.getPlayerFactionId()) {
             money = GameState.game.playerResources.money;
             pp = GameState.game.playerResources.pp;
             source = '玩家资源';
+            const preview = GameState.getNextTurnResourcePreview(factionId);
+            nextTurn = {
+                moneyDelta: preview.moneyDelta,
+                income: preview.grossIncome,
+                maintenance: preview.maintenance,
+                ppIncome: preview.ppIncome
+            };
         } else if (slot && slot.kind === 'ai' && GameState.game.aiResources && GameState.game.aiResources[factionId]) {
             money = GameState.game.aiResources[factionId].money;
             pp = GameState.game.aiResources[factionId].pp;
             source = `AI · ${typeof LobbyView !== 'undefined' ? LobbyView.difficultyLabel(slot.aiDifficulty) : (slot.aiDifficulty || 'normal')}`;
+            if (window.GameAI && GameAI.calculateAiTurnPreview) {
+                const profile = GameAI.getDifficultyProfile(slot.aiDifficulty || 'normal', factionId);
+                const preview = GameAI.calculateAiTurnPreview(factionId, GameState.game.aiResources[factionId], profile);
+                nextTurn = {
+                    moneyDelta: preview.moneyDelta,
+                    income: preview.income,
+                    maintenance: preview.maintenance,
+                    ppIncome: preview.ppIncome
+                };
+            }
         } else if (slot && slot.kind === 'human') {
             source = '玩家席位';
         } else if (slot && slot.kind === 'open') {
@@ -478,6 +496,7 @@ const GamePageView = {
             capital,
             money,
             pp,
+            nextTurn,
             source
         };
     },
@@ -500,6 +519,8 @@ const GamePageView = {
                 <div class="node-detail-grid">
                     <div><span>金钱</span><strong class="${observed.money < 0 ? 'negative-money' : ''}">$ ${formatMoney(observed.money)}</strong></div>
                     <div><span>PP</span><strong>${formatMoney(observed.pp)}</strong></div>
+                    <div><span>下回合金钱</span><strong>${observed.nextTurn ? `${formatSignedMoney(observed.nextTurn.moneyDelta)}（+$${formatMoney(observed.nextTurn.income)} / -$${formatMoney(observed.nextTurn.maintenance)}）` : '未知'}</strong></div>
+                    <div><span>下回合 PP</span><strong>${observed.nextTurn ? formatSignedMoney(observed.nextTurn.ppIncome) : '未知'}</strong></div>
                     <div><span>节点</span><strong>${observed.stats.nodes}</strong></div>
                     <div><span>工业</span><strong>${observed.stats.totalIndustry}</strong></div>
                     <div><span>总兵力</span><strong>${observed.stats.totalTroops}</strong></div>

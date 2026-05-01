@@ -93,6 +93,19 @@ const GameAI = {
             buildMoneyReserve: 10
         }
     },
+    factionProfiles: {
+        TEX: {
+            defenseReserveRatio: 0.6
+        }
+    },
+    targetAttackBiases: {
+        AUS: { TEX: 1 },
+        USA: { NEN: 1 }
+    },
+    targetAttackDamageBonuses: {
+        AUS: { TEX: 0.3 },
+        USA: { NEN: 0.3 }
+    },
 
     cancelPending() {
         if (this.pendingTimeout) {
@@ -102,8 +115,10 @@ const GameAI = {
         this.isThinking = false;
     },
 
-    getDifficultyProfile(difficulty) {
-        return this.difficultyProfiles[difficulty] || this.difficultyProfiles.normal;
+    getDifficultyProfile(difficulty, factionId = null) {
+        const baseProfile = this.difficultyProfiles[difficulty] || this.difficultyProfiles.normal;
+        const factionProfile = factionId ? this.factionProfiles[factionId] : null;
+        return factionProfile ? { ...baseProfile, ...factionProfile } : baseProfile;
     },
 
     /**
@@ -116,7 +131,7 @@ const GameAI = {
             return;
         }
 
-        const profile = this.getDifficultyProfile(difficulty);
+        const profile = this.getDifficultyProfile(difficulty, factionId);
         const maxActions = profile.maxActions;
         const actionDelay = this.actionDelayMs;
         const startedAt = Date.now();
@@ -158,7 +173,7 @@ const GameAI = {
         const faction = GameState.getFaction(factionId);
         if (!faction) return false;
 
-        const profile = this.getDifficultyProfile(difficulty);
+        const profile = this.getDifficultyProfile(difficulty, factionId);
         const resources = this.computeFactionResources(factionId);
         const actionIndex = GameState.game.actionCountThisTurn || 0;
 
@@ -301,6 +316,22 @@ const GameAI = {
     getAiActionCostAdjustment(factionId, action) {
         const costs = this.getAiModifiers(factionId).actionBaseCost || {};
         return costs[action] || 0;
+    },
+
+    getTargetAttackBias(factionId, targetFactionId) {
+        return (this.targetAttackBiases[factionId] && this.targetAttackBiases[factionId][targetFactionId]) || 0;
+    },
+
+    getTargetAttackDamageBonus(factionId, targetFactionId) {
+        return (this.targetAttackDamageBonuses[factionId] && this.targetAttackDamageBonuses[factionId][targetFactionId]) || 0;
+    },
+
+    getTargetFrontBias(factionId, node) {
+        const targets = this.targetAttackBiases[factionId] || {};
+        if (!node || Object.keys(targets).length === 0) return 0;
+        return MapData.getNeighbors(node.id)
+            .filter(neighbor => neighbor.factionId && targets[neighbor.factionId])
+            .reduce((sum, neighbor) => sum + targets[neighbor.factionId] * 80, 0);
     },
 
     pickFocus(factionId) {
@@ -730,15 +761,18 @@ const GameAI = {
                 if (!sourceIsCapital && sourcePressure > 0 && sourcePressure >= frontPressure) return null;
 
                 const frontNeed = this.estimateNodeDefenseNeed(front, factionId, profile) - front.troops;
+                const targetFrontBias = this.getTargetFrontBias(factionId, front);
+                const reinforceLimit = Math.max(profile.reinforceBatch, Math.ceil(source.troops * 2 / 3));
                 const amount = Math.max(1, Math.min(
                     maxSafeMove,
-                    profile.reinforceBatch,
-                    Math.ceil(Math.max(1, frontNeed > 0 ? frontNeed : profile.reinforceBatch * 0.5))
+                    reinforceLimit,
+                    Math.ceil(Math.max(1, frontNeed > 0 ? frontNeed : reinforceLimit * 0.5))
                 ));
                 const score = frontPressure * 4
                     + Math.max(0, frontNeed) * 14
                     + this.getNodeStrategicValue(front) * 1.4
                     + this.getNodeStrategicValue(nextStep) * 0.45
+                    + targetFrontBias
                     - distance * 2
                     - sourcePressure * 1.2;
 
@@ -814,7 +848,7 @@ const GameAI = {
         const moneyCost = costPerSoldier * draftAmount;
         if (!node || amount < 1) return false;
         if (resources.money < moneyCost) return false;
-        const profile = this.getDifficultyProfile(GameState.getSlot(factionId)?.aiDifficulty || 'normal');
+        const profile = this.getDifficultyProfile(GameState.getSlot(factionId)?.aiDifficulty || 'normal', factionId);
         if (moneyCost > Math.max(0, resources.money) * 0.25) return false;
         if (this.estimateAiMoneyAfterTurns(factionId, resources, profile, amount, moneyCost, 5) < 0) return false;
         if (!this.spendAction(resources, ppCost)) return false;
@@ -916,6 +950,7 @@ const GameAI = {
             + defenseModifierBonus
             + (defenderEncircled ? encirclementPenalty : 0);
         const attackerAttackBonus = this.getAiAttackBonusPercent(factionId)
+            + Math.round(this.getTargetAttackDamageBonus(factionId, defender.factionId) * 100)
             + (attackerEncircled ? encirclementPenalty : 0);
         const maxAttackers = GameState.getNodeMovableTroops(attacker);
         const draftAmount = requestedAmount === null || typeof requestedAmount === 'undefined'
@@ -961,7 +996,7 @@ const GameAI = {
         const reserveRatio = typeof profile.defenseReserveRatio === 'number' ? profile.defenseReserveRatio : 1;
         const sourceNeed = Math.ceil(this.estimateNodeDefenseNeed(attacker, factionId, profile) * reserveRatio);
         const overextensionPenalty = Math.max(0, sourceNeed - sourceAfter) * 0.6;
-        const attackBias = profile.attackBias || 1;
+        const attackBias = (profile.attackBias || 1) + this.getTargetAttackBias(factionId, defender.factionId);
 
         const attackValue = (preview.attackerWins ? 50 : -70)
             + this.getNodeStrategicValue(defender)
@@ -1074,10 +1109,18 @@ const GameAI = {
                     if (targetPressure <= 0 && targetNeed <= 0) return;
                     if (!sourceIsCapital && sourcePressure > targetPressure && targetNeed <= 0) return;
 
-                    const amount = Math.max(1, Math.min(maxSafeMove, profile.reinforceBatch, Math.ceil(Math.max(1, targetNeed))));
+                    const targetFrontBias = this.getTargetFrontBias(factionId, target);
+                    const reinforceLimit = Math.max(profile.reinforceBatch, Math.ceil(source.troops * 2 / 3));
+                    const desiredAmount = targetNeed > 0
+                        ? targetNeed
+                        : targetFrontBias > 0
+                            ? reinforceLimit * 0.5
+                            : 1;
+                    const amount = Math.max(1, Math.min(maxSafeMove, reinforceLimit, Math.ceil(Math.max(1, desiredAmount))));
                     const score = targetNeed * 15
                         + targetPressure * 2.5
                         + this.getNodeStrategicValue(target) * 1.4
+                        + targetFrontBias
                         - sourcePressure * 0.9
                         - this.getNodeStrategicValue(source) * 0.08;
                     if (score > 3) plans.push({ source, target, amount, score });

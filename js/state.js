@@ -138,7 +138,7 @@ const GameState = {
             bonuses: [
                 { type: 'globalDefense', amount: 0.15 },
                 { type: 'crisisPP', amount: 5 },
-                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'maintenanceRate', amount: -0.05 },
                 { type: 'globalAttack', amount: -0.05 }
             ]
         },
@@ -156,10 +156,10 @@ const GameState = {
             id: 'frontier_republic', name: '边疆共和', color: '#ca8a04',
             description: '州长、治安官和牧场主分享统治。征兵活、但 PP 上限低。',
             bonuses: [
-                { type: 'taggedIncome', tag: '油田', amount: 2 },
+                { type: 'taggedIncome', tag: '油田', amount: 0.5 },
                 { type: 'recruitAmount', amount: 1 },
                 { type: 'freeTroops', amount: 1 },
-                { type: 'ppCapBonus', amount: -20 }
+                { type: 'ppCapBonus', amount: -30 }
             ]
         },
         expansionism: {
@@ -188,10 +188,10 @@ const GameState = {
             id: 'federalism', name: '州联邦', color: '#3730a3',
             description: '州权回归。地方自治、部队自带补给，但中央 PP 紧张。',
             bonuses: [
-                { type: 'moneyIncome', amount: 2 },
-                { type: 'freeTroops', amount: 8 },
+                { type: 'moneyIncome', amount: 1 },
+                { type: 'freeTroops', amount: 4 },
                 { type: 'ppCapBonus', amount: -30 },
-                { type: 'taggedIncome', tag: '油田', amount: 1 }
+                { type: 'taggedIncome', tag: '油田', amount: 0.5 }
             ]
         },
         cthulhu_cult: {
@@ -263,7 +263,7 @@ const GameState = {
             playstyleTags: ['中部走廊', '纵深机动'],
             description: '从北部平原一路压到密西西比河下游，能同时威胁五大湖、落基山和深南方。',
             ideology: 'populism',
-            startingStats: { nodes: 8, industry: 14, troops: 27, money: 24, pp: 10 }
+            startingStats: { nodes: 8, industry: 14, troops: 27, money: 28, pp: 10 }
         },
         {
             id: 'CON',
@@ -287,7 +287,7 @@ const GameState = {
             playstyleTags: ['偏安一隅', '外援窗口'],
             description: '在东北角自保，依赖外部势力的援助和精密防守。',
             ideology: 'mercantile',
-            startingStats: { nodes: 4, industry: 8, troops: 13, money: 20, pp: 5 }
+            startingStats: { nodes: 4, industry: 8, troops: 13, money: 10, pp: 5 }
         },
         {
             id: 'PAC',
@@ -323,7 +323,7 @@ const GameState = {
             playstyleTags: ['石油经济', '孤星防线'],
             description: '拥有丰富的油田资源，可以把金钱转化为持续战争潜力。',
             ideology: 'frontier_republic',
-            startingStats: { nodes: 4, industry: 10, troops: 16, money: 22.5, pp: 8 }
+            startingStats: { nodes: 4, industry: 10, troops: 16, money: 12, pp: 6 }
         }
     ],
 
