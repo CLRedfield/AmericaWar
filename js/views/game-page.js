@@ -444,6 +444,76 @@ const GamePageView = {
         `;
     },
 
+    isLocalSeaMode() {
+        return GameState.lobby && GameState.lobby.mode === 'local';
+    },
+
+    getObservedFactionResources(factionId) {
+        const faction = GameState.getFaction(factionId);
+        const slot = GameState.getSlot(factionId);
+        const stats = MapData.calculateFactionStats(factionId);
+        const capital = MapData.getNode(GameState.getCapitalNodeId(factionId));
+        let money = faction.startingStats.money;
+        let pp = faction.startingStats.pp;
+        let source = '开局基准';
+
+        if (factionId === GameState.getPlayerFactionId()) {
+            money = GameState.game.playerResources.money;
+            pp = GameState.game.playerResources.pp;
+            source = '玩家资源';
+        } else if (slot && slot.kind === 'ai' && GameState.game.aiResources && GameState.game.aiResources[factionId]) {
+            money = GameState.game.aiResources[factionId].money;
+            pp = GameState.game.aiResources[factionId].pp;
+            source = `AI · ${typeof LobbyView !== 'undefined' ? LobbyView.difficultyLabel(slot.aiDifficulty) : (slot.aiDifficulty || 'normal')}`;
+        } else if (slot && slot.kind === 'human') {
+            source = '玩家席位';
+        } else if (slot && slot.kind === 'open') {
+            source = '空席待机';
+        }
+
+        return {
+            faction,
+            slot,
+            stats,
+            capital,
+            money,
+            pp,
+            source
+        };
+    },
+
+    renderSeaModeFactionCard(factionId) {
+        if (!this.isLocalSeaMode()) return '';
+        const observed = this.getObservedFactionResources(factionId);
+        const completedCount = GameState.getFocusTree(factionId)
+            .filter(focus => GameState.game.completedFocuses.includes(focus.id))
+            .length;
+        const focusCount = GameState.getFocusTree(factionId).length;
+        const debtPenalty = GameState.getDebtPenalty(observed.money);
+
+        return `
+            <div class="sea-mode-card" style="--faction-color: ${observed.faction.color}">
+                <div class="section-title-row">
+                    <h3>看海模式</h3>
+                    <span>${observed.source}</span>
+                </div>
+                <div class="node-detail-grid">
+                    <div><span>金钱</span><strong class="${observed.money < 0 ? 'negative-money' : ''}">$ ${formatMoney(observed.money)}</strong></div>
+                    <div><span>PP</span><strong>${formatMoney(observed.pp)}</strong></div>
+                    <div><span>节点</span><strong>${observed.stats.nodes}</strong></div>
+                    <div><span>工业</span><strong>${observed.stats.totalIndustry}</strong></div>
+                    <div><span>总兵力</span><strong>${observed.stats.totalTroops}</strong></div>
+                    <div><span>首都</span><strong>${observed.capital ? observed.capital.name : '灭亡'}</strong></div>
+                    <div><span>国策</span><strong>${completedCount}/${focusCount}</strong></div>
+                    <div><span>财政</span><strong>${debtPenalty.threshold > 0 ? debtPenalty.label : '稳定'}</strong></div>
+                </div>
+                <div class="panel-actions">
+                    <button class="btn btn-outline" onclick="window.app.openFocusModal('${factionId}')">查看国策树</button>
+                </div>
+            </div>
+        `;
+    },
+
     renderSelectedNode(node) {
         const faction = GameState.getFaction(node.factionId);
         const playerFactionId = GameState.getPlayerFactionId();
@@ -481,6 +551,8 @@ const GamePageView = {
                     <div><span>标签</span><strong>${nodeLabels.length ? nodeLabels.join(' / ') : '无'}</strong></div>
                 </div>
             </div>
+
+            ${this.renderSeaModeFactionCard(node.factionId)}
 
             ${isFriendly ? `
                 <div class="action-button-grid">
@@ -764,26 +836,33 @@ const GamePageView = {
     },
 
     renderFocusTreeModal() {
-        const tree = GameState.getFocusTree();
+        const viewFactionId = GameState.game.focusViewFactionId || GameState.getPlayerFactionId();
+        const isPlayerView = viewFactionId === GameState.getPlayerFactionId();
+        const tree = GameState.getFocusTree(viewFactionId);
         const completed = GameState.game.completedFocuses;
-        const pp = GameState.game.playerResources.pp;
+        const completedInTree = tree.filter(focus => completed.includes(focus.id)).length;
+        const observed = this.getObservedFactionResources(viewFactionId);
+        const pp = observed.pp;
         const layout = this.getFocusTreeLayout(tree);
-        const selectedFocus = GameState.getFocusById(GameState.game.selectedFocusId) || tree[0];
+        const selectedFocusId = isPlayerView ? GameState.game.selectedFocusId : GameState.game.focusViewSelectedId;
+        const selectedFocus = GameState.getFocusById(selectedFocusId, viewFactionId) || tree[0];
         const scale = window.app.getFocusTreeScale();
+        const faction = GameState.getFaction(viewFactionId);
+        const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
 
         return `
             <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
                 <section class="modal-panel focus-modal">
                     <header class="modal-header">
-                        <h3>${GameState.getFactionName()} 国策树</h3>
+                        <h3>${faction.shortName} 国策树</h3>
                         <button class="modal-close" onclick="window.app.closeModals()">×</button>
                     </header>
                     <div class="focus-toolbar">
                         <div class="focus-toolbar-stats">
-                            <span>PP ${pp}/${GameState.getEffectivePPCap()}</span>
-                            <span>推进消耗 ${window.app.getActionCost('focus').ppCost} PP</span>
-                            <span>行动递增 +${GameState.getActionExtraCost()} PP</span>
-                            <span>已完成 ${completed.length}/${tree.length}</span>
+                            <span>${isPlayerView ? '我方' : '看海'} PP ${formatMoney(pp)}${isPlayerView ? `/${GameState.getEffectivePPCap()}` : ''}</span>
+                            <span>推进消耗 ${actionCost}${isPlayerView ? ' PP' : ''}</span>
+                            <span>${isPlayerView ? `行动递增 +${GameState.getActionExtraCost()} PP` : '只读查看，不消耗行动'}</span>
+                            <span>已完成 ${completedInTree}/${tree.length}</span>
                         </div>
                         <div class="focus-zoom-controls">
                             <button class="map-icon-btn" title="缩小国策树" onclick="window.app.zoomFocusTree(-1)">−</button>
@@ -810,11 +889,11 @@ const GamePageView = {
                                 <div class="focus-tree-canvas" data-base-width="${layout.width}" data-base-height="${layout.height}"
                                     style="width: ${layout.width}px; height: ${layout.height}px; transform: scale(${scale});">
                                     ${this.renderFocusConnectors(tree, layout)}
-                                    ${tree.map(focus => this.renderFocusCard(focus, layout)).join('')}
+                                    ${tree.map(focus => this.renderFocusCard(focus, layout, { viewFactionId, selectedFocusId, isPlayerView })).join('')}
                                 </div>
                             </div>
                         </div>
-                        ${this.renderFocusDetailPanel(selectedFocus)}
+                        ${this.renderFocusDetailPanel(selectedFocus, { viewFactionId, isPlayerView })}
                     </div>
                 </section>
             </div>
@@ -888,12 +967,23 @@ const GamePageView = {
         `;
     },
 
-    renderFocusCard(focus, layout) {
+    getFocusStatusForView(focus, viewFactionId, isPlayerView) {
+        if (isPlayerView) return GameState.getFocusStatus(focus);
         const completed = GameState.game.completedFocuses;
-        const status = GameState.getFocusStatus(focus, completed);
+        if (completed.includes(focus.id)) return 'done';
+        if (GameState.isFocusBlockedByMutual(focus, completed)) return 'mutually-blocked';
+        if (!GameState.areFocusPrerequisitesMet(focus, completed)) return 'locked';
+        return 'available';
+    },
+
+    renderFocusCard(focus, layout, context = {}) {
+        const viewFactionId = context.viewFactionId || GameState.getPlayerFactionId();
+        const isPlayerView = context.isPlayerView !== false;
+        const completed = GameState.game.completedFocuses;
+        const status = this.getFocusStatusForView(focus, viewFactionId, isPlayerView);
         const progress = GameState.getFocusProgressInfo(focus);
-        const actionCost = window.app.getActionCost('focus').ppCost;
-        const selected = GameState.game.selectedFocusId === focus.id;
+        const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
+        const selected = (context.selectedFocusId || GameState.game.selectedFocusId) === focus.id;
         const stateClass = status === 'done'
             ? 'done'
             : status === 'available'
@@ -936,12 +1026,14 @@ const GamePageView = {
                 <div class="focus-progress-mini" aria-label="国策推进进度">
                     <span style="width: ${progressPercent}%"></span>
                 </div>
-                <div class="focus-cost">推进 ${actionCost} PP</div>
+                <div class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</div>
             </button>
         `;
     },
 
-    renderFocusDetailPanel(focus) {
+    renderFocusDetailPanel(focus, context = {}) {
+        const viewFactionId = context.viewFactionId || GameState.getPlayerFactionId();
+        const isPlayerView = context.isPlayerView !== false;
         if (!focus) {
             return `
                 <aside class="focus-detail-panel">
@@ -953,18 +1045,20 @@ const GamePageView = {
             `;
         }
 
-        const status = GameState.getFocusStatus(focus);
+        const status = this.getFocusStatusForView(focus, viewFactionId, isPlayerView);
         const progress = GameState.getFocusProgressInfo(focus);
-        const availability = window.app.getFocusAdvanceAvailability(focus.id);
+        const availability = isPlayerView
+            ? window.app.getFocusAdvanceAvailability(focus.id)
+            : { enabled: false, reason: '看海模式仅查看', ppCost: '只读' };
         const disabled = availability.enabled ? '' : 'disabled';
         const title = availability.reason ? `title="${availability.reason}"` : '';
         const mutuals = focus.mutuallyExclusive || [];
-        const prerequisiteHtml = this.renderFocusPrerequisites(focus);
-        const effectsHtml = (focus.effects || []).map(effect => `<li>${this.renderFocusEffect(effect, focus)}</li>`).join('');
+        const prerequisiteHtml = this.renderFocusPrerequisites(focus, viewFactionId);
+        const effectsHtml = (focus.effects || []).map(effect => `<li>${this.renderFocusEffect(effect, focus, viewFactionId)}</li>`).join('');
         const mutualHtml = mutuals.length
             ? `<div class="focus-detail-block danger-block">
                     <span>互斥国策</span>
-                    <strong>${mutuals.map(id => GameState.getFocusById(id)?.name || id).join(' / ')}</strong>
+                    <strong>${mutuals.map(id => GameState.getFocusById(id, viewFactionId)?.name || id).join(' / ')}</strong>
                 </div>`
             : '';
 
@@ -998,21 +1092,23 @@ const GamePageView = {
                 <footer class="focus-detail-actions">
                     <div>
                         <span>${status === 'done' ? '已完成' : availability.reason || '可推进'}</span>
-                        <strong>${availability.ppCost} PP</strong>
+                        <strong>${isPlayerView ? `${availability.ppCost} PP` : '只读'}</strong>
                     </div>
-                    <button class="btn btn-primary" ${disabled} ${title} onclick="window.app.advanceFocus('${focus.id}')">
-                        推进国策
-                    </button>
+                    ${isPlayerView ? `
+                        <button class="btn btn-primary" ${disabled} ${title} onclick="window.app.advanceFocus('${focus.id}')">
+                            推进国策
+                        </button>
+                    ` : '<button class="btn btn-outline" disabled>看海模式</button>'}
                 </footer>
             </aside>
         `;
     },
 
-    renderFocusPrerequisites(focus) {
+    renderFocusPrerequisites(focus, factionId = GameState.getPlayerFactionId()) {
         const required = focus.prerequisites || [];
         const anyGroups = focus.prerequisiteAny || [];
-        const direct = required.map(id => GameState.getFocusById(id)?.name || id);
-        const optional = anyGroups.map(group => group.map(id => GameState.getFocusById(id)?.name || id).join(' + '));
+        const direct = required.map(id => GameState.getFocusById(id, factionId)?.name || id);
+        const optional = anyGroups.map(group => group.map(id => GameState.getFocusById(id, factionId)?.name || id).join(' + '));
         const parts = [
             ...direct,
             ...optional.map(text => `任一：${text}`)
@@ -1021,7 +1117,7 @@ const GamePageView = {
         return parts.length ? parts.join(' / ') : '无';
     },
 
-    renderFocusEffect(effect, focus = null) {
+    renderFocusEffect(effect, focus = null, factionId = GameState.getPlayerFactionId()) {
         const signed = effect.amount > 0 ? `+${effect.amount}` : String(effect.amount);
         const percent = (val) => `${val > 0 ? '+' : ''}${Math.round(val * 100)}%`;
         const getComparisonPair = (current, delta, clamp = value => value) => {
@@ -1043,18 +1139,19 @@ const GamePageView = {
         const signedMoneyValue = value => formatSignedMoney(value);
         const percentValue = value => `${Math.round(value * 100)}%`;
         const nonNegative = value => Math.max(0, value);
-        const playerFactionId = GameState.getPlayerFactionId();
+        const playerFactionId = factionId || GameState.getPlayerFactionId();
+        const observedResources = this.getObservedFactionResources(playerFactionId);
         const playerTotals = window.MapData
             ? MapData.calculateFactionStats(playerFactionId)
             : { totalIndustry: GameState.game.playerResources.totalIndustry || 0, totalTroops: GameState.game.playerResources.totalTroops || 0 };
         const focusCompleted = this.isFocusCompleted(focus);
 
         if (effect.type === 'money') {
-            const current = GameState.game.playerResources.money || 0;
+            const current = observedResources.money || 0;
             return `金钱 ${signed}${compare(current, effect.amount, moneyValue, nonNegative)}`;
         }
         if (effect.type === 'pp') {
-            const current = GameState.game.playerResources.pp || 0;
+            const current = observedResources.pp || 0;
             return `PP ${signed}${compare(current, effect.amount, value => `${formatMoney(value)} PP`, value => Math.max(0, Math.min(GameState.getEffectivePPCap(), value)))}`;
         }
         if (effect.type === 'actionCost') {
@@ -1155,11 +1252,11 @@ const GamePageView = {
         if (effect.type === 'taggedNodeMoney') {
             const count = GameState.getTaggedNodeCount(effect.tag, playerFactionId);
             const total = count * effect.amount;
-            return `立即获得：每个${effect.tag}节点 ${signed} 金钱${compare(GameState.game.playerResources.money || 0, total, moneyValue, nonNegative)}`;
+            return `立即获得：每个${effect.tag}节点 ${signed} 金钱${compare(observedResources.money || 0, total, moneyValue, nonNegative)}`;
         }
         if (effect.type === 'damageEnemyIndustry') return `破坏敌方工业最高的 ${effect.maxNodes || 3} 个节点工业 -${effect.amount || 1}`;
         if (effect.type === 'warBonds') {
-            const currentMoney = GameState.game.playerResources.money || 0;
+            const currentMoney = observedResources.money || 0;
             const currentDelta = GameState.getNextTurnResourcePreview(playerFactionId).moneyDelta;
             return `立即 +${effect.amount} 金钱${compare(currentMoney, effect.amount, moneyValue, nonNegative)}，未来 ${effect.turns} 回合每回合 -${effect.penalty} 金钱${compareRaw(currentDelta, currentDelta - effect.penalty, value => `${signedMoneyValue(value)}/回合`)}`;
         }

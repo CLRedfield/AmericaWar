@@ -21,14 +21,28 @@ const GameAI = {
     actionDelayMs: 35,
     turnBudgetMs: 4500,
     difficultyProfiles: {
+        very_easy: {
+            maxActions: 2,
+            minActions: 2,
+            economyMultiplier: 0.75,
+            ppMultiplier: 0.75,
+            minAttackRatio: 1.45,
+            minAttackScore: 30,
+            lossAversion: 2.2,
+            recruitBatch: 5,
+            reinforceBatch: 4,
+            capitalReserve: 10,
+            frontReserve: 4,
+            buildMoneyReserve: 18
+        },
         easy: {
             maxActions: 2,
             minActions: 2,
             economyMultiplier: 1,
             ppMultiplier: 1,
-            minAttackRatio: 1.45,
-            minAttackScore: 30,
-            lossAversion: 2.2,
+            minAttackRatio: 1.25,
+            minAttackScore: 18,
+            lossAversion: 1.8,
             recruitBatch: 5,
             reinforceBatch: 4,
             capitalReserve: 10,
@@ -40,9 +54,9 @@ const GameAI = {
             minActions: 2,
             economyMultiplier: 1.25,
             ppMultiplier: 1.25,
-            minAttackRatio: 1.18,
-            minAttackScore: 14,
-            lossAversion: 1.45,
+            minAttackRatio: 1.05,
+            minAttackScore: 2,
+            lossAversion: 1,
             recruitBatch: 9,
             reinforceBatch: 6,
             capitalReserve: 11,
@@ -54,9 +68,9 @@ const GameAI = {
             minActions: 2,
             economyMultiplier: 1.5,
             ppMultiplier: 1.5,
-            minAttackRatio: 1.03,
-            minAttackScore: 2,
-            lossAversion: 0.95,
+            minAttackRatio: 1,
+            minAttackScore: -10,
+            lossAversion: 0.65,
             recruitBatch: 14,
             reinforceBatch: 9,
             capitalReserve: 13,
@@ -401,6 +415,74 @@ const GameAI = {
         return value;
     },
 
+    getFrontlineNodes(factionId) {
+        return MapData.getFactionNodes(factionId)
+            .filter(node => this.getEnemyPressure(node, factionId) > 0);
+    },
+
+    findFriendlyRoute(source, destination, factionId) {
+        if (!source || !destination || source.id === destination.id) return null;
+
+        const queue = [[source.id]];
+        const seen = new Set([source.id]);
+
+        while (queue.length) {
+            const path = queue.shift();
+            const currentId = path[path.length - 1];
+            if (currentId === destination.id) {
+                return path.map(id => MapData.getNode(id)).filter(Boolean);
+            }
+
+            MapData.getNeighbors(currentId)
+                .filter(node => node.factionId === factionId && !seen.has(node.id))
+                .forEach(node => {
+                    seen.add(node.id);
+                    queue.push([...path, node.id]);
+                });
+        }
+
+        return null;
+    },
+
+    pickFrontDispatchPlan(source, factionId, profile, maxSafeMove) {
+        const sourcePressure = this.getEnemyPressure(source, factionId);
+        const candidates = this.getFrontlineNodes(factionId)
+            .filter(front => front.id !== source.id)
+            .map(front => {
+                const route = this.findFriendlyRoute(source, front, factionId);
+                if (!route || route.length < 2) return null;
+
+                const nextStep = route[1];
+                const distance = route.length - 1;
+                const frontPressure = this.getEnemyPressure(front, factionId);
+                if (sourcePressure > 0 && sourcePressure >= frontPressure) return null;
+
+                const frontNeed = this.estimateNodeDefenseNeed(front, factionId, profile) - front.troops;
+                const amount = Math.max(1, Math.min(
+                    maxSafeMove,
+                    profile.reinforceBatch,
+                    Math.ceil(Math.max(1, frontNeed > 0 ? frontNeed : profile.reinforceBatch * 0.5))
+                ));
+                const score = frontPressure * 2.2
+                    + Math.max(0, frontNeed) * 8
+                    + this.getNodeStrategicValue(front) * 0.9
+                    + this.getNodeStrategicValue(nextStep) * 0.25
+                    - distance * 3.5
+                    - sourcePressure * 2;
+
+                return {
+                    source,
+                    target: nextStep,
+                    amount,
+                    score,
+                    destination: front
+                };
+            })
+            .filter(Boolean);
+
+        return candidates.sort((a, b) => b.score - a.score)[0] || null;
+    },
+
     estimateNodeDefenseNeed(node, factionId, profile) {
         if (!node) return 0;
         const enemyPressure = this.getEnemyPressure(node, factionId);
@@ -429,7 +511,7 @@ const GameAI = {
         const costPerSoldier = 2;
         const maxAffordable = Math.min(
             Math.floor(resources.money / costPerSoldier),
-            this.getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, 1)
+            this.getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, 3)
         );
         if (resources.pp < ppCost || maxAffordable < 1) return null;
 
@@ -460,7 +542,7 @@ const GameAI = {
         if (!node || amount < 1) return false;
         if (resources.money < costPerSoldier * amount) return false;
         const profile = this.getDifficultyProfile(GameState.getSlot(factionId)?.aiDifficulty || 'normal');
-        if (this.estimateAiNextTurnMoney(factionId, resources, profile, amount, costPerSoldier * amount) < 1) return false;
+        if (this.estimateAiNextTurnMoney(factionId, resources, profile, amount, costPerSoldier * amount) < 3) return false;
         if (!this.spendAction(resources, ppCost)) return false;
 
         resources.money -= costPerSoldier * amount;
@@ -540,12 +622,12 @@ const GameAI = {
         const expectedLosses = Math.max(0, participating - expectedSurvivors);
         const sourceAfter = attacker.troops - participating;
         const sourceNeed = this.estimateNodeDefenseNeed(attacker, factionId, profile);
-        const overextensionPenalty = Math.max(0, sourceNeed - sourceAfter) * 5;
+        const overextensionPenalty = Math.max(0, sourceNeed - sourceAfter) * 3;
 
-        return (preview.attackerWins ? 38 : -70)
+        return (preview.attackerWins ? 50 : -70)
             + this.getNodeStrategicValue(defender)
-            + Math.min(20, preview.remainingTroops * 2)
-            + Math.max(0, 8 - defender.troops)
+            + Math.min(28, preview.remainingTroops * 2.4)
+            + Math.max(0, 10 - defender.troops)
             + MapData.getNeighbors(defender.id).filter(node => node.factionId === factionId).length * 4
             - expectedLosses * profile.lossAversion
             - overextensionPenalty;
@@ -616,7 +698,10 @@ const GameAI = {
         GameState.game.movementOrdersActive = true;
         GameState.game.currentAction = 'move';
         GameState.game.selectedNodeId = plan.target.id;
-        GameState.addLog(`${GameState.getFactionName(factionId)} AI 调兵：${plan.source.name} → ${plan.target.name}，增援 ${plan.amount} 支。`, 'system', false);
+        const destinationText = plan.destination && plan.destination.id !== plan.target.id
+            ? `，目标前线 ${plan.destination.name}`
+            : '';
+        GameState.addLog(`${GameState.getFactionName(factionId)} AI 调兵：${plan.source.name} → ${plan.target.name}，增援 ${plan.amount} 支${destinationText}。`, 'system', false);
         GameState.notify();
         return true;
     },
@@ -630,6 +715,8 @@ const GameAI = {
             const sourceNeed = this.estimateNodeDefenseNeed(source, factionId, profile);
             const maxSafeMove = Math.min(movable, Math.max(0, source.troops - sourceNeed));
             if (maxSafeMove < 1) return;
+            const dispatchPlan = this.pickFrontDispatchPlan(source, factionId, profile, maxSafeMove);
+            if (dispatchPlan && dispatchPlan.score > 6) plans.push(dispatchPlan);
 
             MapData.getNeighbors(source.id)
                 .filter(target => target.factionId === factionId)

@@ -283,7 +283,7 @@ const App = {
     fillOpenSlotsWithAi(difficulty = 'normal') {
         if (!GameState.isHost()) return alert('只有房主才能添加 AI');
         const filled = GameState.fillOpenSlotsWithAi(difficulty);
-        const label = difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通';
+        const label = difficulty === 'very_easy' ? '非常简单' : difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通';
         GameState.lobby.statusMessage = filled > 0
             ? `已将 ${filled} 个空席位设为 ${label} AI。`
             : '没有可填充的空席位。';
@@ -1349,7 +1349,13 @@ const App = {
         if (Date.now() - this.lastFocusDragEndedAt < 180) return;
 
         this.captureFocusTreeScroll();
-        GameState.setSelectedFocus(focusId);
+        const viewFactionId = GameState.game.focusViewFactionId || GameState.getPlayerFactionId();
+        if (viewFactionId === GameState.getPlayerFactionId()) {
+            GameState.setSelectedFocus(focusId);
+        } else if (GameState.getFocusById(focusId, viewFactionId)) {
+            GameState.game.focusViewSelectedId = focusId;
+            GameState.notify();
+        }
     },
 
     advanceFocus(focusId = GameState.game.selectedFocusId) {
@@ -1630,16 +1636,29 @@ const App = {
         GameState.addLog(`外交广播：你对 ${faction.shortName} 的关系调整为“${relation}”。`, 'diplomacy');
     },
 
-    openFocusModal() {
-        if (!GameState.game.showFocusModal) {
-            const tree = GameState.getFocusTree();
-            const selectedFocus = GameState.getFocusById(GameState.game.selectedFocusId);
-            if (!selectedFocus && tree.length) {
-                GameState.game.selectedFocusId = tree[0].id;
-            }
+    openFocusModal(factionId = GameState.getPlayerFactionId()) {
+        const viewFactionId = factionId || GameState.getPlayerFactionId();
+        const playerFactionId = GameState.getPlayerFactionId();
+        const previousViewFactionId = GameState.game.focusViewFactionId || playerFactionId;
+        GameState.game.focusViewFactionId = viewFactionId;
+
+        if (!GameState.game.showFocusModal || previousViewFactionId !== viewFactionId) {
             GameState.game.focusTreeViewport = GameState.game.focusTreeViewport || { scale: 1 };
             this.focusTreeCentered = false;
             this.pendingFocusTreeScroll = null;
+        }
+
+        const tree = GameState.getFocusTree(viewFactionId);
+        if (viewFactionId === playerFactionId) {
+            const selectedFocus = GameState.getFocusById(GameState.game.selectedFocusId, viewFactionId);
+            if (!selectedFocus && tree.length) {
+                GameState.game.selectedFocusId = tree[0].id;
+            }
+        } else {
+            const selectedFocus = GameState.getFocusById(GameState.game.focusViewSelectedId, viewFactionId);
+            if (!selectedFocus && tree.length) {
+                GameState.game.focusViewSelectedId = tree[0].id;
+            }
         }
 
         GameState.toggleFocusModal(true);

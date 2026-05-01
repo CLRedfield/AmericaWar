@@ -979,6 +979,23 @@ button:disabled {
     background: linear-gradient(135deg, color-mix(in srgb, var(--faction-color) 18%, transparent), rgba(15, 23, 42, 0.66));
 }
 
+.sea-mode-card {
+    margin-top: var(--spacing-3);
+    border: 1px solid color-mix(in srgb, var(--faction-color) 46%, var(--color-border));
+    border-left: 4px solid var(--faction-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-4);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.sea-mode-card .section-title-row {
+    margin-bottom: var(--spacing-3);
+}
+
+.sea-mode-card .panel-actions {
+    margin-top: var(--spacing-3);
+}
+
 .selected-node-heading > span {
     display: grid;
     place-items: center;

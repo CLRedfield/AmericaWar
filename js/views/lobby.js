@@ -121,6 +121,7 @@ const LobbyView = {
                     ${isHost ? `
                         <select class="compact-select" onchange="window.app.addAiToSlot('${slot.factionId}', this.value)">
                             <option value="" selected>+ 添加 AI</option>
+                            <option value="very_easy">AI · 非常简单</option>
                             <option value="easy">AI · 简单</option>
                             <option value="normal">AI · 普通</option>
                             <option value="hard">AI · 困难</option>
@@ -135,6 +136,7 @@ const LobbyView = {
                 <div class="slot-actions">
                     ${isHost ? `
                         <select class="compact-select" onchange="window.app.setAiDifficulty('${slot.factionId}', this.value)">
+                            <option value="very_easy" ${slot.aiDifficulty === 'very_easy' ? 'selected' : ''}>非常简单</option>
                             <option value="easy" ${slot.aiDifficulty === 'easy' ? 'selected' : ''}>简单</option>
                             <option value="normal" ${(slot.aiDifficulty || 'normal') === 'normal' ? 'selected' : ''}>普通</option>
                             <option value="hard" ${slot.aiDifficulty === 'hard' ? 'selected' : ''}>困难</option>
@@ -168,6 +170,7 @@ const LobbyView = {
     },
 
     difficultyLabel(d) {
+        if (d === 'very_easy') return '非常简单';
         if (d === 'easy') return '简单';
         if (d === 'hard') return '困难';
         return '普通';
@@ -182,6 +185,7 @@ const LobbyView = {
                 </div>
                 <div class="host-ai-fill-actions">
                     <select id="host-fill-ai-difficulty" class="compact-select">
+                        <option value="very_easy">AI · 非常简单</option>
                         <option value="easy">AI · 简单</option>
                         <option value="normal" selected>AI · 普通</option>
                         <option value="hard">AI · 困难</option>

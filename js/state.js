@@ -1129,7 +1129,7 @@ const GameState = {
         if (!slot || slot.kind === 'human') return false;
         slot.kind = 'ai';
         slot.userId = null;
-        slot.playerName = `AI · ${difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通'}`;
+        slot.playerName = `AI · ${difficulty === 'very_easy' ? '非常简单' : difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通'}`;
         slot.aiDifficulty = difficulty;
         return true;
     },
@@ -1149,7 +1149,7 @@ const GameState = {
         const slot = this.lobby.slots.find(s => s.factionId === factionId);
         if (!slot || slot.kind !== 'ai') return false;
         slot.aiDifficulty = difficulty;
-        slot.playerName = `AI · ${difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通'}`;
+        slot.playerName = `AI · ${difficulty === 'very_easy' ? '非常简单' : difficulty === 'easy' ? '简单' : difficulty === 'hard' ? '困难' : '普通'}`;
         return true;
     },
 
@@ -1300,6 +1300,8 @@ const GameState = {
             completedFocuses: [],
             focusProgress: {},
             selectedFocusId: null,
+            focusViewFactionId: myFaction.id,
+            focusViewSelectedId: null,
             focusTreeViewport: { scale: 1 },
             modifiers: {
                 actionBaseCost: {},

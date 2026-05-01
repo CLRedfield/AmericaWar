@@ -915,6 +915,168 @@
         });
     }
 
+    function setFocusEffects(id, effects) {
+        Object.values(GameState.focusTrees).some(tree => {
+            const focus = tree.find(item => item.id === id);
+            if (!focus) return false;
+            focus.effects = effects;
+            return true;
+        });
+    }
+
+    function rebalancePoliticalFocusEffects() {
+        const port = '\u6e2f\u53e3';
+        const oil = '\u6cb9\u7530';
+
+        [
+            ['usa_union_restored_in_war', [E.ppCap(3), E.pp(6), E.maint(-0.02)]],
+            ['usa_managed_republic', [E.allI(1, 5), E.moneyIncome(2), E.actionCost('build', -1), E.ideo('technocracy')]],
+
+            ['CSA_planned_revolution', [E.allI(1, 5), E.actionCost('build', -1), E.ideo('central_planning')]],
+            ['CSA_red_compromise', [E.pp(3), E.maint(-0.02), E.crisis(2)]],
+            ['CSA_continental_revolution', [E.pp(5), E.actionCost('move', -1), E.capTroop(1)]],
+            ['CSA_continent_of_councils', [E.actionCost('recruit', -1), E.ppIncome(1), E.allCapT(3), E.badge('委员会大陆')]],
+
+            ['AUS_kingfish_dynasty', [E.ppCap(4), E.allCapT(3), E.ppIncome(1), E.ideo('populism')]],
+            ['AUS_national_union_state', [E.gAtk(0.05), E.capT(4), E.actionCost('recruit', -1), E.ideo('military_junta')]],
+            ['AUS_baton_rouge_compromise', [E.moneyIncome(1), E.freeT(2), E.pp(3)]],
+            ['AUS_mandate_of_union', [E.ppCap(3), E.moneyIncome(1), E.recruitAmount(1)]],
+            ['AUS_southern_unification', [E.pp(5), E.actionCost('move', -1), E.capTroop(1)]],
+
+            ['CON_total_state', [E.capMoney(3), E.gAtk(0.04), E.crisis(2)]],
+            ['CON_atlanta_compromise', [E.gDef(0.03), E.ppCap(2), E.pp(3)]],
+            ['CON_regency_mandate', [E.ppIncome(1), E.gDef(0.05), E.capMoney(2)]],
+            ['CON_south_atlantic_strategy', [E.pp(5), E.actionCost('move', -1), E.capTroop(1)]],
+
+            ['NEN_branch_yog', [E.allI(2, 5), E.capBoost(2, 3), E.ppCap(4), E.badge('犹格-索托斯之钥'), E.ideo('eldritch_knowledge')]],
+            ['NEN_yog_silver_key', [E.actionCost('build', -1), E.capI(2), E.capBoost(1, 2)]],
+            ['NEN_state_compromise', [E.tagD(port, 0.05), E.maint(-0.02), E.crisis(2)]],
+            ['NEN_commonwealth_mandate', [E.ppIncome(1), E.tagD(port, 0.05), E.moneyIncome(1)]],
+            ['NEN_survival_strategy', [E.pp(5), E.actionCost('move', -1), E.tagD(port, 0.10)]],
+            ['NEN_codex_of_providence', [E.ppCap(4), E.crisis(4), E.badge('普罗维登斯秘典')]],
+            ['NEN_yog_time_table', [E.actionCost('build', -1), E.ppIncome(1), E.ideo('eldritch_knowledge')]],
+
+            ['PAC_sacramento_compromise', [E.actionCost('focus', -1), E.moneyIncome(1), E.pp(2)]],
+            ['PAC_west_mandate', [E.ppCap(2), E.capBoost(1, 2), E.moneyIncome(1)]],
+            ['PAC_west_unification', [E.pp(5), E.actionCost('move', -1), E.allCapT(2)]],
+
+            ['WDC_command_state', [E.gDef(0.05), E.capT(4), E.actionCost('recruit', -1), E.ideo('military_junta')]],
+            ['WDC_frontier_compromise', [E.recruitCost(-1), E.maint(-0.02), E.freeT(2)]],
+            ['WDC_rocky_mandate', [E.ppIncome(1), E.gDef(0.05), E.maint(-0.02)]],
+            ['WDC_west_survival', [E.pp(5), E.actionCost('move', -1), E.allCapT(2)]],
+            ['WDC_copper_wire_drives', [E.capBoost(1, 2), E.actionCost('build', -1)]],
+            ['WDC_army_of_the_west', [E.actionCost('move', -1), E.allCapT(4), E.badge('西部军团'), E.ideo('military_junta')]],
+
+            ['TEX_state_compromise', [E.moneyIncome(1), E.maint(-0.02), E.pp(3)]],
+            ['TEX_lone_star_mandate', [E.ppCap(2), E.recruitCost(-1), E.tagInc(oil, 1)]],
+            ['TEX_texas_unification', [E.pp(5), E.actionCost('move', -1), E.tagInc(oil, 1)]]
+        ].forEach(([id, effects]) => setFocusEffects(id, effects));
+    }
+
+    function applyReadableFocusTreeLayouts() {
+        const regularPoliticalX = [0, 3, 7, 10];
+        const sharedPoliticalCoords = [[5, 1], [4, 3], [6, 3], [5, 6], [5, 8]];
+        const militaryCoords = [[17, 1], [15, 2], [19, 2], [14, 3], [20, 3], [14, 4], [20, 4], [16, 5], [19, 5], [17, 6], [15, 7], [19, 7], [17, 8]];
+        const economyCoords = [[25, 1], [23, 2], [27, 2], [22, 3], [28, 3], [23, 4], [27, 4], [23, 5], [27, 5], [25, 6], [23, 7], [27, 7], [25, 8]];
+        const regionCoords = [[33, 1], [31, 2], [35, 2], [30, 3], [36, 3], [30, 4], [36, 4], [33, 5]];
+        const terminalCoords = [[5, 9], [0, 10], [3, 10], [7, 10], [10, 10], [5, 11]];
+
+        function branchNames(tree) {
+            return [...new Set(tree.map(focus => focus.branch))];
+        }
+
+        function sortedBranch(tree, branch) {
+            return tree
+                .filter(focus => focus.branch === branch)
+                .sort((a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id));
+        }
+
+        function placeItems(items, coords) {
+            items.forEach((focus, index) => {
+                const coord = coords[index] || coords[coords.length - 1];
+                focus.x = coord[0];
+                focus.y = coord[1] + Math.max(0, index - coords.length + 1);
+            });
+        }
+
+        function placeBranch(tree, branch, coords) {
+            if (!branch) return;
+            placeItems(sortedBranch(tree, branch), coords);
+        }
+
+        function placeVerticalBranch(tree, branch, x, startY) {
+            placeBranch(tree, branch, Array.from({ length: 12 }, (_, index) => [x, startY + index]));
+        }
+
+        function placeTerminalBranch(tree, branch) {
+            const items = sortedBranch(tree, branch);
+            const coords = items.length === 5
+                ? [[5, 9], [2, 10], [5, 10], [8, 10], [5, 11]]
+                : terminalCoords;
+            placeItems(items, coords);
+        }
+
+        function placeRegularFaction(factionId) {
+            const tree = GameState.focusTrees[factionId];
+            if (!tree) return;
+            const branches = branchNames(tree);
+
+            placeBranch(tree, branches[0], [[11, 0]]);
+            placeBranch(tree, branches[1], sharedPoliticalCoords);
+            branches.slice(2, 6).forEach((branch, index) => {
+                placeVerticalBranch(tree, branch, regularPoliticalX[index], 2);
+            });
+            placeBranch(tree, branches[6], militaryCoords);
+            placeBranch(tree, branches[7], economyCoords);
+            placeBranch(tree, branches[8], regionCoords);
+            placeTerminalBranch(tree, branches[9]);
+        }
+
+        function placeNewEngland() {
+            const tree = GameState.focusTrees.NEN;
+            if (!tree) return;
+            const branches = branchNames(tree);
+
+            placeBranch(tree, branches[0], [[11, 0]]);
+            placeBranch(tree, branches[1], sharedPoliticalCoords);
+            branches.slice(2, 6).forEach((branch, index) => {
+                placeVerticalBranch(tree, branch, regularPoliticalX[index], 2);
+            });
+            placeBranch(tree, branches[6], [[3, 9], [2, 10], [4, 10], [3, 11], [3, 12]]);
+            placeBranch(tree, branches[7], [[7, 9], [6, 10], [8, 10], [7, 11], [7, 12]]);
+            placeBranch(tree, branches[8], [[11, 9], [10, 10], [12, 10], [11, 11], [11, 12]]);
+            placeBranch(tree, branches[9], militaryCoords);
+            placeBranch(tree, branches[10], economyCoords);
+            placeBranch(tree, branches[11], regionCoords);
+            placeBranch(tree, branches[12], [[13, 8], [13, 9], [13, 10], [7, 13]]);
+        }
+
+        function placeUsa() {
+            const tree = GameState.focusTrees.USA;
+            if (!tree) return;
+            const branches = branchNames(tree);
+
+            placeBranch(tree, branches[0], [[12, 0]]);
+            placeBranch(tree, branches[1], [[5, 1], [5, 9], [5, 10]]);
+            placeVerticalBranch(tree, branches[2], 0, 2);
+            placeVerticalBranch(tree, branches[3], 4, 2);
+            placeVerticalBranch(tree, branches[4], 8, 2);
+            placeBranch(tree, branches[5], militaryCoords);
+            placeBranch(tree, branches[6], economyCoords);
+            placeBranch(tree, branches[7], [[31, 1], [29, 2], [33, 2], [31, 3], [35, 4]]);
+            placeBranch(tree, branches[8], [[40, 1], [40, 2]]);
+            placeBranch(tree, branches[9], [[38, 3], [40, 3], [42, 3], [40, 4]]);
+            placeBranch(tree, branches[10], [[37, 5]]);
+            placeBranch(tree, branches[11], [[40, 5]]);
+            placeBranch(tree, branches[12], [[43, 5]]);
+            placeBranch(tree, branches[13], [[40, 6], [38, 7], [42, 7], [36, 8], [40, 8], [44, 8], [38, 9], [42, 9], [40, 10]]);
+        }
+
+        ['CSA', 'AUS', 'CON', 'PAC', 'WDC', 'TEX'].forEach(placeRegularFaction);
+        placeNewEngland();
+        placeUsa();
+    }
+
     // ============================================================
     // 入口
     // ============================================================
@@ -928,5 +1090,6 @@
     GameState.focusTrees.TEX = buildTexTree();
     addStrategicDetours();
     extendSignatureArcs();
-    applyAsymmetricLayouts();
+    rebalancePoliticalFocusEffects();
+    applyReadableFocusTreeLayouts();
 })();
