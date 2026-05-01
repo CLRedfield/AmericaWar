@@ -369,6 +369,7 @@ const GameState = {
         moveDraftAmount: 1,
         battleDraftAmount: 1,
         recruitDraftAmount: 1,
+        disbandDraftAmount: 1,
         battlePreview: null,
         actionConfirm: null,
         showFocusModal: false,
@@ -401,6 +402,7 @@ const GameState = {
         },
         aiModifiers: {},
         aiIdeologies: {},
+        aiFreeFocusTurns: {},
         nodeIndustryCaps: {},
         warBondsPenalty: 0,
         warBondsPenaltyTurns: 0,
@@ -812,6 +814,7 @@ const GameState = {
         const extraIndustry = Number(options.extraIndustry) || 0;
         const moneySpent = Math.max(0, Number(options.moneySpent) || 0);
         const ppSpent = Math.max(0, Number(options.ppSpent) || 0);
+        const moneyGained = Math.max(0, Number(options.moneyGained) || 0);
         const taggedIncome = this.getTaggedIncomeTotal(factionId);
         const warBondsPenalty = this.game.warBondsPenaltyTurns > 0 ? (this.game.warBondsPenalty || 0) : 0;
         const grossIncome = Math.max(0, totals.totalIndustry + extraIndustry + this.getMoneyIncomeBonus() + taggedIncome + warBondsPenalty);
@@ -821,7 +824,7 @@ const GameState = {
         const billableTroops = Math.max(0, totalTroops - freeTroops);
         const maintenance = billableTroops * maintenanceRate;
         const moneyDelta = grossIncome - maintenance;
-        const currentMoneyAfterAction = (resources.money || 0) - moneySpent;
+        const currentMoneyAfterAction = (resources.money || 0) - moneySpent + moneyGained;
         const currentPPAfterAction = Math.max(0, (resources.pp || 0) - ppSpent);
         const ppIncome = this.getTurnPPIncome(currentMoneyAfterAction);
         const projectedPP = Math.min(this.getEffectivePPCap(), currentPPAfterAction + ppIncome);
@@ -1301,6 +1304,7 @@ const GameState = {
             moveDraftAmount: 1,
             battleDraftAmount: 1,
             recruitDraftAmount: 1,
+            disbandDraftAmount: 1,
             battlePreview: null,
             actionConfirm: null,
             showFocusModal: false,
@@ -1335,6 +1339,7 @@ const GameState = {
             },
             aiModifiers: {},
             aiIdeologies: {},
+            aiFreeFocusTurns: {},
             nodeIndustryCaps: {},
             warBondsPenalty: 0,
             warBondsPenaltyTurns: 0,

@@ -444,6 +444,7 @@ const App = {
         const recruitCostPerSoldier = Math.max(1, perSoldierBase + GameState.getEffectiveRecruitCostDelta());
         const draftAmount = this.getSelectedRecruitAmount(recruitCostPerSoldier);
         const recruitAmount = Math.max(1, draftAmount + GameState.getEffectiveRecruitAmount());
+        const disbandAmount = this.getSelectedDisbandAmount();
         const meta = {
             recruit: {
                 label: '征兵',
@@ -454,6 +455,15 @@ const App = {
                 costMoney: recruitCostPerSoldier * draftAmount,
                 effect: `节点驻军 +${recruitAmount}（拖拽选择数量）`,
                 rulesHint: '每个士兵 $2，每次征兵都是 1 行动；只能在当前首都或已占领的原始首都执行'
+            },
+            disband: {
+                label: '裁军',
+                basePP: 0,
+                costMoney: 0,
+                disbandAmount,
+                gainMoney: disbandAmount,
+                effect: `节点驻军 -${disbandAmount}，立即获得 $${formatMoney(disbandAmount)}`,
+                rulesHint: '每解散 1 支部队立即获得 $1，并降低下回合维护费'
             },
             move: {
                 label: '移动士兵',
@@ -486,12 +496,19 @@ const App = {
         const costMoney = meta.costMoney;
         const adjustedBasePP = Math.max(0, meta.basePP + GameState.getActionBaseCostAdjustment(action));
         const ppCost = GameState.getActionPPCost(adjustedBasePP);
-        const costText = `${costMoney > 0 ? `$${formatMoney(costMoney)} / ` : ''}${ppCost} PP`;
+        const gainMoney = meta.gainMoney || 0;
+        const moneyText = costMoney > 0
+            ? `$${formatMoney(costMoney)} / `
+            : gainMoney > 0
+                ? `+$${formatMoney(gainMoney)} / `
+                : '';
+        const costText = `${moneyText}${ppCost} PP`;
 
         return {
             ...meta,
             basePP: adjustedBasePP,
             costMoney,
+            gainMoney,
             ppCost,
             cost: costText,
             costText
@@ -506,6 +523,18 @@ const App = {
             ppSpent: meta.ppCost || 0
         });
         return `下回合金钱净变：${formatSignedMoney(current.moneyDelta)} → ${formatSignedMoney(afterRecruit.moneyDelta)}，预计余额 $${formatMoney(afterRecruit.projectedMoney)}`;
+    },
+
+    getDisbandMoneyPreviewText(meta = this.getActionCost('disband')) {
+        const amount = meta.disbandAmount || 0;
+        const current = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId());
+        const afterDisband = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId(), {
+            extraTroops: -amount,
+            moneyGained: meta.gainMoney || amount,
+            ppSpent: meta.ppCost || 0
+        });
+        const improvement = afterDisband.projectedMoney - current.projectedMoney;
+        return `下回合金钱净变：${formatSignedMoney(current.moneyDelta)} → ${formatSignedMoney(afterDisband.moneyDelta)}，预计余额改善 +$${formatMoney(improvement)}`;
     },
 
     getActionAvailability(action, nodeId = GameState.game.selectedNodeId, options = {}) {
@@ -537,6 +566,9 @@ const App = {
         }
         if (action === 'recruit' && resources.money < (meta.costPerSoldier || 1)) {
             return { enabled: false, reason: `至少需要 ${meta.costPerSoldier || 1} 金钱才能征 1 个兵`, cost: meta.cost };
+        }
+        if (action === 'disband' && node.troops < 1) {
+            return { enabled: false, reason: '该节点没有可裁撤的部队', cost: meta.cost };
         }
         if (action === 'build') {
             const cap = GameState.getNodeIndustryCap(node.id);
@@ -675,6 +707,18 @@ const App = {
             return;
         }
 
+        if (confirm.action === 'disband') {
+            const disbandAmount = Math.max(1, Math.min(node.troops, meta.disbandAmount || 1));
+            node.troops = Math.max(0, node.troops - disbandAmount);
+            node.moveReady = Math.min(GameState.getNodeMoveReady(node), node.troops);
+            node.freshTroops = Math.min(GameState.getNodeFreshTroops(node), node.troops);
+            GameState.game.playerResources.money += disbandAmount;
+            GameState.game.disbandDraftAmount = 1;
+            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：${node.name} 裁军 ${disbandAmount} 支，回收物资 +$${formatMoney(disbandAmount)}。`, 'system');
+            GameState.refreshFactionStatus(false);
+            return;
+        }
+
         if (confirm.action === 'build') {
             const cap = GameState.getNodeIndustryCap(node.id);
             node.industry = Math.min(cap, node.industry + 1);
@@ -711,6 +755,41 @@ const App = {
 
     selectMaxRecruitAmount() {
         this.setRecruitDraftAmount(this.getMaxRecruitAmount());
+    },
+
+    getMaxDisbandAmount(node = MapData.getNode(GameState.game.selectedNodeId)) {
+        return Math.max(0, node?.troops || 0);
+    },
+
+    getSelectedDisbandAmount(node = MapData.getNode(GameState.game.selectedNodeId)) {
+        const max = this.getMaxDisbandAmount(node);
+        if (max <= 0) return 0;
+        const draft = Number(GameState.game.disbandDraftAmount) || 1;
+        return Math.min(max, Math.max(1, Math.floor(draft)));
+    },
+
+    setDisbandDraftAmount(amount, shouldNotify = true) {
+        const confirm = GameState.game.actionConfirm;
+        const node = MapData.getNode(confirm && confirm.action === 'disband' ? confirm.nodeId : GameState.game.selectedNodeId);
+        const max = this.getMaxDisbandAmount(node);
+        GameState.game.disbandDraftAmount = max > 0
+            ? Math.min(max, Math.max(1, Math.floor(Number(amount) || 1)))
+            : 1;
+        if (shouldNotify) {
+            GameState.notify();
+        } else {
+            this.syncDisbandSliderDisplay();
+        }
+    },
+
+    adjustDisbandDraftAmount(delta) {
+        this.setDisbandDraftAmount(this.getSelectedDisbandAmount() + delta);
+    },
+
+    selectMaxDisbandAmount() {
+        const confirm = GameState.game.actionConfirm;
+        const node = MapData.getNode(confirm && confirm.action === 'disband' ? confirm.nodeId : GameState.game.selectedNodeId);
+        this.setDisbandDraftAmount(this.getMaxDisbandAmount(node));
     },
 
     getSelectedMoveAmount(source = MapData.getNode(GameState.game.selectedNodeId)) {
@@ -806,6 +885,44 @@ const App = {
         });
         document.querySelectorAll('[data-recruit-effect]').forEach(element => {
             element.textContent = `驻军 +${meta.recruitAmount}`;
+        });
+        document.querySelectorAll('[data-action-cost]').forEach(element => {
+            element.textContent = meta.costText;
+        });
+    },
+
+    syncDisbandSliderDisplay() {
+        const confirm = GameState.game.actionConfirm;
+        if (!confirm || confirm.action !== 'disband') return;
+
+        const node = MapData.getNode(confirm.nodeId);
+        const meta = this.getActionCost('disband', confirm.nodeId);
+        const max = this.getMaxDisbandAmount(node);
+        const amount = this.getSelectedDisbandAmount(node);
+        const preview = this.getDisbandMoneyPreviewText(meta);
+        const current = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId());
+        const afterDisband = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId(), {
+            extraTroops: -amount,
+            moneyGained: amount,
+            ppSpent: meta.ppCost || 0
+        });
+        const improvement = afterDisband.projectedMoney - current.projectedMoney;
+
+        document.querySelectorAll('.disband-range, .disband-amount-input').forEach(input => {
+            input.value = amount;
+            input.max = max;
+        });
+        document.querySelectorAll('[data-disband-count]').forEach(element => {
+            element.textContent = `${amount} / ${max} 支（下回合 +$${formatMoney(improvement)}）`;
+        });
+        document.querySelectorAll('[data-disband-gain]').forEach(element => {
+            element.textContent = `立即获得 $${formatMoney(amount)}，并减少 ${amount} 支部队维护`;
+        });
+        document.querySelectorAll('[data-disband-next-money]').forEach(element => {
+            element.textContent = preview;
+        });
+        document.querySelectorAll('[data-disband-effect]').forEach(element => {
+            element.textContent = `驻军 -${amount}，金钱 +$${formatMoney(amount)}`;
         });
         document.querySelectorAll('[data-action-cost]').forEach(element => {
             element.textContent = meta.costText;
@@ -1290,6 +1407,7 @@ const App = {
         GameState.game.moveDraftAmount = 1;
         GameState.game.battleDraftAmount = 1;
         GameState.game.recruitDraftAmount = 1;
+        GameState.game.disbandDraftAmount = 1;
         GameState.game.battlePreview = null;
         GameState.game.actionConfirm = null;
         GameState.game.timerRemaining = turnLimit;
@@ -1335,7 +1453,17 @@ const App = {
                 ? GameAI.getDifficultyProfile(slot.aiDifficulty || 'normal')
                 : { economyMultiplier: 1, ppMultiplier: 1 };
             if (window.GameAI && GameAI.settleAiTurnStart) {
-                GameAI.settleAiTurnStart(factionId, r, profile);
+                const settlement = GameAI.settleAiTurnStart(factionId, r, profile);
+                if (settlement.debtPenalty.desertionRate > 0 && totals.totalTroops > 0) {
+                    const targetDesertion = Math.max(
+                        settlement.debtPenalty.minDesertion || 0,
+                        Math.ceil(totals.totalTroops * settlement.debtPenalty.desertionRate)
+                    );
+                    const deserted = this.disbandTroopsForMaintenance(factionId, targetDesertion);
+                    if (deserted > 0) {
+                        GameState.addLog(`${GameState.getFactionName(factionId)} 财政崩溃，逃散 ${deserted} 支部队。`, 'system', false);
+                    }
+                }
             } else {
                 const baseIncome = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
                 const maintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
@@ -1343,6 +1471,16 @@ const App = {
                 const debtPenalty = GameState.getDebtPenalty(r.money);
                 const ppIncome = GameState.basePPIncome * (profile.ppMultiplier || 1);
                 r.pp = Math.min(GameState.ppCap, Math.max(0, r.pp + ppIncome + debtPenalty.ppIncomeDelta));
+                if (debtPenalty.desertionRate > 0 && totals.totalTroops > 0) {
+                    const targetDesertion = Math.max(
+                        debtPenalty.minDesertion || 0,
+                        Math.ceil(totals.totalTroops * debtPenalty.desertionRate)
+                    );
+                    const deserted = this.disbandTroopsForMaintenance(factionId, targetDesertion);
+                    if (deserted > 0) {
+                        GameState.addLog(`${GameState.getFactionName(factionId)} 财政崩溃，逃散 ${deserted} 支部队。`, 'system', false);
+                    }
+                }
             }
         });
     },
@@ -1444,7 +1582,7 @@ const App = {
         if (effect.type === 'actionCost') {
             const modifiers = GameState.getGameModifiers();
             if (effect.action === 'all') {
-                ['recruit', 'move', 'build', 'focus'].forEach(action => {
+                ['recruit', 'disband', 'move', 'build', 'focus'].forEach(action => {
                     modifiers.actionBaseCost[action] = (modifiers.actionBaseCost[action] || 0) + effect.amount;
                 });
             } else {

@@ -338,7 +338,7 @@ const GamePageView = {
             case 'taggedIncome': return `每个${bonus.tag}节点每回合 ${sign(bonus.amount)} 金钱`;
             case 'taggedDefense': return `${bonus.tag}节点防守 ${signedPct(bonus.amount)}`;
             case 'actionCost': {
-                const names = { recruit: '征兵', move: '移动', build: '建设', focus: '推进国策', all: '全部行动' };
+                const names = { recruit: '征兵', disband: '裁军', move: '移动', build: '建设', focus: '推进国策', all: '全部行动' };
                 return `${names[bonus.action] || bonus.action} 基础 PP ${sign(bonus.amount)}`;
             }
             default: return '';
@@ -435,7 +435,7 @@ const GamePageView = {
         return `
             <div class="empty-state">
                 <strong>未选择节点</strong>
-                <span>选择己方节点后可执行征兵、移动、建设或进攻。</span>
+                <span>选择己方节点后可执行征兵、裁军、移动、建设或进攻。</span>
             </div>
             <div class="action-help-block">
                 当前可用 PP：${GameState.game.playerResources.pp}<br>
@@ -563,6 +563,7 @@ const GamePageView = {
             ${isFriendly ? `
                 <div class="action-button-grid">
                     ${this.renderActionButton('recruit', '征兵')}
+                    ${this.renderActionButton('disband', '裁军')}
                     ${this.renderActionButton('move', this.getMoveButtonLabel())}
                     ${this.renderActionButton('build', '建设工业')}
                 </div>
@@ -704,10 +705,21 @@ const GamePageView = {
         const targetNode = confirm.targetId ? MapData.getNode(confirm.targetId) : null;
         const actionMeta = window.app.getActionCost(confirm.action, confirm.nodeId);
         const isRecruit = confirm.action === 'recruit';
+        const isDisband = confirm.action === 'disband';
         const isMove = confirm.action === 'move';
         const recruitMax = isRecruit ? window.app.getMaxRecruitAmount(actionMeta.costPerSoldier) : 0;
         const recruitDraft = isRecruit ? window.app.getSelectedRecruitAmount(actionMeta.costPerSoldier) : 0;
         const recruitMoneyPreview = isRecruit ? window.app.getRecruitMoneyPreviewText(actionMeta) : '';
+        const disbandMax = isDisband ? window.app.getMaxDisbandAmount(node) : 0;
+        const disbandDraft = isDisband ? window.app.getSelectedDisbandAmount(node) : 0;
+        const disbandMoneyPreview = isDisband ? window.app.getDisbandMoneyPreviewText(actionMeta) : '';
+        const disbandCurrent = isDisband ? GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId()) : null;
+        const disbandAfter = isDisband ? GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId(), {
+            extraTroops: -disbandDraft,
+            moneyGained: disbandDraft,
+            ppSpent: actionMeta.ppCost || 0
+        }) : null;
+        const disbandImprovement = isDisband ? disbandAfter.projectedMoney - disbandCurrent.projectedMoney : 0;
         const moveMax = isMove ? GameState.getNodeMovableTroops(node) : 0;
         const moveDraft = isMove ? window.app.getSelectedMoveAmount(node) : 0;
 
@@ -745,6 +757,30 @@ const GamePageView = {
                                 </div>
                             </div>
                             <div class="confirm-line"><span>实际增援</span><strong data-recruit-effect>驻军 +${actionMeta.recruitAmount}</strong></div>
+                        ` : isDisband ? `
+                            <div class="recruit-slider-block">
+                                <div class="recruit-slider-heading">
+                                    <span>裁军数量</span>
+                                    <strong data-disband-count>${disbandDraft} / ${disbandMax} 支（下回合 +$${formatMoney(disbandImprovement)}）</strong>
+                                </div>
+                                <div class="recruit-slider-row">
+                                    <button class="mini-control-btn" onclick="window.app.adjustDisbandDraftAmount(-1)">−</button>
+                                    <input type="range" class="disband-range tactical-range" min="1" max="${disbandMax}" value="${disbandDraft}"
+                                        oninput="window.app.setDisbandDraftAmount(this.value, false)"
+                                        onchange="window.app.setDisbandDraftAmount(this.value)">
+                                    <input class="disband-amount-input" type="number" min="1" max="${disbandMax}" value="${disbandDraft}"
+                                        onchange="window.app.setDisbandDraftAmount(this.value)">
+                                    <button class="mini-control-btn" onclick="window.app.adjustDisbandDraftAmount(1)">+</button>
+                                    <button class="mini-control-btn" onclick="window.app.selectMaxDisbandAmount()">最大</button>
+                                </div>
+                                <div class="recruit-slider-hint text-muted" data-disband-gain>
+                                    立即获得 $${formatMoney(disbandDraft)}，并减少 ${disbandDraft} 支部队维护
+                                </div>
+                                <div class="recruit-slider-hint recruit-income-preview" data-disband-next-money>
+                                    ${disbandMoneyPreview}
+                                </div>
+                            </div>
+                            <div class="confirm-line"><span>实际裁撤</span><strong data-disband-effect>驻军 -${disbandDraft}，金钱 +$${formatMoney(disbandDraft)}</strong></div>
                         ` : isMove ? `
                             <div class="move-slider-block">
                                 <div class="recruit-slider-heading">
@@ -1163,8 +1199,8 @@ const GamePageView = {
             return `PP ${signed}${compare(current, effect.amount, value => `${formatMoney(value)} PP`, value => Math.max(0, Math.min(GameState.getEffectivePPCap(), value)))}`;
         }
         if (effect.type === 'actionCost') {
-            const names = { recruit: '征兵', move: '移动士兵', build: '建设工业', focus: '推进国策', all: '全部行动' };
-            const actions = effect.action === 'all' ? ['recruit', 'move', 'build', 'focus'] : [effect.action];
+            const names = { recruit: '征兵', disband: '裁军', move: '移动士兵', build: '建设工业', focus: '推进国策', all: '全部行动' };
+            const actions = effect.action === 'all' ? ['recruit', 'disband', 'move', 'build', 'focus'] : [effect.action];
             const comparison = actions.map(action => {
                 const meta = window.app.getActionMeta(action);
                 const current = Math.max(0, meta.basePP + GameState.getActionBaseCostAdjustment(action));

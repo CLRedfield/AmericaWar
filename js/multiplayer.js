@@ -238,6 +238,7 @@ const Multiplayer = {
                 aiResources: GameState.game.aiResources || {},
                 aiModifiers: GameState.game.aiModifiers || {},
                 aiIdeologies: GameState.game.aiIdeologies || {},
+                aiFreeFocusTurns: GameState.game.aiFreeFocusTurns || {},
                 gameOver: !!GameState.game.gameOver,
                 modifiers: GameState.game.modifiers || {},
                 nodeIndustryCaps: GameState.game.nodeIndustryCaps || {},
@@ -305,6 +306,7 @@ const Multiplayer = {
         GameState.game.aiResources = remote.aiResources || {};
         GameState.game.aiModifiers = remote.aiModifiers || {};
         GameState.game.aiIdeologies = remote.aiIdeologies || {};
+        GameState.game.aiFreeFocusTurns = remote.aiFreeFocusTurns || {};
         GameState.game.gameOver = !!remote.gameOver;
         if (remote.modifiers) GameState.game.modifiers = remote.modifiers;
         if (remote.nodeIndustryCaps) GameState.game.nodeIndustryCaps = remote.nodeIndustryCaps;
