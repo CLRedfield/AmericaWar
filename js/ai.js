@@ -29,6 +29,8 @@ const GameAI = {
             minAttackRatio: 1.45,
             minAttackScore: 30,
             lossAversion: 2.2,
+            attackBias: 1,
+            defenseReserveRatio: 0.2,
             recruitBatch: 5,
             recruitMinBalance: 3,
             reinforceBatch: 4,
@@ -44,6 +46,8 @@ const GameAI = {
             minAttackRatio: 1.25,
             minAttackScore: 18,
             lossAversion: 1.8,
+            attackBias: 1,
+            defenseReserveRatio: 0.2,
             recruitBatch: 5,
             recruitMinBalance: 2,
             reinforceBatch: 4,
@@ -59,6 +63,8 @@ const GameAI = {
             minAttackRatio: 1,
             minAttackScore: 2,
             lossAversion: 1,
+            attackBias: 1.7,
+            defenseReserveRatio: 0.2,
             recruitBatch: 9,
             recruitMinBalance: 0,
             reinforceBatch: 6,
@@ -77,6 +83,8 @@ const GameAI = {
             riskyAttackScore: -55,
             minAttackScore: -10,
             lossAversion: 0.65,
+            attackBias: 1.7,
+            defenseReserveRatio: 0.2,
             recruitBatch: 14,
             recruitMinBalance: -6,
             reinforceBatch: 9,
@@ -160,13 +168,16 @@ const GameAI = {
         // 2. 如果有漂亮战机，先打一拳；困难 AI 会接受更薄的优势。
         if (this.aiAttackBestTarget(factionId, resources, profile)) return true;
 
-        // 3. 钱和 PP 都宽裕时，先补工业，不再等到国策/普通征兵之后。
-        if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile, true)) return true;
+        // 3. 进攻后优先补兵，避免有钱时先盖厂而前线兵力不足。
+        if (this.aiRecruitBestNode(factionId, resources, profile)) return true;
 
         // 4. 普通/困难 AI 会把后方兵力往前线推，避免只在首都堆兵。
         if (difficulty !== 'easy' && this.aiReinforceFront(factionId, resources, profile)) return true;
 
-        // 5. 前几手如果没有战术动作，就推进更有价值的国策。
+        // 5. 钱和 PP 都宽裕时，再补工业。
+        if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile, true)) return true;
+
+        // 6. 前几手如果没有战术动作，就推进更有价值的国策。
         if (difficulty !== 'easy' && resources.pp >= 2 && actionIndex <= 2) {
             const focus = this.pickFocus(factionId);
             if (focus) {
@@ -174,9 +185,6 @@ const GameAI = {
                 if (this.aiAdvanceFocus(factionId, focus, capitalNode)) return true;
             }
         }
-
-        // 6. 补齐前线兵力。
-        if (this.aiRecruitBestNode(factionId, resources, profile)) return true;
 
         // 7. 如果前面没触发富余建厂，局面稳定时仍可补工业。
         if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile)) return true;
@@ -594,6 +602,27 @@ const GameAI = {
         return this.calculateAiTurnPreview(factionId, resources, profile, { extraTroops, moneySpent }).projectedMoney;
     },
 
+    estimateAiMoneyAfterTurns(factionId, resources, profile, extraTroops = 0, moneySpent = 0, turns = 5) {
+        let projectedMoney = resources.money - moneySpent;
+        const totals = MapData.calculateFactionStats(factionId);
+        const grossBase = totals.totalIndustry
+            + 1
+            + this.getAiNumericModifier(factionId, 'moneyIncome')
+            + this.getAiTaggedIncomeTotal(factionId);
+        const income = Math.max(0, grossBase) * (profile.economyMultiplier || 1);
+        const totalTroops = totals.totalTroops + extraTroops;
+        const freeTroops = Math.max(0, this.getAiNumericModifier(factionId, 'freeTroops'));
+        const billableTroops = Math.max(0, totalTroops - freeTroops);
+        const maintenance = billableTroops * this.getAiMaintenanceRate(factionId);
+
+        for (let i = 0; i < turns; i += 1) {
+            projectedMoney += income - maintenance;
+            if (projectedMoney < 0) return projectedMoney;
+        }
+
+        return projectedMoney;
+    },
+
     getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, minBalance = 1) {
         const totals = MapData.calculateFactionStats(factionId);
         const income = (totals.totalIndustry + 1
@@ -604,6 +633,25 @@ const GameAI = {
         const room = resources.money + income - currentMaintenance - minBalance;
         const fullCostPerSoldier = costPerSoldier + this.getAiMaintenanceRate(factionId);
         return Math.max(0, Math.floor(room / fullCostPerSoldier));
+    },
+
+    getMaxRecruitAmountForFiveTurnBalance(factionId, resources, profile, costPerSoldier) {
+        const budgetCap = Math.floor(Math.max(0, resources.money) * 0.25);
+        const budgetLimit = Math.floor(budgetCap / costPerSoldier);
+        if (budgetLimit < 1) return 0;
+
+        let low = 0;
+        let high = budgetLimit;
+        while (low < high) {
+            const mid = Math.ceil((low + high) / 2);
+            const moneySpent = mid * costPerSoldier;
+            const gainedTroops = this.getAiRecruitGainAmount(factionId, mid);
+            const projectedMoney = this.estimateAiMoneyAfterTurns(factionId, resources, profile, gainedTroops, moneySpent, 5);
+            if (projectedMoney >= 0) low = mid;
+            else high = mid - 1;
+        }
+
+        return low;
     },
 
     getEnemyPressure(node, factionId) {
@@ -622,6 +670,11 @@ const GameAI = {
 
     isCapitalLike(node) {
         return Boolean(node && (node.isCapital || GameState.getCapitalOwner(node.id) || GameState.getOriginalCapitalOwner(node.id)));
+    },
+
+    getCapitalDefenseCap(factionId) {
+        const totals = MapData.calculateFactionStats(factionId);
+        return Math.max(1, Math.ceil(totals.totalTroops * 0.1));
     },
 
     getNodeStrategicValue(node) {
@@ -673,7 +726,8 @@ const GameAI = {
                 const nextStep = route[1];
                 const distance = route.length - 1;
                 const frontPressure = this.getEnemyPressure(front, factionId);
-                if (sourcePressure > 0 && sourcePressure >= frontPressure) return null;
+                const sourceIsCapital = GameState.getCapitalNodeId(factionId) === source.id;
+                if (!sourceIsCapital && sourcePressure > 0 && sourcePressure >= frontPressure) return null;
 
                 const frontNeed = this.estimateNodeDefenseNeed(front, factionId, profile) - front.troops;
                 const amount = Math.max(1, Math.min(
@@ -681,12 +735,12 @@ const GameAI = {
                     profile.reinforceBatch,
                     Math.ceil(Math.max(1, frontNeed > 0 ? frontNeed : profile.reinforceBatch * 0.5))
                 ));
-                const score = frontPressure * 2.2
-                    + Math.max(0, frontNeed) * 8
-                    + this.getNodeStrategicValue(front) * 0.9
-                    + this.getNodeStrategicValue(nextStep) * 0.25
-                    - distance * 3.5
-                    - sourcePressure * 2;
+                const score = frontPressure * 4
+                    + Math.max(0, frontNeed) * 14
+                    + this.getNodeStrategicValue(front) * 1.4
+                    + this.getNodeStrategicValue(nextStep) * 0.45
+                    - distance * 2
+                    - sourcePressure * 1.2;
 
                 return {
                     source,
@@ -711,7 +765,8 @@ const GameAI = {
             : enemyPressure > 0
                 ? profile.frontReserve
                 : Math.max(2, Math.ceil(node.industry / 2) + 1);
-        return Math.max(1, Math.ceil(base + enemyPressure * 0.55 + node.industry * 0.25 - friendlySupport * 0.18));
+        const need = Math.max(1, Math.ceil(base + enemyPressure * 0.55 + node.industry * 0.25 - friendlySupport * 0.18));
+        return isCurrentCapital ? Math.min(need, this.getCapitalDefenseCap(factionId)) : need;
     },
 
     aiEmergencyRecruit(factionId, resources, profile) {
@@ -727,11 +782,7 @@ const GameAI = {
     pickRecruitPlan(factionId, resources, profile, emergencyOnly = false) {
         const ppCost = this.getActionPPCost(1, factionId, 'recruit');
         const costPerSoldier = this.getAiRecruitCostPerSoldier(factionId);
-        const minBalance = typeof profile.recruitMinBalance === 'number' ? profile.recruitMinBalance : 1;
-        const maxAffordable = Math.min(
-            Math.floor(resources.money / costPerSoldier),
-            this.getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, minBalance)
-        );
+        const maxAffordable = this.getMaxRecruitAmountForFiveTurnBalance(factionId, resources, profile, costPerSoldier);
         if (resources.pp < ppCost || maxAffordable < 1) return null;
 
         const candidates = MapData.getFactionNodes(factionId)
@@ -743,8 +794,10 @@ const GameAI = {
             if (!emergencyOnly && pressure <= 0 && need <= 0 && resources.money < profile.buildMoneyReserve + 8) return null;
 
             const wanted = emergencyOnly
-                ? Math.max(1, need)
-                : Math.max(1, need, pressure > 0 ? profile.recruitBatch * 0.6 : profile.recruitBatch * 0.35);
+                ? Math.max(1, need, maxAffordable)
+                : pressure > 0
+                    ? maxAffordable
+                    : Math.max(1, need, maxAffordable * 0.5);
             const draftAmount = Math.max(1, Math.min(maxAffordable, Math.ceil(wanted)));
             const amount = this.getAiRecruitGainAmount(factionId, draftAmount);
             const score = need * 10
@@ -762,8 +815,8 @@ const GameAI = {
         if (!node || amount < 1) return false;
         if (resources.money < moneyCost) return false;
         const profile = this.getDifficultyProfile(GameState.getSlot(factionId)?.aiDifficulty || 'normal');
-        const minBalance = typeof profile.recruitMinBalance === 'number' ? profile.recruitMinBalance : 1;
-        if (this.estimateAiNextTurnMoney(factionId, resources, profile, amount, moneyCost) < minBalance) return false;
+        if (moneyCost > Math.max(0, resources.money) * 0.25) return false;
+        if (this.estimateAiMoneyAfterTurns(factionId, resources, profile, amount, moneyCost, 5) < 0) return false;
         if (!this.spendAction(resources, ppCost)) return false;
 
         resources.money -= moneyCost;
@@ -822,8 +875,11 @@ const GameAI = {
 
         const attackMultiplier = Math.max(0.05, 1 + preview.attackerAttackBonus / 100);
         const neededToWin = Math.floor(preview.defenderPower / attackMultiplier) + 1;
-        const safeAmount = Math.ceil((preview.defenderPower * 1.2) / attackMultiplier);
-        const sourceNeed = this.estimateNodeDefenseNeed(attacker, factionId, profile);
+        const pressureAmount = Math.ceil((preview.defenderPower * 1.2) / attackMultiplier);
+        const halfStrengthAmount = Math.ceil(attacker.troops * 0.5);
+        const safeAmount = Math.max(pressureAmount, halfStrengthAmount);
+        const reserveRatio = typeof profile.defenseReserveRatio === 'number' ? profile.defenseReserveRatio : 1;
+        const sourceNeed = Math.ceil(this.estimateNodeDefenseNeed(attacker, factionId, profile) * reserveRatio);
         const maxWithReserve = Math.max(1, Math.min(movable, attacker.troops - sourceNeed));
 
         if (safeAmount <= maxWithReserve) return Math.max(1, safeAmount);
@@ -902,14 +958,18 @@ const GameAI = {
             : Math.max(0, Math.min(participating, preview.remainingTroops));
         const expectedLosses = Math.max(0, participating - expectedSurvivors);
         const sourceAfter = attacker.troops - participating;
-        const sourceNeed = this.estimateNodeDefenseNeed(attacker, factionId, profile);
-        const overextensionPenalty = Math.max(0, sourceNeed - sourceAfter) * 3;
+        const reserveRatio = typeof profile.defenseReserveRatio === 'number' ? profile.defenseReserveRatio : 1;
+        const sourceNeed = Math.ceil(this.estimateNodeDefenseNeed(attacker, factionId, profile) * reserveRatio);
+        const overextensionPenalty = Math.max(0, sourceNeed - sourceAfter) * 0.6;
+        const attackBias = profile.attackBias || 1;
 
-        return (preview.attackerWins ? 50 : -70)
+        const attackValue = (preview.attackerWins ? 50 : -70)
             + this.getNodeStrategicValue(defender)
             + Math.min(28, preview.remainingTroops * 2.4)
             + Math.max(0, 10 - defender.troops)
-            + MapData.getNeighbors(defender.id).filter(node => node.factionId === factionId).length * 4
+            + MapData.getNeighbors(defender.id).filter(node => node.factionId === factionId).length * 4;
+
+        return attackValue * attackBias
             - expectedLosses * profile.lossAversion
             - overextensionPenalty;
     },
@@ -1002,7 +1062,7 @@ const GameAI = {
             const maxSafeMove = Math.min(movable, Math.max(0, source.troops - sourceNeed));
             if (maxSafeMove < 1) return;
             const dispatchPlan = this.pickFrontDispatchPlan(source, factionId, profile, maxSafeMove);
-            if (dispatchPlan && dispatchPlan.score > 6) plans.push(dispatchPlan);
+            if (dispatchPlan && dispatchPlan.score > 2) plans.push(dispatchPlan);
 
             MapData.getNeighbors(source.id)
                 .filter(target => target.factionId === factionId)
@@ -1010,16 +1070,17 @@ const GameAI = {
                     const targetPressure = this.getEnemyPressure(target, factionId);
                     const targetNeed = this.estimateNodeDefenseNeed(target, factionId, profile) - target.troops;
                     const sourcePressure = this.getEnemyPressure(source, factionId);
+                    const sourceIsCapital = GameState.getCapitalNodeId(factionId) === source.id;
                     if (targetPressure <= 0 && targetNeed <= 0) return;
-                    if (sourcePressure > targetPressure && targetNeed <= 0) return;
+                    if (!sourceIsCapital && sourcePressure > targetPressure && targetNeed <= 0) return;
 
                     const amount = Math.max(1, Math.min(maxSafeMove, profile.reinforceBatch, Math.ceil(Math.max(1, targetNeed))));
-                    const score = targetNeed * 9
-                        + targetPressure * 1.3
-                        + this.getNodeStrategicValue(target)
-                        - sourcePressure * 1.4
-                        - this.getNodeStrategicValue(source) * 0.15;
-                    if (score > 8) plans.push({ source, target, amount, score });
+                    const score = targetNeed * 15
+                        + targetPressure * 2.5
+                        + this.getNodeStrategicValue(target) * 1.4
+                        - sourcePressure * 0.9
+                        - this.getNodeStrategicValue(source) * 0.08;
+                    if (score > 3) plans.push({ source, target, amount, score });
                 });
         });
 
