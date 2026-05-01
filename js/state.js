@@ -6,7 +6,7 @@
 const GameState = {
     currentView: 'main-menu', // main-menu, lobby, faction-select, game-page
     selectedFactionId: null,
-    ppCap: 100,
+    ppCap: 60,
     basePPIncome: 3,
     baseMaintenanceRate: 0.5,
     debtPenaltyTiers: [
@@ -55,7 +55,7 @@ const GameState = {
             id: 'military_junta', name: '军政府', color: '#1f2937',
             description: '军方直接接管行政与征用。进攻强、维护贵。',
             bonuses: [
-                { type: 'globalAttack', amount: 0.05 },
+                { type: 'globalAttack', amount: 0.1 },
                 { type: 'capitalTroopsPerTurn', amount: 1 },
                 { type: 'maintenanceRate', amount: 0.02 }
             ]
@@ -64,8 +64,8 @@ const GameState = {
             id: 'wartime_democracy', name: '战时民主', color: '#2563eb',
             description: '议会与文官在战时持续运转，政治资本高、防御稳。',
             bonuses: [
-                { type: 'ppCapBonus', amount: 5 },
-                { type: 'ppIncome', amount: 1 },
+                { type: 'ppCapBonus', amount: 50 },
+                { type: 'ppIncome', amount: 0.5 },
                 { type: 'globalDefense', amount: 0.05 },
                 { type: 'maintenanceRate', amount: -0.02 }
             ]
@@ -74,9 +74,9 @@ const GameState = {
             id: 'technocracy', name: '技术官僚', color: '#0ea5e9',
             description: '工程师与文官主导战争。建设便宜、上限高、行政高效。',
             bonuses: [
-                { type: 'actionCost', action: 'build', amount: -1 },
-                { type: 'moneyIncome', amount: 1 },
-                { type: 'ppCapBonus', amount: 3 }
+                { type: 'actionCost', action: 'build', amount: -2 },
+                { type: 'moneyIncome', amount: 3 },
+                { type: 'ppCapBonus', amount: 30 }
             ]
         },
         syndicalism: {
@@ -84,8 +84,8 @@ const GameState = {
             description: '工团-赤卫队网络承担战争。征兵便宜、免维护士兵多。',
             bonuses: [
                 { type: 'recruitCost', amount: -1 },
-                { type: 'recruitAmount', amount: 1 },
-                { type: 'freeTroops', amount: 4 }
+                { type: 'recruitAmount', amount: 3 },
+                { type: 'freeTroops', amount: 7 }
             ]
         },
         central_planning: {
@@ -95,46 +95,49 @@ const GameState = {
                 { type: 'actionCost', action: 'build', amount: -1 },
                 { type: 'moneyIncome', amount: 2 },
                 { type: 'maintenanceRate', amount: -0.02 },
-                { type: 'ppCapBonus', amount: -3 }
+                { type: 'ppCapBonus', amount: -30 }
             ]
         },
         populism: {
             id: 'populism', name: '民粹主义', color: '#a16207',
             description: '俱乐部、广播、地方动员。PP 收入高、征兵便宜。',
             bonuses: [
-                { type: 'ppIncome', amount: 2 },
+                { type: 'ppIncome', amount: -0.5 },
                 { type: 'recruitCost', amount: -1 },
-                { type: 'recruitAmount', amount: 1 },
-                { type: 'ppCapBonus', amount: -3 }
+                { type: 'recruitAmount', amount: 2 },
+                { type: 'ppCapBonus', amount: -30 }
             ]
         },
         fascism: {
             id: 'fascism', name: '法西斯主义', color: '#831843',
             description: '党国一体，强人治理，靠战争维持自身。',
             bonuses: [
+                { type: 'ppIncome', amount: -1 },
+                { type: 'moneyIncome', amount: -4 },
                 { type: 'globalAttack', amount: 0.10 },
-                { type: 'captureMoney', amount: 2 },
+                { type: 'captureMoney', amount: 3 },
+                { type: 'captureTroops', amount: 1 },
                 { type: 'crisisPP', amount: 3 },
                 { type: 'maintenanceRate', amount: -0.03 },
-                { type: 'ppCapBonus', amount: -5 }
+                { type: 'ppCapBonus', amount: -40 }
             ]
         },
         plutocracy: {
             id: 'plutocracy', name: '财阀寡头', color: '#9a3412',
             description: '银行、铁路和承包商承担国家职能。金钱多、政治资本少。',
             bonuses: [
-                { type: 'moneyIncome', amount: 3 },
-                { type: 'maintenanceRate', amount: -0.02 },
+                { type: 'moneyIncome', amount: 6 },
+                { type: 'maintenanceRate', amount: +0.05 },
                 { type: 'recruitCost', amount: 1 },
-                { type: 'ppIncome', amount: -1 }
+                { type: 'ppIncome', amount: -0.5 }
             ]
         },
         security_state: {
             id: 'security_state', name: '安全国家', color: '#0f766e',
             description: '宪兵、许可、清剿。后方稳，前线不主动。',
             bonuses: [
-                { type: 'globalDefense', amount: 0.10 },
-                { type: 'crisisPP', amount: 3 },
+                { type: 'globalDefense', amount: 0.15 },
+                { type: 'crisisPP', amount: 5 },
                 { type: 'maintenanceRate', amount: -0.03 },
                 { type: 'globalAttack', amount: -0.05 }
             ]
@@ -143,8 +146,8 @@ const GameState = {
             id: 'mercantile', name: '商业共和', color: '#0369a1',
             description: '港口、保险、船运承担国家收入。海路赚钱，陆战吃亏。',
             bonuses: [
-                { type: 'taggedIncome', tag: '港口', amount: 1 },
-                { type: 'moneyIncome', amount: 2 },
+                { type: 'taggedIncome', tag: '港口', amount: 2 },
+                { type: 'moneyIncome', amount: 3 },
                 { type: 'taggedDefense', tag: '港口', amount: 0.05 },
                 { type: 'globalAttack', amount: -0.05 }
             ]
@@ -153,21 +156,22 @@ const GameState = {
             id: 'frontier_republic', name: '边疆共和', color: '#ca8a04',
             description: '州长、治安官和牧场主分享统治。征兵活、但 PP 上限低。',
             bonuses: [
-                { type: 'taggedIncome', tag: '油田', amount: 1 },
+                { type: 'taggedIncome', tag: '油田', amount: 2 },
                 { type: 'recruitAmount', amount: 1 },
-                { type: 'freeTroops', amount: 3 },
-                { type: 'ppCapBonus', amount: -2 }
+                { type: 'freeTroops', amount: 1 },
+                { type: 'ppCapBonus', amount: -20 }
             ]
         },
         expansionism: {
             id: 'expansionism', name: '扩张主义', color: '#7c2d12',
             description: '把战争视为国家解决方案。攻击与缴获双高。',
             bonuses: [
-                { type: 'globalAttack', amount: 0.10 },
-                { type: 'captureMoney', amount: 3 },
+                { type: 'ppIncome', amount: -1 },
+                { type: 'globalAttack', amount: 0.15 },
+                { type: 'captureMoney', amount: 4 },
                 { type: 'captureTroops', amount: 1 },
                 { type: 'recruitAmount', amount: 1 },
-                { type: 'maintenanceRate', amount: 0.02 }
+                { type: 'maintenanceRate', amount: -0.05 }
             ]
         },
         constitutional: {
@@ -175,9 +179,9 @@ const GameState = {
             description: '战时仍尊重宪法、法院与文官审查。',
             bonuses: [
                 { type: 'actionCost', action: 'focus', amount: -1 },
-                { type: 'ppIncome', amount: 1 },
-                { type: 'ppCapBonus', amount: 3 },
-                { type: 'maintenanceRate', amount: -0.02 }
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'ppCapBonus', amount: 30 },
+                { type: 'maintenanceRate', amount: -0.05 }
             ]
         },
         federalism: {
@@ -185,8 +189,8 @@ const GameState = {
             description: '州权回归。地方自治、部队自带补给，但中央 PP 紧张。',
             bonuses: [
                 { type: 'moneyIncome', amount: 2 },
-                { type: 'freeTroops', amount: 5 },
-                { type: 'ppCapBonus', amount: -3 },
+                { type: 'freeTroops', amount: 8 },
+                { type: 'ppCapBonus', amount: -30 },
                 { type: 'taggedIncome', tag: '油田', amount: 1 }
             ]
         },
@@ -194,7 +198,7 @@ const GameState = {
             id: 'cthulhu_cult', name: '旧日支配', color: '#15803d',
             description: '旧日支配者已经回归。所有人在战场上都看见不该看见的。',
             bonuses: [
-                { type: 'globalAttack', amount: 0.10 },
+                { type: 'globalAttack', amount: 0.20 },
                 { type: 'captureTroops', amount: 2 },
                 { type: 'damageOnCapture', amount: 1 },
                 { type: 'crisisPP', amount: 5 },
@@ -205,9 +209,9 @@ const GameState = {
             id: 'eldritch_knowledge', name: '神秘技术', color: '#16a34a',
             description: '密斯卡塔尼克的学者打开了"知道一切"的钥匙。',
             bonuses: [
-                { type: 'ppCapBonus', amount: 5 },
+                { type: 'ppCapBonus', amount: 50 },
                 { type: 'actionCost', action: 'all', amount: -1 },
-                { type: 'moneyIncome', amount: 2 },
+                { type: 'moneyIncome', amount: 3 },
                 { type: 'maintenanceRate', amount: -0.03 }
             ]
         },
@@ -215,7 +219,7 @@ const GameState = {
             id: 'crawling_chaos', name: '爬行混沌', color: '#65a30d',
             description: '"千面"出现在每一面镜子里。命令无须解释，但谁也不再确定。',
             bonuses: [
-                { type: 'ppIncome', amount: 3 },
+                { type: 'ppIncome', amount: 2 },
                 { type: 'freeTroops', amount: 8 },
                 { type: 'crisisPP', amount: 6 },
                 { type: 'recruitAmount', amount: 1 },
@@ -247,7 +251,7 @@ const GameState = {
             playstyleTags: ['工业爆兵', '五大湖防线'],
             description: '控制着五大湖工业区，拥有极高的工业潜力，可以用持续征兵压垮敌人。',
             ideology: 'syndicalism',
-            startingStats: { nodes: 6, industry: 15, troops: 31, money: 15, pp: 13 }
+            startingStats: { nodes: 6, industry: 15, troops: 31, money: 35, pp: 13 }
         },
         {
             id: 'AUS',
@@ -283,7 +287,7 @@ const GameState = {
             playstyleTags: ['偏安一隅', '外援窗口'],
             description: '在东北角自保，依赖外部势力的援助和精密防守。',
             ideology: 'mercantile',
-            startingStats: { nodes: 4, industry: 8, troops: 13, money: 30, pp: 5 }
+            startingStats: { nodes: 4, industry: 8, troops: 13, money: 20, pp: 5 }
         },
         {
             id: 'PAC',
@@ -295,7 +299,7 @@ const GameState = {
             playstyleTags: ['民主堡垒', '落基山防线'],
             description: '退守西海岸，利用地理优势积蓄力量。',
             ideology: 'wartime_democracy',
-            startingStats: { nodes: 5, industry: 12, troops: 22, money: 20, pp: 7 }
+            startingStats: { nodes: 5, industry: 12, troops: 22, money: 20, pp: 4 }
         },
         {
             id: 'WDC',
@@ -994,13 +998,17 @@ const GameState = {
 
         const aliveFactions = this.factions.filter(faction => window.MapData.getFactionNodes(faction.id).length > 0);
         const totalNodes = window.MapData.nodes.length;
-        const hegemon = aliveFactions.find(faction => window.MapData.getFactionNodes(faction.id).length / totalNodes >= 0.6);
+        const victoryMode = this.lobby?.settings?.victory || '统一';
+        const hegemonyThreshold = 0.6;
+        const hegemon = victoryMode === '霸权'
+            ? aliveFactions.find(faction => window.MapData.getFactionNodes(faction.id).length / totalNodes >= hegemonyThreshold)
+            : null;
 
         let winner = null;
         if (aliveFactions.length === 1) {
             winner = {
                 factionId: aliveFactions[0].id,
-                type: '歼灭胜利',
+                type: '统一胜利',
                 text: `${aliveFactions[0].shortName} 成为地图上最后的存活势力。`
             };
         } else if (hegemon) {
@@ -1008,7 +1016,7 @@ const GameState = {
             winner = {
                 factionId: hegemon.id,
                 type: '霸权胜利',
-                text: `${hegemon.shortName} 控制 ${nodeCount}/${totalNodes} 个节点，达到 60% 霸权门槛。`
+                text: `${hegemon.shortName} 控制 ${nodeCount}/${totalNodes} 个节点，达到 ${Math.round(hegemonyThreshold * 100)}% 霸权门槛。`
             };
         }
 
