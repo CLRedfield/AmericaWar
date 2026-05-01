@@ -69,7 +69,7 @@ const MapData = {
         ['MSP', 'MIL'], ['MIL', 'CHI'], ['CHI', 'DET'], ['CHI', 'CLE'], ['DET', 'CLE'], ['DET', 'ALB'], ['CLE', 'PIT'], ['PIT', 'CHA'], ['PIT', 'PHI'], ['PIT', 'BAL'], ['PIT', 'WAS'],
         ['ALB', 'NYC'], ['ALB', 'HFD'], ['HFD', 'BOS'], ['BOS', 'MNE'], ['HFD', 'NYC'], ['NYC', 'PHI'], ['PHI', 'BAL'], ['BAL', 'WAS'], ['WAS', 'RIC'], ['RIC', 'NOR'],
         ['RIC', 'CHA'], ['NOR', 'CLM'], ['ATL', 'BHM'], ['ATL', 'CHA'], ['ATL', 'CLM'], ['ATL', 'SAV'], ['BHM', 'LRK'], ['BHM', 'BAT'], ['CLM', 'CHA'], ['CLM', 'SAV'], ['SAV', 'JAX'],
-        ['ELP', 'ABQ'], ['ELP', 'SAT'], ['SAT', 'DAL'], ['SAT', 'HOU'], ['DAL', 'HOU'], ['DAL', 'OKC'], ['WAS', 'BOS']
+        ['ELP', 'ABQ'], ['ELP', 'SAT'], ['SAT', 'DAL'], ['SAT', 'HOU'], ['DAL', 'HOU'], ['DAL', 'OKC']
     ],
 
     nodes: [],

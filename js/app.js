@@ -1070,6 +1070,17 @@ const App = {
             selectedNode.factionId === playerFactionId &&
             node.factionId === playerFactionId &&
             MapData.areAdjacent(selectedNode.id, node.id);
+        const selectedOwnAdjacentNode = selectedNode &&
+            selectedNode.id !== node.id &&
+            selectedNode.factionId === playerFactionId &&
+            MapData.areAdjacent(selectedNode.id, node.id);
+
+        if (selectedOwnAdjacentNode && GameState.getNodeMovableTroops(selectedNode) < 1) {
+            this.mobilePendingAttack = null;
+            this.mobilePendingMove = null;
+            GameState.setSelectedNode(nodeId);
+            return;
+        }
 
         if (this.isMobileLayout()) {
             this.mobilePendingAttack = null;
