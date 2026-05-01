@@ -1016,10 +1016,12 @@ const App = {
         if (!attacker || !defender) return null;
 
         const baseDefenseBonus = 15;
-        const taggedDefenseBonus = Math.round((GameState.getTaggedDefenseBonus(defender) || 0) * 100);
-        const globalDefenseBonus = Math.round((GameState.getEffectiveGlobalDefense() || 0) * 100);
         const isPlayerDefender = defender.factionId === GameState.getPlayerFactionId();
-        const defenseBonus = baseDefenseBonus + (isPlayerDefender ? taggedDefenseBonus + globalDefenseBonus : 0);
+        const defenderSlot = GameState.getSlot(defender.factionId);
+        const defenderModifierBonus = isPlayerDefender
+            ? Math.round(((GameState.getTaggedDefenseBonus(defender) || 0) + (GameState.getEffectiveGlobalDefense() || 0)) * 100)
+            : (window.GameAI && defenderSlot && defenderSlot.kind === 'ai' ? GameAI.getAiDefenseBonusPercent(defender.factionId, defender) : 0);
+        const defenseBonus = baseDefenseBonus + defenderModifierBonus;
         const attackerAttackBonus = Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100);
         const maxAttackers = GameState.getNodeMovableTroops(attacker);
         const draftAmount = requestedAmount === null || typeof requestedAmount === 'undefined'
@@ -1318,12 +1320,16 @@ const App = {
             const profile = window.GameAI
                 ? GameAI.getDifficultyProfile(slot.aiDifficulty || 'normal')
                 : { economyMultiplier: 1, ppMultiplier: 1 };
-            const baseIncome = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
-            const maintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
-            r.money = r.money + baseIncome - maintenance;
-            const debtPenalty = GameState.getDebtPenalty(r.money);
-            const ppIncome = GameState.basePPIncome * (profile.ppMultiplier || 1);
-            r.pp = Math.min(GameState.ppCap, Math.max(0, r.pp + ppIncome + debtPenalty.ppIncomeDelta));
+            if (window.GameAI && GameAI.settleAiTurnStart) {
+                GameAI.settleAiTurnStart(factionId, r, profile);
+            } else {
+                const baseIncome = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
+                const maintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
+                r.money = r.money + baseIncome - maintenance;
+                const debtPenalty = GameState.getDebtPenalty(r.money);
+                const ppIncome = GameState.basePPIncome * (profile.ppMultiplier || 1);
+                r.pp = Math.min(GameState.ppCap, Math.max(0, r.pp + ppIncome + debtPenalty.ppIncomeDelta));
+            }
         });
     },
 

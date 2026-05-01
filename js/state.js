@@ -395,6 +395,8 @@ const GameState = {
             damageOnCapture: 0,
             badges: []
         },
+        aiModifiers: {},
+        aiIdeologies: {},
         nodeIndustryCaps: {},
         warBondsPenalty: 0,
         warBondsPenaltyTurns: 0,
@@ -1323,6 +1325,8 @@ const GameState = {
                 damageOnCapture: 0,
                 badges: []
             },
+            aiModifiers: {},
+            aiIdeologies: {},
             nodeIndustryCaps: {},
             warBondsPenalty: 0,
             warBondsPenaltyTurns: 0,

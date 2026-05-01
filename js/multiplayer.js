@@ -236,8 +236,11 @@ const Multiplayer = {
                 currentCapitals: GameState.game.currentCapitals || {},
                 eliminatedFactions: GameState.game.eliminatedFactions || [],
                 aiResources: GameState.game.aiResources || {},
+                aiModifiers: GameState.game.aiModifiers || {},
+                aiIdeologies: GameState.game.aiIdeologies || {},
                 gameOver: !!GameState.game.gameOver,
                 modifiers: GameState.game.modifiers || {},
+                nodeIndustryCaps: GameState.game.nodeIndustryCaps || {},
                 map: MapData.nodes.map(node => ({
                     id: node.id,
                     factionId: node.factionId,
@@ -300,8 +303,11 @@ const Multiplayer = {
         GameState.game.currentCapitals = remote.currentCapitals || {};
         GameState.game.eliminatedFactions = remote.eliminatedFactions || [];
         GameState.game.aiResources = remote.aiResources || {};
+        GameState.game.aiModifiers = remote.aiModifiers || {};
+        GameState.game.aiIdeologies = remote.aiIdeologies || {};
         GameState.game.gameOver = !!remote.gameOver;
         if (remote.modifiers) GameState.game.modifiers = remote.modifiers;
+        if (remote.nodeIndustryCaps) GameState.game.nodeIndustryCaps = remote.nodeIndustryCaps;
 
         // 同步地图
         if (Array.isArray(remote.map)) {

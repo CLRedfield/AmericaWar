@@ -23,13 +23,14 @@ const GameAI = {
     difficultyProfiles: {
         very_easy: {
             maxActions: 2,
-            minActions: 2,
+            minActions: 0,
             economyMultiplier: 0.75,
             ppMultiplier: 0.75,
             minAttackRatio: 1.45,
             minAttackScore: 30,
             lossAversion: 2.2,
             recruitBatch: 5,
+            recruitMinBalance: 3,
             reinforceBatch: 4,
             capitalReserve: 10,
             frontReserve: 4,
@@ -37,13 +38,14 @@ const GameAI = {
         },
         easy: {
             maxActions: 2,
-            minActions: 2,
+            minActions: 0,
             economyMultiplier: 1,
             ppMultiplier: 1,
             minAttackRatio: 1.25,
             minAttackScore: 18,
             lossAversion: 1.8,
             recruitBatch: 5,
+            recruitMinBalance: 2,
             reinforceBatch: 4,
             capitalReserve: 10,
             frontReserve: 4,
@@ -51,13 +53,14 @@ const GameAI = {
         },
         normal: {
             maxActions: 6,
-            minActions: 2,
+            minActions: 0,
             economyMultiplier: 1.25,
             ppMultiplier: 1.25,
-            minAttackRatio: 1.05,
+            minAttackRatio: 1,
             minAttackScore: 2,
             lossAversion: 1,
             recruitBatch: 9,
+            recruitMinBalance: 0,
             reinforceBatch: 6,
             capitalReserve: 11,
             frontReserve: 5,
@@ -65,13 +68,17 @@ const GameAI = {
         },
         hard: {
             maxActions: 12,
-            minActions: 2,
+            minActions: 0,
             economyMultiplier: 1.5,
             ppMultiplier: 1.5,
-            minAttackRatio: 1,
+            minAttackRatio: 0.95,
+            riskyAttackRatio: 0.9,
+            riskyTargetValue: 28,
+            riskyAttackScore: -55,
             minAttackScore: -10,
             lossAversion: 0.65,
             recruitBatch: 14,
+            recruitMinBalance: -6,
             reinforceBatch: 9,
             capitalReserve: 13,
             frontReserve: 6,
@@ -152,10 +159,13 @@ const GameAI = {
         // 2. 如果有漂亮战机，先打一拳；困难 AI 会接受更薄的优势。
         if (this.aiAttackBestTarget(factionId, resources, profile)) return true;
 
-        // 3. 普通/困难 AI 会把后方兵力往前线推，避免只在首都堆兵。
+        // 3. 钱和 PP 都宽裕时，先补工业，不再等到国策/普通征兵之后。
+        if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile, true)) return true;
+
+        // 4. 普通/困难 AI 会把后方兵力往前线推，避免只在首都堆兵。
         if (difficulty !== 'easy' && this.aiReinforceFront(factionId, resources, profile)) return true;
 
-        // 4. 前几手如果没有战术动作，就推进更有价值的国策。
+        // 5. 前几手如果没有战术动作，就推进更有价值的国策。
         if (difficulty !== 'easy' && resources.pp >= 2 && actionIndex <= 2) {
             const focus = this.pickFocus(factionId);
             if (focus) {
@@ -164,13 +174,13 @@ const GameAI = {
             }
         }
 
-        // 5. 补齐前线兵力。
+        // 6. 补齐前线兵力。
         if (this.aiRecruitBestNode(factionId, resources, profile)) return true;
 
-        // 6. 困难 AI 更懂长期经济；普通 AI 在局面稳定时也会补工业。
-        if ((difficulty === 'hard' || actionIndex > 0) && this.aiBuildBestIndustry(factionId, resources, profile)) return true;
+        // 7. 如果前面没触发富余建厂，局面稳定时仍可补工业。
+        if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile)) return true;
 
-        // 7. 兜底：有 PP 但战线暂时无事，就继续国策。
+        // 8. 兜底：有 PP 但战线暂时无事，就继续国策。
         if (difficulty !== 'easy' && resources.pp >= 2) {
             const focus = this.pickFocus(factionId);
             if (focus) {
@@ -194,6 +204,94 @@ const GameAI = {
             };
         }
         return GameState.game.aiResources[factionId];
+    },
+
+    createAiModifierDefaults() {
+        return {
+            actionBaseCost: {},
+            recruitAmount: 0,
+            maintenanceRateDelta: 0,
+            ppIncome: 0,
+            moneyIncome: 0,
+            ppCapBonus: 0,
+            recruitCostDelta: 0,
+            freeTroops: 0,
+            globalAttack: 0,
+            globalDefense: 0,
+            taggedDefense: {},
+            taggedIncome: {},
+            captureMoneyOnWin: 0,
+            captureTroopsOnWin: 0,
+            crisisPP: 0,
+            industryCapBoosts: 0,
+            damageOnCapture: 0,
+            badges: []
+        };
+    },
+
+    getAiModifiers(factionId) {
+        if (!GameState.game.aiModifiers) GameState.game.aiModifiers = {};
+        const defaults = this.createAiModifierDefaults();
+        GameState.game.aiModifiers[factionId] = {
+            ...defaults,
+            ...(GameState.game.aiModifiers[factionId] || {})
+        };
+        const modifiers = GameState.game.aiModifiers[factionId];
+        modifiers.actionBaseCost = modifiers.actionBaseCost || {};
+        modifiers.taggedDefense = modifiers.taggedDefense || {};
+        modifiers.taggedIncome = modifiers.taggedIncome || {};
+        modifiers.badges = modifiers.badges || [];
+        return modifiers;
+    },
+
+    getAiIdeologyId(factionId) {
+        return (GameState.game.aiIdeologies && GameState.game.aiIdeologies[factionId])
+            || (GameState.getFaction(factionId)?.ideology);
+    },
+
+    getAiIdeologyBonus(factionId, key) {
+        const ideologyId = this.getAiIdeologyId(factionId);
+        const ideology = ideologyId ? GameState.getIdeology(ideologyId) : null;
+        if (!ideology || !Array.isArray(ideology.bonuses)) return 0;
+        const typeMap = {
+            maintenanceRateDelta: ['maintenanceRate'],
+            recruitCostDelta: ['recruitCost'],
+            captureMoneyOnWin: ['captureMoney'],
+            captureTroopsOnWin: ['captureTroops']
+        };
+        const wanted = typeMap[key] || [key];
+        return ideology.bonuses
+            .filter(bonus => wanted.includes(bonus.type))
+            .reduce((sum, bonus) => sum + (bonus.amount || 0), 0);
+    },
+
+    getAiNumericModifier(factionId, key) {
+        return (this.getAiModifiers(factionId)[key] || 0) + this.getAiIdeologyBonus(factionId, key);
+    },
+
+    getAiTaggedEffectValue(factionId, type, tag) {
+        const modifiers = this.getAiModifiers(factionId);
+        const map = type === 'taggedIncome' ? modifiers.taggedIncome : modifiers.taggedDefense;
+        let value = (map && map[tag]) || 0;
+        const ideologyId = this.getAiIdeologyId(factionId);
+        const ideology = ideologyId ? GameState.getIdeology(ideologyId) : null;
+        if (ideology && Array.isArray(ideology.bonuses)) {
+            ideology.bonuses
+                .filter(bonus => bonus.type === type && bonus.tag === tag)
+                .forEach(bonus => { value += bonus.amount || 0; });
+        }
+        return value;
+    },
+
+    getAiTaggedIncomeTotal(factionId) {
+        return MapData.getFactionNodes(factionId).reduce((total, node) => (
+            total + node.tags.reduce((sum, tag) => sum + this.getAiTaggedEffectValue(factionId, 'taggedIncome', tag), 0)
+        ), 0);
+    },
+
+    getAiActionCostAdjustment(factionId, action) {
+        const costs = this.getAiModifiers(factionId).actionBaseCost || {};
+        return costs[action] || 0;
     },
 
     pickFocus(factionId) {
@@ -224,9 +322,12 @@ const GameAI = {
             else if (effect.type === 'capitalIndustry' || effect.type === 'nodeIndustry') score += 7;
             else if (effect.type === 'allIndustry') score += (effect.maxNodes || 3) * 5;
             else if (effect.type === 'globalAttack' || effect.type === 'captureTroops') score += 10;
+            else if (effect.type === 'globalDefense' || effect.type === 'freeTroops') score += 6;
             else if (effect.type === 'actionCost') score += 8;
             else if (effect.type === 'recruitAmount' || effect.type === 'recruitCost') score += 7;
-            else if (effect.type === 'moneyIncome' || effect.type === 'ppIncome') score += 6;
+            else if (effect.type === 'moneyIncome' || effect.type === 'ppIncome' || effect.type === 'taggedIncome') score += 6;
+            else if (effect.type === 'ppCapBonus' || effect.type === 'captureMoney') score += 4;
+            else if (effect.type === 'taggedDefense') score += 3;
             else if (effect.type === 'industryCapBonus') score += (effect.maxNodes || 1) * 4;
         });
 
@@ -238,7 +339,7 @@ const GameAI = {
 
     aiAdvanceFocus(factionId, focus, capitalNode) {
         const resources = this.computeFactionResources(factionId);
-        const ppCost = 1 + (GameState.game.actionCountThisTurn || 0);
+        const ppCost = this.getActionPPCost(1, factionId, 'focus');
         if (resources.pp < ppCost) return false;
         resources.pp -= ppCost;
         GameState.game.actionCountThisTurn = (GameState.game.actionCountThisTurn || 0) + 1;
@@ -266,8 +367,21 @@ const GameAI = {
      */
     applyAiFocusEffect(effect, factionId, capitalNode) {
         const resources = this.computeFactionResources(factionId);
+        const modifiers = this.getAiModifiers(factionId);
         if (effect.type === 'money') resources.money += effect.amount;
-        else if (effect.type === 'pp') resources.pp += effect.amount;
+        else if (effect.type === 'pp') resources.pp = Math.min(this.getAiPPCap(factionId), resources.pp + effect.amount);
+        else if (effect.type === 'actionCost') {
+            if (effect.action === 'all') {
+                ['recruit', 'move', 'build', 'focus'].forEach(action => {
+                    modifiers.actionBaseCost[action] = (modifiers.actionBaseCost[action] || 0) + effect.amount;
+                });
+            } else {
+                modifiers.actionBaseCost[effect.action] = (modifiers.actionBaseCost[effect.action] || 0) + effect.amount;
+            }
+        } else if (effect.type === 'recruitAmount') modifiers.recruitAmount += effect.amount;
+        else if (effect.type === 'maintenanceRate') modifiers.maintenanceRateDelta += effect.amount;
+        else if (effect.type === 'ppIncome') modifiers.ppIncome += effect.amount;
+        else if (effect.type === 'moneyIncome') modifiers.moneyIncome += effect.amount;
         else if (effect.type === 'capitalTroops' && capitalNode) capitalNode.troops += effect.amount;
         else if (effect.type === 'capitalIndustry' && capitalNode) {
             const cap = GameState.getNodeIndustryCap(capitalNode.id);
@@ -307,6 +421,7 @@ const GameAI = {
                 .forEach(node => {
                     GameState.setNodeIndustryCap(node.id, GameState.getNodeIndustryCap(node.id) + effect.amount);
                 });
+            modifiers.industryCapBoosts += (effect.amount || 0) * (effect.maxNodes || 1);
         } else if (effect.type === 'damageEnemyIndustry') {
             MapData.nodes
                 .filter(node => node.factionId && node.factionId !== factionId && node.industry > 0)
@@ -319,8 +434,25 @@ const GameAI = {
             MapData.getFactionNodes(factionId)
                 .filter(node => node.isCapital || node.tags.includes('首都') || GameState.getCapitalOwner(node.id))
                 .forEach(node => { node.troops += effect.amount; });
-        } else if (effect.type === 'freeTroops' && capitalNode) {
-            capitalNode.troops += effect.amount;
+        } else if (effect.type === 'ppCapBonus') modifiers.ppCapBonus += effect.amount;
+        else if (effect.type === 'recruitCost') modifiers.recruitCostDelta += effect.amount;
+        else if (effect.type === 'freeTroops') modifiers.freeTroops += effect.amount;
+        else if (effect.type === 'globalAttack') modifiers.globalAttack += effect.amount;
+        else if (effect.type === 'globalDefense') modifiers.globalDefense += effect.amount;
+        else if (effect.type === 'taggedDefense') {
+            modifiers.taggedDefense[effect.tag] = (modifiers.taggedDefense[effect.tag] || 0) + effect.amount;
+        } else if (effect.type === 'taggedIncome') {
+            modifiers.taggedIncome[effect.tag] = (modifiers.taggedIncome[effect.tag] || 0) + effect.amount;
+        } else if (effect.type === 'captureMoney') modifiers.captureMoneyOnWin += effect.amount;
+        else if (effect.type === 'captureTroops') modifiers.captureTroopsOnWin += effect.amount;
+        else if (effect.type === 'crisisPP') modifiers.crisisPP += effect.amount;
+        else if (effect.type === 'badge') {
+            if (!modifiers.badges.includes(effect.label)) modifiers.badges.push(effect.label);
+        } else if (effect.type === 'ideology') {
+            if (GameState.ideologies[effect.id]) {
+                GameState.game.aiIdeologies = GameState.game.aiIdeologies || {};
+                GameState.game.aiIdeologies[factionId] = effect.id;
+            }
         }
     },
 
@@ -347,8 +479,9 @@ const GameAI = {
         };
     },
 
-    getActionPPCost(baseCost) {
-        return Math.max(0, baseCost + (GameState.game.actionCountThisTurn || 0));
+    getActionPPCost(baseCost, factionId = null, action = null) {
+        const adjustment = factionId && action ? this.getAiActionCostAdjustment(factionId, action) : 0;
+        return Math.max(0, baseCost + adjustment + (GameState.game.actionCountThisTurn || 0));
     },
 
     spendAction(resources, ppCost) {
@@ -364,27 +497,100 @@ const GameAI = {
             .sort((a, b) => this.getEnemyPressure(b, factionId) - this.getEnemyPressure(a, factionId))
             [0] || situation.capital || situation.nodes[0];
 
-        GameState.game.actionCountThisTurn = (GameState.game.actionCountThisTurn || 0) + 1;
         if (anchor) GameState.game.selectedNodeId = anchor.id;
-        GameState.addLog(`${GameState.getFactionName(factionId)} AI 整军待命，巩固${anchor ? ` ${anchor.name}` : '防线'}。`, 'system', false);
+        GameState.addLog(`${GameState.getFactionName(factionId)} AI 暂无有效行动，结束行动。`, 'system', false);
         GameState.notify();
-        return true;
+        return false;
+    },
+
+    getAiRecruitCostPerSoldier(factionId) {
+        return Math.max(1, 2 + this.getAiNumericModifier(factionId, 'recruitCostDelta'));
+    },
+
+    getAiRecruitGainAmount(factionId, draftAmount) {
+        return Math.max(1, draftAmount + this.getAiNumericModifier(factionId, 'recruitAmount'));
+    },
+
+    getAiRecruitBatch(factionId, resources, profile) {
+        const base = profile.recruitBatch;
+        const surplus = resources.money - (10 + profile.buildMoneyReserve);
+        if (surplus >= 70) return Math.ceil(base * 2);
+        if (surplus >= 40) return Math.ceil(base * 1.5);
+        return base;
+    },
+
+    getAiMaintenanceRate(factionId) {
+        return Math.max(0.05, GameState.baseMaintenanceRate + this.getAiNumericModifier(factionId, 'maintenanceRateDelta'));
+    },
+
+    getAiPPCap(factionId) {
+        return Math.max(20, GameState.ppCap + this.getAiNumericModifier(factionId, 'ppCapBonus'));
+    },
+
+    calculateAiTurnPreview(factionId, resources, profile, options = {}) {
+        const totals = MapData.calculateFactionStats(factionId);
+        const extraTroops = Number(options.extraTroops) || 0;
+        const extraIndustry = Number(options.extraIndustry) || 0;
+        const moneySpent = Math.max(0, Number(options.moneySpent) || 0);
+        const grossBase = totals.totalIndustry
+            + extraIndustry
+            + 1
+            + this.getAiNumericModifier(factionId, 'moneyIncome')
+            + this.getAiTaggedIncomeTotal(factionId);
+        const income = Math.max(0, grossBase) * (profile.economyMultiplier || 1);
+        const totalTroops = totals.totalTroops + extraTroops;
+        const freeTroops = Math.max(0, this.getAiNumericModifier(factionId, 'freeTroops'));
+        const billableTroops = Math.max(0, totalTroops - freeTroops);
+        const maintenance = billableTroops * this.getAiMaintenanceRate(factionId);
+        const currentMoneyAfterAction = resources.money - moneySpent;
+        const projectedMoney = currentMoneyAfterAction + income - maintenance;
+        const debtPenalty = GameState.getDebtPenalty(projectedMoney);
+        const ppIncome = Math.max(0, GameState.basePPIncome * (profile.ppMultiplier || 1)
+            + this.getAiNumericModifier(factionId, 'ppIncome')
+            + debtPenalty.ppIncomeDelta);
+        const projectedPP = Math.min(this.getAiPPCap(factionId), Math.max(0, (resources.pp || 0) + ppIncome));
+
+        return {
+            income,
+            maintenance,
+            moneyDelta: income - maintenance,
+            projectedMoney,
+            ppIncome,
+            projectedPP,
+            debtPenalty,
+            freeTroops,
+            billableTroops,
+            totalTroops
+        };
+    },
+
+    settleAiTurnStart(factionId, resources, profile) {
+        const settlement = this.calculateAiTurnPreview(factionId, resources, profile);
+        resources.money = settlement.projectedMoney;
+        resources.pp = settlement.projectedPP;
+        return {
+            income: settlement.income,
+            maintenance: settlement.maintenance,
+            moneyDelta: settlement.moneyDelta,
+            balance: resources.money,
+            ppIncome: settlement.ppIncome,
+            debtPenalty: settlement.debtPenalty
+        };
     },
 
     estimateAiNextTurnMoney(factionId, resources, profile, extraTroops = 0, moneySpent = 0) {
-        const totals = MapData.calculateFactionStats(factionId);
-        const income = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
-        const totalTroops = totals.totalTroops + extraTroops;
-        const maintenance = Math.max(0, totalTroops * GameState.baseMaintenanceRate);
-        return resources.money - moneySpent + income - maintenance;
+        return this.calculateAiTurnPreview(factionId, resources, profile, { extraTroops, moneySpent }).projectedMoney;
     },
 
     getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, minBalance = 1) {
         const totals = MapData.calculateFactionStats(factionId);
-        const income = (totals.totalIndustry + 1) * (profile.economyMultiplier || 1);
-        const currentMaintenance = Math.max(0, totals.totalTroops * GameState.baseMaintenanceRate);
+        const income = (totals.totalIndustry + 1
+            + this.getAiNumericModifier(factionId, 'moneyIncome')
+            + this.getAiTaggedIncomeTotal(factionId)) * (profile.economyMultiplier || 1);
+        const billableTroops = Math.max(0, totals.totalTroops - Math.max(0, this.getAiNumericModifier(factionId, 'freeTroops')));
+        const currentMaintenance = Math.max(0, billableTroops * this.getAiMaintenanceRate(factionId));
         const room = resources.money + income - currentMaintenance - minBalance;
-        const fullCostPerSoldier = costPerSoldier + GameState.baseMaintenanceRate;
+        const fullCostPerSoldier = costPerSoldier + this.getAiMaintenanceRate(factionId);
         return Math.max(0, Math.floor(room / fullCostPerSoldier));
     },
 
@@ -503,15 +709,17 @@ const GameAI = {
     aiRecruitBestNode(factionId, resources, profile, emergencyOnly = false) {
         const plan = this.pickRecruitPlan(factionId, resources, profile, emergencyOnly);
         if (!plan) return false;
-        return this.aiRecruit(factionId, plan.node, resources, plan.amount, plan.ppCost);
+        return this.aiRecruit(factionId, plan.node, resources, plan.amount, plan.ppCost, plan.costPerSoldier, plan.draftAmount);
     },
 
     pickRecruitPlan(factionId, resources, profile, emergencyOnly = false) {
-        const ppCost = this.getActionPPCost(1);
-        const costPerSoldier = 2;
+        const ppCost = this.getActionPPCost(1, factionId, 'recruit');
+        const costPerSoldier = this.getAiRecruitCostPerSoldier(factionId);
+        const batchLimit = this.getAiRecruitBatch(factionId, resources, profile);
+        const minBalance = typeof profile.recruitMinBalance === 'number' ? profile.recruitMinBalance : 1;
         const maxAffordable = Math.min(
             Math.floor(resources.money / costPerSoldier),
-            this.getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, 3)
+            this.getMaxRecruitAmountForNextBalance(factionId, resources, profile, costPerSoldier, minBalance)
         );
         if (resources.pp < ppCost || maxAffordable < 1) return null;
 
@@ -525,36 +733,38 @@ const GameAI = {
 
             const wanted = emergencyOnly
                 ? Math.max(1, need)
-                : Math.max(1, need, pressure > 0 ? profile.recruitBatch * 0.6 : profile.recruitBatch * 0.35);
-            const amount = Math.max(1, Math.min(maxAffordable, profile.recruitBatch, Math.ceil(wanted)));
+                : Math.max(1, need, pressure > 0 ? batchLimit * 0.6 : batchLimit * 0.35);
+            const draftAmount = Math.max(1, Math.min(maxAffordable, batchLimit, Math.ceil(wanted)));
+            const amount = this.getAiRecruitGainAmount(factionId, draftAmount);
             const score = need * 10
                 + pressure * 1.2
                 + this.getNodeStrategicValue(node)
                 + (GameState.getCapitalNodeId(factionId) === node.id ? 15 : 0);
-            return { node, amount, ppCost, score };
+            return { node, amount, draftAmount, costPerSoldier, ppCost, score };
         }).filter(Boolean);
 
         return plans.sort((a, b) => b.score - a.score)[0] || null;
     },
 
-    aiRecruit(factionId, node, resources, amount, ppCost) {
-        const costPerSoldier = 2;
+    aiRecruit(factionId, node, resources, amount, ppCost, costPerSoldier = this.getAiRecruitCostPerSoldier(factionId), draftAmount = amount) {
+        const moneyCost = costPerSoldier * draftAmount;
         if (!node || amount < 1) return false;
-        if (resources.money < costPerSoldier * amount) return false;
+        if (resources.money < moneyCost) return false;
         const profile = this.getDifficultyProfile(GameState.getSlot(factionId)?.aiDifficulty || 'normal');
-        if (this.estimateAiNextTurnMoney(factionId, resources, profile, amount, costPerSoldier * amount) < 3) return false;
+        const minBalance = typeof profile.recruitMinBalance === 'number' ? profile.recruitMinBalance : 1;
+        if (this.estimateAiNextTurnMoney(factionId, resources, profile, amount, moneyCost) < minBalance) return false;
         if (!this.spendAction(resources, ppCost)) return false;
 
-        resources.money -= costPerSoldier * amount;
+        resources.money -= moneyCost;
         node.troops += amount;
         node.freshTroops = (node.freshTroops || 0) + amount;
-        GameState.addLog(`${GameState.getFactionName(factionId)} AI 在 ${node.name} 征兵 +${amount}。`, 'system', false);
+        GameState.addLog(`${GameState.getFactionName(factionId)} AI 在 ${node.name} 征兵 +${amount}（消耗 $${moneyCost}）。`, 'system', false);
         GameState.notify();
         return true;
     },
 
     aiAttackBestTarget(factionId, resources, profile) {
-        const ppCost = this.getActionPPCost(1);
+        const ppCost = this.getActionPPCost(1, factionId, 'move');
         if (resources.pp < ppCost) return false;
         const plan = this.pickAttackPlan(factionId, profile);
         if (!plan) return false;
@@ -572,9 +782,7 @@ const GameAI = {
                     const ratio = preview.attackerPower / Math.max(1, preview.defenderPower);
                     const score = this.scoreAttackPlan(attacker, defender, preview, profile, factionId);
                     const targetValue = this.getNodeStrategicValue(defender);
-                    const acceptable = preview.attackerWins
-                        && score >= profile.minAttackScore
-                        && (ratio >= profile.minAttackRatio || targetValue >= 28);
+                    const acceptable = this.isAttackPlanAcceptable(preview, score, ratio, targetValue, profile);
                     if (acceptable) plans.push({ attacker, defender, preview, ratio, score });
                 });
         });
@@ -582,13 +790,48 @@ const GameAI = {
         return plans.sort((a, b) => b.score - a.score)[0] || null;
     },
 
+    isAttackPlanAcceptable(preview, score, ratio, targetValue, profile) {
+        if (preview.attackerWins) {
+            return score >= profile.minAttackScore
+                && (ratio >= profile.minAttackRatio || targetValue >= 28);
+        }
+
+        return Boolean(profile.riskyAttackRatio)
+            && targetValue >= (profile.riskyTargetValue || 28)
+            && ratio >= profile.riskyAttackRatio
+            && score >= (profile.riskyAttackScore ?? -50);
+    },
+
+    getAiAttackBonusPercent(factionId) {
+        const resources = this.computeFactionResources(factionId);
+        const debtPenalty = GameState.getDebtPenalty(resources.money);
+        return Math.round((this.getAiNumericModifier(factionId, 'globalAttack') + debtPenalty.globalAttackDelta) * 100);
+    },
+
+    getAiDefenseBonusPercent(factionId, node) {
+        const resources = this.computeFactionResources(factionId);
+        const debtPenalty = GameState.getDebtPenalty(resources.money);
+        const taggedDefense = (node?.tags || []).reduce((sum, tag) => (
+            sum + this.getAiTaggedEffectValue(factionId, 'taggedDefense', tag)
+        ), 0);
+        return Math.round((this.getAiNumericModifier(factionId, 'globalDefense') + taggedDefense + debtPenalty.globalDefenseDelta) * 100);
+    },
+
     createAiBattlePreview(attacker, defender, factionId) {
         const baseDefenseBonus = 15;
         const isPlayerDefender = defender.factionId === GameState.getPlayerFactionId();
-        const taggedDefenseBonus = isPlayerDefender ? Math.round((GameState.getTaggedDefenseBonus(defender) || 0) * 100) : 0;
-        const globalDefenseBonus = isPlayerDefender ? Math.round((GameState.getEffectiveGlobalDefense() || 0) * 100) : 0;
-        const defenseBonus = baseDefenseBonus + taggedDefenseBonus + globalDefenseBonus;
-        const attackerAttackBonus = 0;
+        const defenderSlot = GameState.getSlot(defender.factionId);
+        const defenseModifierBonus = isPlayerDefender
+            ? Math.round(((GameState.getTaggedDefenseBonus(defender) || 0) + (GameState.getEffectiveGlobalDefense() || 0)) * 100)
+            : (defenderSlot && defenderSlot.kind === 'ai' ? this.getAiDefenseBonusPercent(defender.factionId, defender) : 0);
+        const attackerEncircled = MapData.isNodeEncircled(attacker);
+        const defenderEncircled = MapData.isNodeEncircled(defender);
+        const encirclementPenalty = -35;
+        const defenseBonus = baseDefenseBonus
+            + defenseModifierBonus
+            + (defenderEncircled ? encirclementPenalty : 0);
+        const attackerAttackBonus = this.getAiAttackBonusPercent(factionId)
+            + (attackerEncircled ? encirclementPenalty : 0);
         const attackerBase = GameState.getNodeMovableTroops(attacker);
         const defenderBase = defender.troops;
         const attackerPower = Number((attackerBase * (1 + attackerAttackBonus / 100)).toFixed(1));
@@ -610,6 +853,8 @@ const GameAI = {
             remainingTroops,
             defenseBonus,
             attackerAttackBonus,
+            attackerEncircled,
+            defenderEncircled,
             factionId
         };
     },
@@ -642,7 +887,7 @@ const GameAI = {
         const score = this.scoreAttackPlan(attacker, defender, preview, profile, factionId);
         const ratio = preview.attackerPower / Math.max(1, preview.defenderPower);
         const targetValue = this.getNodeStrategicValue(defender);
-        if (!preview.attackerWins || score < profile.minAttackScore || (ratio < profile.minAttackRatio && targetValue < 28)) return false;
+        if (!this.isAttackPlanAcceptable(preview, score, ratio, targetValue, profile)) return false;
 
         const participatingTroops = Math.min(preview.attackerBase, GameState.getNodeMovableTroops(attacker));
         if (participatingTroops < 1) return false;
@@ -665,6 +910,10 @@ const GameAI = {
             defender.troops = enteringTroops;
             defender.moveReady = 0;
             defender.freshTroops = 0;
+            const captureMoney = this.getAiNumericModifier(factionId, 'captureMoneyOnWin');
+            const captureTroops = this.getAiNumericModifier(factionId, 'captureTroopsOnWin');
+            if (captureMoney > 0) resources.money += captureMoney;
+            if (captureTroops > 0) defender.troops += captureTroops;
             GameState.game.selectedNodeId = defender.id;
             GameState.refreshFactionStatus(true);
             GameState.checkVictory(true);
@@ -684,7 +933,7 @@ const GameAI = {
     },
 
     aiReinforceFront(factionId, resources, profile) {
-        const ppCost = this.getActionPPCost(1);
+        const ppCost = this.getActionPPCost(1, factionId, 'move');
         if (resources.pp < ppCost) return false;
         const plan = this.pickReinforcePlan(factionId, profile);
         if (!plan) return false;
@@ -740,10 +989,11 @@ const GameAI = {
         return plans.sort((a, b) => b.score - a.score)[0] || null;
     },
 
-    aiBuildBestIndustry(factionId, resources, profile) {
-        const ppCost = this.getActionPPCost(5);
+    aiBuildBestIndustry(factionId, resources, profile, requireSurplus = false) {
+        const ppCost = this.getActionPPCost(5, factionId, 'build');
         const moneyCost = 10;
-        if (resources.pp < ppCost || resources.money < moneyCost + profile.buildMoneyReserve) return false;
+        const reserve = profile.buildMoneyReserve + (requireSurplus ? 8 : 0);
+        if (resources.pp < ppCost || resources.money < moneyCost + reserve) return false;
         const node = this.pickBuildNode(factionId);
         if (!node) return false;
         return this.aiBuildIndustry(factionId, node, resources, ppCost, moneyCost);
