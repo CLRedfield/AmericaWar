@@ -973,9 +973,101 @@
         ].forEach(([id, effects]) => setFocusEffects(id, effects));
     }
 
+    /**
+     * 给政治路线的中段插入一个互斥支线节点，把单列直链改造成 2 选 1 的小分叉。
+     * 主路 P3（非 USA）或 P4（USA）保持原 effects 与 prereq；新支线和主路互斥并共享同一个父节点；
+     * 链上的下一个节点改用 prerequisiteAny，让玩家走主路或支路都能继续推进。
+     */
+    function applyPoliticalBranching() {
+        const forks = [
+            // CSA：四条路线的 P3 各加 1 个互斥支线
+            { factionId: 'CSA', branch: '工会民主', mainId: 'CSA_workers_arbitration', altId: 'CSA_factory_assemblies', altName: '车间总会议', cost: 7, description: '把仲裁交还给车间，每周由工人投票直接处理冲突，无须再设仲裁庭。', effects: [E.recruitAmount(1), E.freeT(2)], nextId: 'CSA_red_council' },
+            { factionId: 'CSA', branch: '中央总工团', mainId: 'CSA_lakes_planning', altId: 'CSA_emergency_quotas', altName: '紧急产量令', cost: 7, description: '跳过五大湖计划局，由总工团直接对每条产线下达产量令。', effects: [E.money(15), E.allI(1, 2)], nextId: 'CSA_red_rationing' },
+            { factionId: 'CSA', branch: '革命赤卫军', mainId: 'CSA_factory_red_guards', altId: 'CSA_street_vanguards', altName: '街区先锋旅', cost: 7, description: '把武装从工厂搬到街区，每条街都有自己的赤卫小队。', effects: [E.allT(1), E.tagT('港口', 1)], nextId: 'CSA_combat_commissars' },
+            { factionId: 'CSA', branch: '卡彭机器', mainId: 'CSA_black_market_economy', altId: 'CSA_protection_rackets', altName: '保护费体系', cost: 7, description: '把黑市改造成街区保护费系统，比走私更稳定。', effects: [E.moneyIncome(2), E.capMoney(2)], nextId: 'CSA_street_payroll' },
+
+            // AUS：四条路线的 P3
+            { factionId: 'AUS', branch: '朗派机器', mainId: 'AUS_radio_firesides', altId: 'AUS_revival_caravans', altName: '复兴车队', cost: 7, description: '把广播车和帐篷讲台开进每个县，把朗派直接送到草根人群面前。', effects: [E.pp(3), E.recruitAmount(1)], nextId: 'AUS_county_captains' },
+            { factionId: 'AUS', branch: '州权联盟', mainId: 'AUS_county_home_rule', altId: 'AUS_capitol_compromise', altName: '州府交易', cost: 7, description: '绕过县议会，直接与各州首府的州长团交易战时合同。', effects: [E.moneyIncome(1), E.tagInc('港口', 1)], nextId: 'AUS_southern_bargain' },
+            { factionId: 'AUS', branch: '动员派', mainId: 'AUS_security_ministry', altId: 'AUS_internal_purges', altName: '内部清洗', cost: 7, description: '用秘密法庭直接处理破坏者和不服从的地方队长，比安全部更狠。', effects: [E.maint(-0.04), E.crisis(2)], nextId: 'AUS_river_authority' },
+            { factionId: 'AUS', branch: '银军团', mainId: 'AUS_radio_priest_hour', altId: 'AUS_klan_revival', altName: '乡村打击队', cost: 7, description: '把银衫纵队、退伍军官和老式三K党员合编成乡村打击队。', effects: [E.allCapT(2), E.gAtk(0.05)], nextId: 'AUS_purity_committees' },
+
+            // CON：四条路线的 P3
+            { factionId: 'CON', branch: '宪章派', mainId: 'CON_legal_oaths', altId: 'CON_constitutional_courts', altName: '宪政巡回法庭', cost: 7, description: '派遣巡回法官审理战时争议，用司法替代仪式化的宣誓。', effects: [E.maint(-0.03), E.actionCost('focus', -1)], nextId: 'CON_civilian_review' },
+            { factionId: 'CON', branch: '财阀协调', mainId: 'CON_rail_boards', altId: 'CON_planter_caucus', altName: '种植园主党团', cost: 7, description: '把内陆种植园主与棉花商纳入战时执政党团，平衡铁路资本。', effects: [E.tagInc('油田', 1), E.moneyIncome(1)], nextId: 'CON_contract_state' },
+            { factionId: 'CON', branch: '安全统制', mainId: 'CON_press_licenses', altId: 'CON_clergy_censors', altName: '教会审查官', cost: 7, description: '把宗教神职人员任命为战时审查官，深入街坊比报刊许可更彻底。', effects: [E.pp(3), E.maint(-0.02)], nextId: 'CON_counter_guerrillas' },
+            { factionId: 'CON', branch: '南方国民党', mainId: 'CON_party_press_offices', altId: 'CON_youth_cadres', altName: '党青年团', cost: 7, description: '建立党的青年团接管街头宣传与基层动员，比报社更生猛。', effects: [E.allT(1), E.recruitAmount(1)], nextId: 'CON_corporate_chambers' },
+
+            // NEN：四条路线的 P3
+            { factionId: 'NEN', branch: '自由州', mainId: 'NEN_civic_militia', altId: 'NEN_volunteer_brigades', altName: '志愿军旅', cost: 7, description: '在港口设招募站，吸引东海岸与加拿大志愿者编入战旅。', effects: [E.allT(1), E.tagD('港口', 0.05)], nextId: 'NEN_civil_liberties' },
+            { factionId: 'NEN', branch: '商贸委员会', mainId: 'NEN_shipping_registry', altId: 'NEN_privateer_charters', altName: '私掠特许状', cost: 7, description: '向沿海船主颁发战时私掠特许状，让他们在敌方航道上自负盈亏。', effects: [E.capMoney(2), E.tagT('港口', 1)], nextId: 'NEN_insurance_pool' },
+            { factionId: 'NEN', branch: '保护协定', mainId: 'NEN_advisory_mission', altId: 'NEN_lend_lease_office', altName: '租借物资署', cost: 7, description: '用加拿大-英联邦的租借物资换取长期债务承诺。', effects: [E.bonds(20, 3, 3), E.allI(1, 2)], nextId: 'NEN_joint_harbor_watch' },
+            { factionId: 'NEN', branch: '普罗维登斯学社', mainId: 'NEN_innsmouth_files', altId: 'NEN_arkham_archive_purge', altName: '档案净化案', cost: 7, description: '阿卡姆学者主张把不该被读的文本封存或销毁，避免污染再扩散。', effects: [E.maint(-0.03), E.crisis(3)], nextId: 'NEN_dunwich_excavations' },
+
+            // PAC：四条路线的 P3
+            { factionId: 'PAC', branch: '进步民主', mainId: 'PAC_civic_guard', altId: 'PAC_university_corps', altName: '大学学员队', cost: 7, description: '从加州大学和斯坦福招募学员组成西海岸志愿军，年轻又便宜。', effects: [E.recruitCost(-1), E.allT(1)], nextId: 'PAC_public_ballots' },
+            { factionId: 'PAC', branch: '技术内阁', mainId: 'PAC_port_authority', altId: 'PAC_water_grid', altName: '西部水网', cost: 7, description: '把胡佛水坝、加州水利与电网纳入战时统筹，工业增速更快。', effects: [E.allI(1, 2), E.capBoost(1, 1)], nextId: 'PAC_logistics_tables' },
+            { factionId: 'PAC', branch: '防务联盟', mainId: 'PAC_mountain_passes', altId: 'PAC_naval_screen', altName: '海岸纵列', cost: 7, description: '把警戒纵列从内华达山口移到加州沿海，强化港口防御。', effects: [E.tagT('港口', 1), E.tagD('港口', 0.05)], nextId: 'PAC_security_permits' },
+            { factionId: 'PAC', branch: '太平洋帝国', mainId: 'PAC_island_protectorates', altId: 'PAC_cathay_compacts', altName: '南洋华人协约', cost: 7, description: '与西海岸华人和菲律宾劳工公会签订战时协约，扩大兵源。', effects: [E.recruitAmount(1), E.tagInc('港口', 1)], nextId: 'PAC_marine_expansion' },
+
+            // WDC：四条路线的 P3
+            { factionId: 'WDC', branch: '军官委员会', mainId: 'WDC_provost_posts', altId: 'WDC_railway_marshals', altName: '铁路宪兵', cost: 7, description: '把宪兵装上军列，专门处理沿线骚动与跨州走私，比静止岗哨更高效。', effects: [E.actionCost('move', -1), E.allT(1)], nextId: 'WDC_officer_governors' },
+            { factionId: 'WDC', branch: '边疆州长', mainId: 'WDC_rancher_councils', altId: 'WDC_mining_consortium', altName: '矿业财阀', cost: 7, description: '由科罗拉多与犹他矿业财团承担军费，工业更稳但牧场不满。', effects: [E.capI(1), E.bonds(20, 3, 3)], nextId: 'WDC_frontier_levies' },
+            { factionId: 'WDC', branch: '西部自治', mainId: 'WDC_water_rights', altId: 'WDC_homestead_acts', altName: '拓荒法案', cost: 7, description: '用未来的土地分配换取拓荒移民投身军旅。', effects: [E.recruitAmount(1), E.tagT('油田', 1)], nextId: 'WDC_settler_militias' },
+            { factionId: 'WDC', branch: '远征派', mainId: 'WDC_seizure_protocols', altId: 'WDC_scorched_earth', altName: '焦土战术', cost: 7, description: '撤退或推进时一律焚毁敌方设施，让对手无法使用任何缴获。', effects: [E.damage(1, 3), E.gAtk(0.05)], nextId: 'WDC_demolition_teams' },
+
+            // TEX：四条路线的 P3
+            { factionId: 'TEX', branch: '石油委员会', mainId: 'TEX_pipeline_guards', altId: 'TEX_oil_militia', altName: '油田民兵', cost: 7, description: '由石油承包商私募的油田民兵承担一线巡逻，比正式卫队便宜。', effects: [E.recruitCost(-1), E.tagT('油田', 1)], nextId: 'TEX_fuel_rationing' },
+            { factionId: 'TEX', branch: '牧场民粹', mainId: 'TEX_ranger_myth', altId: 'TEX_dustbowl_relief', altName: '沙尘暴救济', cost: 7, description: '用救济和粮食在沙尘暴灾区动员小农与零工，扎实但少血气。', effects: [E.moneyIncome(1), E.freeT(3)], nextId: 'TEX_smallholder_relief' },
+            { factionId: 'TEX', branch: '共和国派', mainId: 'TEX_senate_of_counties', altId: 'TEX_civic_associations', altName: '公民协会', cost: 7, description: '让商会、教会和大学协会代表市民阶层进入临时政府。', effects: [E.money(12), E.actionCost('focus', -1)], nextId: 'TEX_civil_registry' },
+            { factionId: 'TEX', branch: '大德州派', mainId: 'TEX_oil_warpath', altId: 'TEX_cattle_warpath', altName: '牛仔西征', cost: 7, description: '把牛仔与游骑兵编成长程军，打通新墨西哥与中部平原。', effects: [E.recruitAmount(1), E.allT(1)], nextId: 'TEX_seizure_doctrine' },
+
+            // USA：三条路线的 P4 中段（USA 政治路线为 7 节点链，分叉点更靠后）
+            { factionId: 'USA', branch: '民主修复', mainId: 'usa_wartime_civil_service', altId: 'usa_state_emergency_boards', altName: '州紧急委员会', cost: 7, description: '由州长任命的紧急委员会承担征税与征兵，与文官署平行又对立。', effects: [E.moneyIncome(1), E.maint(-0.02)], nextId: 'usa_provisional_bill' },
+            { factionId: 'USA', branch: '军政府', mainId: 'usa_military_censors', altId: 'usa_field_provost_corps', altName: '野战宪兵团', cost: 7, description: '组建专属麦克阿瑟司令部的野战宪兵，前线后方一并清理。', effects: [E.maint(-0.03), E.allT(1)], nextId: 'usa_presidential_general_staff' },
+            { factionId: 'USA', branch: '技术官僚', mainId: 'usa_state_planning_boards', altId: 'usa_federal_efficiency_office', altName: '联邦效率局', cost: 7, description: '在白宫直辖下成立效率局，越过州际计划委员会直接督促军工。', effects: [E.actionCost('build', -1), E.capBoost(1, 1)], nextId: 'usa_regulated_parties' }
+        ];
+
+        forks.forEach(fork => {
+            const tree = GameState.focusTrees[fork.factionId];
+            if (!tree) return;
+            const main = tree.find(item => item.id === fork.mainId);
+            if (!main) return;
+
+            // 新支线节点：与主节点共享父节点（同一个 prereq），y 相同、x 比主节点大 1，互斥
+            const altX = (typeof main.x === 'number' ? main.x : 0) + 1;
+            const altY = typeof main.y === 'number' ? main.y : 0;
+            const alt = f(
+                fork.altId,
+                fork.altName,
+                fork.branch,
+                altX,
+                altY,
+                fork.cost,
+                fork.description,
+                fork.effects,
+                Array.isArray(main.prerequisites) ? [...main.prerequisites] : [],
+                { mutuallyExclusive: [fork.mainId] }
+            );
+            addUnique(tree, [alt]);
+
+            // 主节点反向加上互斥关系，便于互斥连线在两侧都能渲染
+            if (!Array.isArray(main.mutuallyExclusive)) main.mutuallyExclusive = [];
+            if (!main.mutuallyExclusive.includes(fork.altId)) main.mutuallyExclusive.push(fork.altId);
+
+            // 下一节点：prereq 改为 prereqAny，主路或支路二选其一即可推进
+            const next = tree.find(item => item.id === fork.nextId);
+            if (next) {
+                delete next.prerequisites;
+                next.prerequisiteAny = [[fork.mainId], [fork.altId]];
+            }
+        });
+    }
+
     function applyReadableFocusTreeLayouts() {
-        const regularPoliticalX = [0, 3, 7, 10];
-        const sharedPoliticalCoords = [[5, 1], [4, 3], [6, 3], [5, 6], [5, 8]];
+        // 政治路线主轴（每条路线 col_x），P3/P4 主路移到 col_x-1，因此最左路线轴右移到 1 避免出现 x=-1
+        const regularPoliticalX = [1, 4, 8, 11];
+        const sharedPoliticalCoords = [[6, 1], [5, 3], [7, 3], [6, 6], [6, 8]];
         const militaryCoords = [[17, 1], [15, 2], [19, 2], [14, 3], [20, 3], [14, 4], [20, 4], [16, 5], [19, 5], [17, 6], [15, 7], [19, 7], [17, 8]];
         const economyCoords = [[25, 1], [23, 2], [27, 2], [22, 3], [28, 3], [23, 4], [27, 4], [23, 5], [27, 5], [25, 6], [23, 7], [27, 7], [25, 8]];
         const regionCoords = [[33, 1], [31, 2], [35, 2], [30, 3], [36, 3], [30, 4], [36, 4], [33, 5]];
@@ -1008,6 +1100,36 @@
             placeBranch(tree, branch, Array.from({ length: 12 }, (_, index) => [x, startY + index]));
         }
 
+        // 7 节点（6 主路 + 1 支线）的政治路线：在 P3 处一分二，再合流
+        // 排序结果（y, x, id）下的 7 个槽位：P1 / P2 / P3 主 / P3 支 / P4 / P5 / P6
+        // 主路 P3 落在 col_x-1，支线 P3 落在 col_x+1，两者关于主轴 col_x 镜像
+        function placeBranchedPoliticalPath(tree, branch, x, startY) {
+            placeBranch(tree, branch, [
+                [x, startY],
+                [x, startY + 1],
+                [x - 1, startY + 2],
+                [x + 1, startY + 2],
+                [x, startY + 3],
+                [x, startY + 4],
+                [x, startY + 5]
+            ]);
+        }
+
+        // USA 政治路线为 7 节点链，分叉点放在中段 P4
+        // 主路 P4 落在 col_x-1，支线 P4 落在 col_x+1，关于主轴对称
+        function placeBranchedUsaPoliticalPath(tree, branch, x, startY) {
+            placeBranch(tree, branch, [
+                [x, startY],
+                [x, startY + 1],
+                [x, startY + 2],
+                [x - 1, startY + 3],
+                [x + 1, startY + 3],
+                [x, startY + 4],
+                [x, startY + 5],
+                [x, startY + 6]
+            ]);
+        }
+
         function placeTerminalBranch(tree, branch) {
             const items = sortedBranch(tree, branch);
             const coords = items.length === 5
@@ -1024,7 +1146,7 @@
             placeBranch(tree, branches[0], [[11, 0]]);
             placeBranch(tree, branches[1], sharedPoliticalCoords);
             branches.slice(2, 6).forEach((branch, index) => {
-                placeVerticalBranch(tree, branch, regularPoliticalX[index], 2);
+                placeBranchedPoliticalPath(tree, branch, regularPoliticalX[index], 2);
             });
             placeBranch(tree, branches[6], militaryCoords);
             placeBranch(tree, branches[7], economyCoords);
@@ -1040,7 +1162,7 @@
             placeBranch(tree, branches[0], [[11, 0]]);
             placeBranch(tree, branches[1], sharedPoliticalCoords);
             branches.slice(2, 6).forEach((branch, index) => {
-                placeVerticalBranch(tree, branch, regularPoliticalX[index], 2);
+                placeBranchedPoliticalPath(tree, branch, regularPoliticalX[index], 2);
             });
             placeBranch(tree, branches[6], [[3, 9], [2, 10], [4, 10], [3, 11], [3, 12]]);
             placeBranch(tree, branches[7], [[7, 9], [6, 10], [8, 10], [7, 11], [7, 12]]);
@@ -1057,13 +1179,26 @@
             const branches = branchNames(tree);
 
             placeBranch(tree, branches[0], [[12, 0]]);
-            placeBranch(tree, branches[1], [[5, 1], [5, 9], [5, 10]]);
-            placeVerticalBranch(tree, branches[2], 0, 2);
-            placeVerticalBranch(tree, branches[3], 4, 2);
-            placeVerticalBranch(tree, branches[4], 8, 2);
-            placeBranch(tree, branches[5], militaryCoords);
-            placeBranch(tree, branches[6], economyCoords);
-            placeBranch(tree, branches[7], [[31, 1], [29, 2], [33, 2], [31, 3], [35, 4]]);
+            placeBranch(tree, branches[1], [[6, 1], [6, 9], [6, 10]]);
+            placeBranchedUsaPoliticalPath(tree, branches[2], 1, 2);
+            placeBranchedUsaPoliticalPath(tree, branches[3], 5, 2);
+            placeBranchedUsaPoliticalPath(tree, branches[4], 9, 2);
+            // 军事改革（10 节点，按实际拓扑排布）：
+            //   y=1 战争部 → y=2 麦克阿瑟 → y=3 总参/战区指挥(mutex) + 五角大楼侧线 →
+            //   y=4 麦克奈尔 → y=5 装甲/步兵(mutex) → y=6 联合战役 → y=7 军管区(汇合)
+            // 注意排序键是 (y,x,id)：五角大楼 (y=4,x=7) 排在麦克奈尔 (y=4,x=9) 前面，
+            // 因此 coords[4] 给五角大楼侧线，coords[5] 给麦克奈尔主线。
+            placeBranch(tree, branches[5], [
+                [15, 1], [15, 2], [13, 3], [17, 3], [20, 3], [15, 4], [13, 5], [17, 5], [15, 6], [20, 7]
+            ]);
+            // 经济动员（8 节点）：
+            //   y=1 紧急工业 → y=2 战争债券 → y=3 首都兵工厂 →
+            //   y=4 军工/民用(mutex) → y=5 财政部重组 → y=6 全面战争生产 + 联邦铁路合同
+            placeBranch(tree, branches[6], [
+                [25, 1], [25, 2], [25, 3], [23, 4], [27, 4], [25, 5], [23, 6], [27, 6]
+            ]);
+            // 海空军：终端节点改为直接位于父节点下方
+            placeBranch(tree, branches[7], [[31, 1], [29, 2], [33, 2], [31, 3], [31, 4]]);
             placeBranch(tree, branches[8], [[40, 1], [40, 2]]);
             placeBranch(tree, branches[9], [[38, 3], [40, 3], [42, 3], [40, 4]]);
             placeBranch(tree, branches[10], [[37, 5]]);
@@ -1088,6 +1223,7 @@
     GameState.focusTrees.PAC = buildPacTree();
     GameState.focusTrees.WDC = buildWdcTree();
     GameState.focusTrees.TEX = buildTexTree();
+    applyPoliticalBranching();
     addStrategicDetours();
     extendSignatureArcs();
     rebalancePoliticalFocusEffects();

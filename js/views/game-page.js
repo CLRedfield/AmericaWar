@@ -526,6 +526,7 @@ const GamePageView = {
         const waitingTroops = Math.max(0, node.troops - GameState.getNodeMoveReady(node) - freshTroops);
         const currentCapitalOwner = GameState.getCapitalOwner(node.id);
         const originalCapitalOwner = GameState.getOriginalCapitalOwner(node.id);
+        const isEncircled = MapData.isNodeEncircled(node);
         const nodeLabels = [
             ...node.tags,
             currentCapitalOwner ? `${GameState.getFactionName(currentCapitalOwner)}当前首都` : '',
@@ -550,6 +551,11 @@ const GamePageView = {
                     <div><span>已行动/待命</span><strong>${waitingTroops}</strong></div>
                     <div><span>标签</span><strong>${nodeLabels.length ? nodeLabels.join(' / ') : '无'}</strong></div>
                 </div>
+                ${isEncircled ? `
+                    <div class="action-help-block hostile">
+                        ⚠ 该节点已被包围（所有相邻节点均为敌方）：本节点部队进攻 -35%、防守 -35%。
+                    </div>
+                ` : ''}
             </div>
 
             ${this.renderSeaModeFactionCard(node.factionId)}
@@ -795,14 +801,16 @@ const GamePageView = {
                             <strong data-battle-attacker-base>${preview.attackerBase}</strong>
                             <div>总驻军：${attacker.troops}</div>
                             <div>参战可动兵：<span data-battle-attacker-base>${preview.attackerBase}</span> / ${maxAttackers}</div>
-                            <div>进攻修正：+${preview.attackerAttackBonus}%</div>
+                            <div>进攻修正：${formatSignedPercent(preview.attackerAttackBonus)}</div>
+                            ${preview.attackerEncircled ? `<div class="danger-text">⚠ 被包围：进攻 -35%</div>` : ''}
                             <div>最终战力：<span data-battle-attacker-power>${preview.attackerPower}</span></div>
                         </div>
                         <div class="battle-side" style="--faction-color: ${defenderFaction.color}">
                             <span>守方：${defenderFaction.shortName}</span>
                             <strong>${defender.troops}</strong>
                             <div>基础战力：${preview.defenderBase}</div>
-                            <div>地形防御：+${preview.defenseBonus}%</div>
+                            <div>地形防御：${formatSignedPercent(preview.defenseBonus)}</div>
+                            ${preview.defenderEncircled ? `<div class="danger-text">⚠ 被包围：防守 -35%</div>` : ''}
                             <div>最终战力：<span data-battle-defender-power>${preview.defenderPower}</span></div>
                         </div>
                     </div>

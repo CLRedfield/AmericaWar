@@ -24,6 +24,11 @@ function formatSignedMoney(value) {
     return `${safeValue >= 0 ? '+' : ''}${formatMoney(safeValue)}`;
 }
 
+function formatSignedPercent(value) {
+    const safeValue = Number(value) || 0;
+    return `${safeValue >= 0 ? '+' : ''}${safeValue}%`;
+}
+
 const App = {
     root: null,
     modalRoot: null,
@@ -238,7 +243,7 @@ const App = {
     },
 
     openRulesHelp() {
-        alert('裂旗战争（v0.3）：\n\n· 单机沙盒：本地房间，每个空席国家在游戏中待机。\n· 联机房间：通过 Firebase 同步，房主控制开局并能添加 AI/踢人。\n· 战场上每个国家依次行动，AI 由本地或房主代为执行。');
+        alert('裂旗战争（v0.3）：\n\n· 单机沙盒：本地房间，每个空席国家在游戏中待机。\n· 联机房间：通过 Firebase 同步，房主控制开局并能添加 AI/踢人。\n· 战场上每个国家依次行动，AI 由本地或房主代为执行。\n· 包围机制：若某节点直接相邻的所有节点都被敌方占据，则该节点视为"被包围"，其部队的进攻和防守均 -35%。');
     },
 
     updateLobbySetting(key, value) {
@@ -1021,8 +1026,14 @@ const App = {
         const defenderModifierBonus = isPlayerDefender
             ? Math.round(((GameState.getTaggedDefenseBonus(defender) || 0) + (GameState.getEffectiveGlobalDefense() || 0)) * 100)
             : (window.GameAI && defenderSlot && defenderSlot.kind === 'ai' ? GameAI.getAiDefenseBonusPercent(defender.factionId, defender) : 0);
-        const defenseBonus = baseDefenseBonus + defenderModifierBonus;
-        const attackerAttackBonus = Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100);
+        const attackerEncircled = MapData.isNodeEncircled(attacker);
+        const defenderEncircled = MapData.isNodeEncircled(defender);
+        const encirclementPenalty = -35;
+        const defenseBonus = baseDefenseBonus
+            + defenderModifierBonus
+            + (defenderEncircled ? encirclementPenalty : 0);
+        const attackerAttackBonus = Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100)
+            + (attackerEncircled ? encirclementPenalty : 0);
         const maxAttackers = GameState.getNodeMovableTroops(attacker);
         const draftAmount = requestedAmount === null || typeof requestedAmount === 'undefined'
             ? (Number(GameState.game.battleDraftAmount) || maxAttackers)
@@ -1050,6 +1061,9 @@ const App = {
             defenderPower,
             defenseBonus,
             attackerAttackBonus,
+            attackerEncircled,
+            defenderEncircled,
+            encirclementPenalty,
             attackerWins,
             remainingTroops,
             ppCost: 0,

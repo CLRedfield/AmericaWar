@@ -106,6 +106,17 @@ const MapData = {
         ));
     },
 
+    /**
+     * 判断节点是否被"包围"：与之相邻（直接联通）的所有其它节点都属于敌方阵营。
+     * 没有邻居的孤岛节点不算被包围。
+     */
+    isNodeEncircled(node) {
+        if (!node || !node.factionId) return false;
+        const neighbors = this.getNeighbors(node.id);
+        if (neighbors.length === 0) return false;
+        return neighbors.every(neighbor => neighbor.factionId && neighbor.factionId !== node.factionId);
+    },
+
     getMoveTargets(sourceId, factionId) {
         const source = this.getNode(sourceId);
         if (!source || source.factionId !== factionId || GameState.getNodeMovableTroops(source) < 1) return [];
@@ -236,6 +247,7 @@ const MapView = {
         const isActionTarget = isMoveTarget || canAttack;
         const currentCapitalOwner = GameState.getCapitalOwner(node.id);
         const isCapitalMarker = node.isCapital || currentCapitalOwner;
+        const isEncircled = MapData.isNodeEncircled(node);
         const classNames = [
             'map-node',
             isSelected ? 'selected' : '',
@@ -244,7 +256,8 @@ const MapView = {
             hasMoveReady ? 'has-move-ready' : '',
             canMove ? 'can-move' : '',
             canAttack ? 'can-attack' : '',
-            isActionTarget ? 'action-target' : ''
+            isActionTarget ? 'action-target' : '',
+            isEncircled ? 'is-encircled' : ''
         ].filter(Boolean).join(' ');
 
         return `
@@ -256,6 +269,7 @@ const MapView = {
                 <circle class="node-hit-area" r="30"></circle>
                 ${isMoveTarget ? '<circle class="target-pulse move" r="31"></circle>' : ''}
                 ${canAttack ? '<circle class="target-pulse attack" r="31"></circle>' : ''}
+                ${isEncircled ? '<circle class="encircled-ring" r="27"></circle>' : ''}
                 <circle class="control-ring" r="23" stroke="${color}"></circle>
                 <circle class="node-base" r="17" fill="rgba(15, 23, 42, 0.96)" stroke="${color}"></circle>
                 <text class="node-troops" text-anchor="middle" y="5">${node.troops}</text>
@@ -324,6 +338,7 @@ const MapView = {
         const faction = GameState.getFaction(node.factionId);
         const currentCapitalOwner = GameState.getCapitalOwner(node.id);
         const originalCapitalOwner = GameState.getOriginalCapitalOwner(node.id);
+        const encircled = MapData.isNodeEncircled(node);
 
         return `
             <div class="map-tooltip" style="--faction-color: ${faction.color}">
@@ -336,6 +351,7 @@ const MapView = {
                 <div>驻军：${node.troops}</div>
                 <div>可动士兵：${GameState.getNodeMovableTroops(node)}</div>
                 <div>本回合新兵：${GameState.getNodeFreshTroops(node)}</div>
+                ${encircled ? `<div class="danger-text">⚠ 被包围：进攻 -35% / 防守 -35%</div>` : ''}
                 <div>相邻：${neighbors}</div>
             </div>
         `;

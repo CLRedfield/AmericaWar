@@ -1541,6 +1541,24 @@ button:disabled {
     stroke: var(--color-danger);
 }
 
+.encircled-ring {
+    fill: none;
+    stroke: #f87171;
+    stroke-width: 2;
+    stroke-dasharray: 4 3;
+    opacity: 0.85;
+    animation: encircled-march 1.4s linear infinite;
+}
+
+.map-node.is-encircled .control-ring {
+    stroke-dasharray: 5 3;
+}
+
+@keyframes encircled-march {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: 14; }
+}
+
 .map-tooltip {
     position: absolute;
     right: var(--spacing-4);
