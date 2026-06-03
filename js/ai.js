@@ -63,12 +63,12 @@ const GameAI = {
             minAttackRatio: 1,
             minAttackScore: 2,
             lossAversion: 1,
-            attackBias: 1.7,
-            defenseReserveRatio: 0.2,
+            attackBias: 1.85,
+            defenseReserveRatio: 0.18,
             recruitBatch: 9,
             recruitMinBalance: 0,
-            reinforceBatch: 6,
-            capitalReserve: 11,
+            reinforceBatch: 10,
+            capitalReserve: 8,
             frontReserve: 5,
             buildMoneyReserve: 14
         },
@@ -83,12 +83,12 @@ const GameAI = {
             riskyAttackScore: -55,
             minAttackScore: -10,
             lossAversion: 0.65,
-            attackBias: 1.7,
-            defenseReserveRatio: 0.2,
+            attackBias: 1.95,
+            defenseReserveRatio: 0.16,
             recruitBatch: 14,
             recruitMinBalance: -6,
-            reinforceBatch: 9,
-            capitalReserve: 13,
+            reinforceBatch: 14,
+            capitalReserve: 9,
             frontReserve: 6,
             buildMoneyReserve: 10
         }
@@ -162,7 +162,10 @@ const GameAI = {
         };
 
         this.isThinking = true;
-        this.aiAdvanceFreeFocusForTurn(factionId, difficulty);
+        // 强化 AI 每回合直接完成 1 个国策；其余 normal/hard AI 仍只免费推进 1 步。
+        if (!this.aiCompleteBuffedFocusForTurn(factionId)) {
+            this.aiAdvanceFreeFocusForTurn(factionId, difficulty);
+        }
         this.pendingTimeout = setTimeout(step, actionDelay);
     },
 
@@ -319,14 +322,17 @@ const GameAI = {
     },
 
     getTargetAttackBias(factionId, targetFactionId) {
+        if (!this.isRestoreHistoryEnabled()) return 0;
         return (this.targetAttackBiases[factionId] && this.targetAttackBiases[factionId][targetFactionId]) || 0;
     },
 
     getTargetAttackDamageBonus(factionId, targetFactionId) {
+        if (!this.isRestoreHistoryEnabled()) return 0;
         return (this.targetAttackDamageBonuses[factionId] && this.targetAttackDamageBonuses[factionId][targetFactionId]) || 0;
     },
 
     getTargetFrontBias(factionId, node) {
+        if (!this.isRestoreHistoryEnabled()) return 0;
         const targets = this.targetAttackBiases[factionId] || {};
         if (!node || Object.keys(targets).length === 0) return 0;
         return MapData.getNeighbors(node.id)
@@ -337,15 +343,180 @@ const GameAI = {
     pickFocus(factionId) {
         const tree = GameState.getFocusTree(factionId);
         const completed = GameState.game.completedFocuses || [];
-        const available = tree.filter(focus => (
+        let available = tree.filter(focus => (
             !completed.includes(focus.id)
             && GameState.areFocusPrerequisitesMet(focus, completed)
             && !GameState.isFocusBlockedByMutual(focus, completed)
         ));
+        if (!available.length) return null;
 
-        return available
+        // 互斥分叉处完全随机：把每组互斥国策收敛成一个候选——已开始推进的锁定，
+        // 否则随机挑一条；不再靠打分总是偏向效果更高的那一边。
+        available = this.resolveMutexForks(available);
+
+        // 80% 概率优先推进政治线，其余 20% 推进其他线路；目标类别为空时回退到另一类。
+        const politicalIds = this.getPoliticalFocusIds(factionId);
+        const political = available.filter(focus => politicalIds.has(focus.id));
+        const others = available.filter(focus => !politicalIds.has(focus.id));
+        const preferPolitical = Math.random() < 0.8;
+        const primary = preferPolitical ? political : others;
+        const fallback = preferPolitical ? others : political;
+        const pool = primary.length ? primary : fallback;
+
+        return pool
             .sort((a, b) => this.scoreFocus(b, factionId) - this.scoreFocus(a, factionId))
             [0] || null;
+    },
+
+    /**
+     * 互斥分叉处随机选路：把候选里每一组互相排斥的国策收敛成一个。
+     * - 用 BFS 沿 mutuallyExclusive（双向）求传递闭包，得到完整互斥组（兼容 2 选 1 小分叉与
+     *   宪政国/黑人起义这类整支互斥的大翼）。
+     * - 组内若已有进度（progress>0），锁定进度最高那条，避免多步国策反复横跳推不完；
+     *   否则在该组里完全随机挑一条。
+     */
+    resolveMutexForks(focuses) {
+        const linked = (a, b) =>
+            (a.mutuallyExclusive || []).includes(b.id)
+            || (b.mutuallyExclusive || []).includes(a.id);
+
+        const seen = new Set();
+        const result = [];
+
+        focuses.forEach(focus => {
+            if (seen.has(focus.id)) return;
+
+            const group = [];
+            const queue = [focus];
+            seen.add(focus.id);
+            while (queue.length) {
+                const current = queue.shift();
+                group.push(current);
+                focuses.forEach(other => {
+                    if (seen.has(other.id) || !linked(current, other)) return;
+                    seen.add(other.id);
+                    queue.push(other);
+                });
+            }
+
+            if (group.length === 1) {
+                result.push(group[0]);
+                return;
+            }
+
+            const started = group
+                .filter(f => GameState.getFocusProgress(f.id) > 0)
+                .sort((a, b) => GameState.getFocusProgress(b.id) - GameState.getFocusProgress(a.id));
+            result.push(started.length
+                ? started[0]
+                : group[Math.floor(Math.random() * group.length)]);
+        });
+
+        return result;
+    },
+
+    /**
+     * 计算某势力的“政治线”国策 id 集合（带缓存）。
+     * 结构判定：所有 branch === '政治路线' 的节点（各国政治大会/合流终局）为种子，
+     * 再沿前置依赖向下扩散——凡前置里含政治节点者自身也算政治线。各国支线（军务/经济/
+     * 外交/社会）均从“战时统合”根分叉，不经过政治大会，故自然被排除。
+     */
+    getPoliticalFocusIds(factionId) {
+        if (!this._politicalFocusCache) this._politicalFocusCache = {};
+        if (this._politicalFocusCache[factionId]) return this._politicalFocusCache[factionId];
+
+        const tree = GameState.getFocusTree(factionId) || [];
+        const political = new Set();
+        tree.forEach(focus => {
+            if (focus.branch === '政治路线') political.add(focus.id);
+        });
+        let changed = true;
+        while (changed) {
+            changed = false;
+            tree.forEach(focus => {
+                if (political.has(focus.id)) return;
+                const parents = [
+                    ...(focus.prerequisites || []),
+                    ...((focus.prerequisiteAny || []).flat())
+                ];
+                if (parents.some(id => political.has(id))) {
+                    political.add(focus.id);
+                    changed = true;
+                }
+            });
+        }
+        this._politicalFocusCache[factionId] = political;
+        return political;
+    },
+
+    // 房间设置：“增大随机性”——开启后随机抽取部分 AI 国家获得加成。
+    isRandomnessEnabled() {
+        return Boolean(GameState.lobby && GameState.lobby.settings && GameState.lobby.settings.randomness);
+    },
+
+    // 房间设置：“还原历史”——开启后启用 USA→新英格兰 / 联盟国→德克萨斯 等历史针对性加成（默认开启）。
+    isRestoreHistoryEnabled() {
+        const settings = GameState.lobby && GameState.lobby.settings;
+        return settings ? settings.restoreHistory !== false : true;
+    },
+
+    /**
+     * 本局获得加成的 AI 控制国家集合（“增大随机性”选项）：开启时随机抽取
+     * ceil(AI 国家数 / 4) 个 AI 控制国家；关闭时为空。一局内只计算一次并缓存到
+     * game.aiBuffedFactions。加成内容：每回合免费完成 1 个国策 + 20% 防御加成
+     * （见 aiCompleteBuffedFocusForTurn / getAiDefenseBonusPercent）。
+     */
+    getBuffedAiFactions() {
+        if (!GameState.game) return [];
+        if (Array.isArray(GameState.game.aiBuffedFactions)) return GameState.game.aiBuffedFactions;
+
+        if (!this.isRandomnessEnabled()) {
+            GameState.game.aiBuffedFactions = [];
+            return [];
+        }
+
+        const aiFactionIds = GameState.computeTurnOrder().filter(id => GameState.isFactionAi(id));
+        const buffCount = Math.ceil(aiFactionIds.length / 4);
+        const pool = aiFactionIds.slice();
+        for (let i = pool.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        const buffed = pool.slice(0, buffCount);
+        GameState.game.aiBuffedFactions = buffed;
+        return buffed;
+    },
+
+    isAiFactionBuffed(factionId) {
+        return this.getBuffedAiFactions().includes(factionId);
+    },
+
+    /**
+     * 强化 AI 的每回合加成：免费完整完成 1 个国策（不消耗 PP/行动点），一回合一次。
+     * 返回 true 表示这是强化 AI（已处理，调用方不应再走普通免费推进）。
+     */
+    aiCompleteBuffedFocusForTurn(factionId) {
+        if (!this.isAiFactionBuffed(factionId)) return false;
+
+        GameState.game.aiBuffedFocusTurns = GameState.game.aiBuffedFocusTurns || {};
+        const turnKey = `${GameState.game.currentTurn}:${factionId}`;
+        if (GameState.game.aiBuffedFocusTurns[factionId] === turnKey) return true;
+
+        const focus = this.pickFocus(factionId);
+        if (!focus) return true;
+
+        const capitalNode = MapData.getNode(GameState.getCapitalNodeId(factionId));
+        const required = GameState.getFocusRequiredProgress(focus);
+        GameState.game.focusProgress[focus.id] = required;
+        GameState.game.completedFocuses = GameState.game.completedFocuses || [];
+        if (!GameState.game.completedFocuses.includes(focus.id)) {
+            GameState.game.completedFocuses.push(focus.id);
+            (focus.effects || []).forEach(effect => this.applyAiFocusEffect(effect, factionId, capitalNode));
+        }
+        GameState.game.aiBuffedFocusTurns[factionId] = turnKey;
+        GameState.addLog(`${GameState.getFactionName(factionId)} AI（强化）每回合完成国策"${focus.name}"。`, 'system', false);
+        GameState.notify();
+        return true;
     },
 
     scoreFocus(focus, factionId) {
@@ -512,6 +683,8 @@ const GameAI = {
                 GameState.game.aiIdeologies = GameState.game.aiIdeologies || {};
                 GameState.game.aiIdeologies[factionId] = effect.id;
             }
+            // AI 完成更名国策时同样更新其显示国名
+            if (effect.name) GameState.setFactionName(factionId, effect.name, effect.shortName);
         }
     },
 
@@ -705,7 +878,10 @@ const GameAI = {
 
     getCapitalDefenseCap(factionId) {
         const totals = MapData.calculateFactionStats(factionId);
-        return Math.max(1, Math.ceil(totals.totalTroops * 0.1));
+        // 仅在首都直接受威胁时才允许较高的留守上限；否则把首都驻军压低，逼迫余兵前压。
+        const capitalThreat = this.getEnemyPressure(MapData.getNode(GameState.getCapitalNodeId(factionId)), factionId);
+        const ratio = capitalThreat > 0 ? 0.1 : 0.06;
+        return Math.max(1, Math.ceil(totals.totalTroops * ratio));
     },
 
     getNodeStrategicValue(node) {
@@ -762,19 +938,23 @@ const GameAI = {
 
                 const frontNeed = this.estimateNodeDefenseNeed(front, factionId, profile) - front.troops;
                 const targetFrontBias = this.getTargetFrontBias(factionId, front);
-                const reinforceLimit = Math.max(profile.reinforceBatch, Math.ceil(source.troops * 2 / 3));
+                // 让后方/首都把多余兵力大量前压：单次最多推进约 80% 的源驻军；
+                // 即便前线已“够用”也继续把余兵堆到前线，便于随后发动进攻。
+                const reinforceLimit = Math.max(profile.reinforceBatch, Math.ceil(source.troops * 0.8));
                 const amount = Math.max(1, Math.min(
                     maxSafeMove,
                     reinforceLimit,
-                    Math.ceil(Math.max(1, frontNeed > 0 ? frontNeed : reinforceLimit * 0.5))
+                    Math.ceil(Math.max(1, frontNeed > 0 ? frontNeed : reinforceLimit))
                 ));
-                const score = frontPressure * 4
+                const score = 10
+                    + frontPressure * 4
                     + Math.max(0, frontNeed) * 14
                     + this.getNodeStrategicValue(front) * 1.4
                     + this.getNodeStrategicValue(nextStep) * 0.45
                     + targetFrontBias
-                    - distance * 2
-                    - sourcePressure * 1.2;
+                    + Math.min(36, maxSafeMove * 1.5)
+                    - distance * 1
+                    - sourcePressure * 0.8;
 
                 return {
                     source,
@@ -933,7 +1113,9 @@ const GameAI = {
         const taggedDefense = (node?.tags || []).reduce((sum, tag) => (
             sum + this.getAiTaggedEffectValue(factionId, 'taggedDefense', tag)
         ), 0);
-        return Math.round((this.getAiNumericModifier(factionId, 'globalDefense') + taggedDefense + debtPenalty.globalDefenseDelta) * 100);
+        // 强化 AI 控制国家额外获得 20% 防御加成。
+        const buffedDefense = this.isAiFactionBuffed(factionId) ? 0.2 : 0;
+        return Math.round((this.getAiNumericModifier(factionId, 'globalDefense') + taggedDefense + debtPenalty.globalDefenseDelta + buffedDefense) * 100);
     },
 
     createAiBattlePreview(attacker, defender, factionId, requestedAmount = null) {
@@ -1097,7 +1279,7 @@ const GameAI = {
             const maxSafeMove = Math.min(movable, Math.max(0, source.troops - sourceNeed));
             if (maxSafeMove < 1) return;
             const dispatchPlan = this.pickFrontDispatchPlan(source, factionId, profile, maxSafeMove);
-            if (dispatchPlan && dispatchPlan.score > 2) plans.push(dispatchPlan);
+            if (dispatchPlan && dispatchPlan.score > -6) plans.push(dispatchPlan);
 
             MapData.getNeighbors(source.id)
                 .filter(target => target.factionId === factionId)
@@ -1123,7 +1305,7 @@ const GameAI = {
                         + targetFrontBias
                         - sourcePressure * 0.9
                         - this.getNodeStrategicValue(source) * 0.08;
-                    if (score > 3) plans.push({ source, target, amount, score });
+                    if (score > 0) plans.push({ source, target, amount, score });
                 });
         });
 

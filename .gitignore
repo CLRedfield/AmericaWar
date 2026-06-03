@@ -9,6 +9,7 @@ desktop.ini
 *.swp
 *.swo
 .cursor/
+.claude/
 
 # 日志 & 临时
 *.log

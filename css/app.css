@@ -16,9 +16,48 @@
     justify-content: center;
     height: 100%;
     position: relative;
+    overflow: hidden;
+}
+
+.main-menu-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.main-menu-backdrop svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.5;
+}
+
+.menu-map-shape {
+    fill: rgba(30, 41, 59, 0.45);
+    stroke: rgba(148, 163, 184, 0.18);
+    stroke-width: 1.5;
+}
+
+.menu-map-links line {
+    stroke: rgba(148, 163, 184, 0.12);
+    stroke-width: 1;
+}
+
+.menu-map-nodes circle {
+    opacity: 0.55;
+}
+
+.main-menu-vignette {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 42%, transparent 0%, rgba(15, 23, 42, 0.55) 55%, rgba(15, 23, 42, 0.92) 100%);
 }
 
 .main-menu-content {
+    position: relative;
     text-align: center;
     z-index: 10;
     width: 100%;
@@ -103,6 +142,26 @@
 .faction-item.active {
     background: linear-gradient(90deg, rgba(59,130,246,0.2) 0%, transparent 100%);
     border-left: 4px solid var(--color-primary);
+}
+
+.faction-item-label {
+    min-width: 0;
+}
+
+.faction-item-name {
+    font-weight: 600;
+    color: var(--color-text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.faction-item-sub {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .faction-color-indicator {
@@ -956,11 +1015,27 @@ button:disabled {
 }
 
 .diplomacy-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
     border-left: 3px solid var(--faction-color);
     background: rgba(255, 255, 255, 0.04);
     padding: var(--spacing-2) var(--spacing-3);
     border-radius: var(--radius-sm);
     font-size: 0.8125rem;
+}
+
+.diplomacy-badge-name {
+    color: var(--color-text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.diplomacy-badge-relation {
+    flex: 0 0 auto;
+    font-weight: 700;
 }
 
 .diplomacy-badge.war { color: var(--color-danger); }
@@ -1442,6 +1517,77 @@ button:disabled {
 .region-block.atlantic { fill: #0284c7; }
 .region-block.south { fill: #92400e; }
 
+/* 阵营领土：goo 融合大色块 + 大号国名（HOI4 政治地图风）。
+   不透明度由 map.js 按缩放档位写在内联 style 上：拉远总览最突出。 */
+.faction-territory,
+.territory-labels {
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.territory-label {
+    font-family: 'Playfair Display', 'Inter', serif;
+    font-weight: 800;
+    letter-spacing: 3px;
+    stroke: rgba(8, 12, 20, 0.85);
+    stroke-width: 4px;
+    paint-order: stroke;
+    stroke-linejoin: round;
+}
+
+/* 国家修正弹窗 */
+.modifiers-modal {
+    max-width: 540px;
+    width: 92%;
+}
+
+.modifiers-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 6px 2px 2px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.modifier-group h4 {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+    color: var(--color-text-accent, #e2e8f0);
+}
+
+.modifier-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 4px;
+}
+
+.modifier-list li {
+    padding: 5px 10px;
+    background: rgba(148, 163, 184, 0.08);
+    border-left: 3px solid var(--ideology-color, rgba(148, 163, 184, 0.4));
+    border-radius: 4px;
+    font-size: 0.88rem;
+}
+
+.modifier-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.modifier-badge {
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--ideology-color, #334155);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--ideology-color, #334155) 50%, transparent);
+}
+
 .map-link.hot {
     stroke: rgba(251, 191, 36, 0.6);
     stroke-width: 3;
@@ -1476,6 +1622,16 @@ button:disabled {
     stroke: var(--color-text-accent);
     stroke-width: 4;
     filter: url(#softGlow);
+}
+
+.node-troops,
+.node-abbr,
+.capital-marker,
+.node-tag {
+    paint-order: stroke;
+    stroke: rgba(2, 6, 23, 0.92);
+    stroke-width: 2px;
+    stroke-linejoin: round;
 }
 
 .node-troops {
@@ -1885,7 +2041,24 @@ button:disabled {
 .focus-link {
     fill: none;
     stroke: rgba(148, 163, 184, 0.42);
-    stroke-width: 2;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-opacity: 0.85;
+}
+
+/* 分支泳道：把每条线在视觉上圈成一簇 */
+.focus-lane-band {
+    opacity: 0.08;
+}
+
+.focus-lane-label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 .focus-mutual-link {
@@ -1947,12 +2120,26 @@ button:disabled {
 }
 
 .focus-branch {
-    color: var(--color-text-accent);
+    color: var(--branch-color, var(--color-text-accent));
     font-size: 0.62rem;
     font-weight: 800;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* 卡片左侧分支色条（不与 status 的 border/box-shadow 冲突） */
+.focus-card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    background: var(--branch-color, transparent);
+    opacity: 0.9;
+    pointer-events: none;
 }
 
 .focus-title {
@@ -2144,6 +2331,20 @@ button:disabled {
     color: var(--color-text-main);
     font-weight: 900;
     font-size: 1.35rem;
+}
+
+.winner-mark-star {
+    color: var(--faction-color);
+    font-size: 1.9rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--faction-color) 70%, transparent));
+}
+
+.winner-mark-sub {
+    margin-top: calc(var(--spacing-1) * -1);
+    margin-bottom: var(--spacing-3);
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
 }
 
 /* ==========================================================================
@@ -2364,12 +2565,12 @@ button:disabled {
     }
 
     .top-brand-block span {
-        font-size: 0.68rem;
+        font-size: 0.74rem;
     }
 
     .top-actions .btn {
         min-width: auto;
-        min-height: 36px;
+        min-height: 44px;
     }
 
     .top-exit-button {
@@ -2401,7 +2602,7 @@ button:disabled {
     }
 
     .map-command-strip .btn {
-        min-height: 34px;
+        min-height: 40px;
         padding: 0 var(--spacing-3);
     }
 
@@ -2411,8 +2612,8 @@ button:disabled {
     }
 
     .map-icon-btn {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
     }
 
     .node-hit-area {
@@ -2846,7 +3047,7 @@ button:disabled {
     }
 
     .focus-mobile-filter button {
-        min-height: 36px;
+        min-height: 40px;
         border: 1px solid var(--color-border);
         border-radius: var(--radius-sm);
         background: rgba(255, 255, 255, 0.04);
@@ -2903,5 +3104,29 @@ button:disabled {
         bottom: 0;
         background: rgba(15, 23, 42, 0.96);
         padding-top: var(--spacing-2);
+    }
+}
+
+/* 手机端触摸目标与可读性收尾（#2 按钮、#3 节点热区、#4 控件、#5 小字） */
+@media (max-width: 760px) {
+    /* #2 主操作按钮 ≥44px（底部面板与国策树底部按钮空间充足） */
+    .panel-actions .btn,
+    .focus-action-buttons .btn {
+        min-height: 44px;
+    }
+
+    /* #4 排序下拉/紧凑控件不要太矮 */
+    .compact-select {
+        min-height: 40px;
+    }
+
+    /* #5 收入增量等小字提升到约 12px，手机上更易读 */
+    .resource-delta {
+        font-size: 0.75rem;
+    }
+
+    /* #3 适度放大地图节点的触摸热区（可见环 r=23，热区默认 r=30 → 手机 r=34） */
+    .map-node .node-hit-area {
+        r: 34px;
     }
 }

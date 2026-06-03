@@ -143,7 +143,8 @@ const MapData = {
             const stats = this.calculateFactionStats(faction.id);
             const capital = this.getNode(faction.capitalNodeId);
             return {
-                ...faction,
+                // 用 getFaction 取本局显示名（国策更名覆盖），再叠加静态字段与统计。
+                ...GameState.getFaction(faction.id),
                 ...stats,
                 capitalHeld: Boolean(capital && capital.factionId === faction.id),
                 value: metric === 'industry'
@@ -192,6 +193,13 @@ const MapView = {
             playerFactionId
         })).join('');
 
+        // 缩放联动：viewport.width 420(拉近)↔1300(拉远)，默认 1000。
+        // 拉远/总览时融合色块+国名最突出、圆点淡出；拉近时圆点/驻军接管。
+        // 数值由 zoomVisuals 统一计算；缩放/平移时 app.updateSvgViewBox→applyTerritoryZoom 实时刷新，无需整页重渲。
+        const zv = this.zoomVisuals(viewport.width);
+        const nodesOpacity = zv.nodesOpacity;
+        const territory = this.renderTerritory(zv.labelScale, zv.territoryOpacity, zv.labelOpacity);
+
         return `
             <div class="map-command-strip">
                 <button class="btn btn-outline" onclick="window.app.toggleGridView()">网格视图</button>
@@ -210,6 +218,12 @@ const MapView = {
                             <feMergeNode in="SourceGraphic" />
                         </feMerge>
                     </filter>
+                    <!-- 把同阵营节点圆融合成一块有机色块（HOI4 政治地图风） -->
+                    <filter id="goo" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="11" result="blur" />
+                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -8" result="goo" />
+                        <feBlend in="SourceGraphic" in2="goo" />
+                    </filter>
                 </defs>
 
                 <g class="background-map-shape">
@@ -226,11 +240,100 @@ const MapView = {
                     <path class="region-block south" d="M500 392 L804 380 L742 578 L446 584 Z" />
                 </g>
 
+                ${territory.blobs}
                 <g class="map-links-layer">${linkHtml}</g>
-                <g class="map-nodes-layer">${nodeHtml}</g>
+                <g class="map-nodes-layer" style="opacity:${nodesOpacity}">${nodeHtml}</g>
+                ${territory.labels}
             </svg>
             ${this.renderTooltip()}
         `;
+    },
+
+    // 每阵营：把所辖节点融成一块大色块（goo 滤镜）+ 质心大号国名。
+    // 颜色＝阵营基色与「当前意识形态」色混合（玩家国随选国策切换，AI 用基线）。
+    renderTerritory(labelScale, territoryOpacity, labelOpacity) {
+        const factions = GameState.factions || [];
+        let blobs = '';
+        let labels = '';
+        const fontSize = (26 * labelScale).toFixed(1);
+        factions.forEach(faction => {
+            const nodes = MapData.getFactionNodes(faction.id);
+            if (!nodes.length) return;
+            const color = this.factionTerritoryColor(faction.id);
+            const ownIds = new Set(nodes.map(node => node.id));
+            // 连线：同阵营两节点间的通路也并进色块，让远隔的节点连成一片领土。
+            const links = MapData.connections
+                .filter(([a, b]) => ownIds.has(a) && ownIds.has(b))
+                .map(([a, b]) => {
+                    const s = MapData.getNode(a);
+                    const t = MapData.getNode(b);
+                    return `<line x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="${color}" stroke-width="38" stroke-linecap="round"></line>`;
+                })
+                .join('');
+            const circles = nodes
+                .map(node => `<circle cx="${node.x}" cy="${node.y}" r="44"></circle>`)
+                .join('');
+            blobs += `<g class="territory-blob" fill="${color}" stroke="${color}" filter="url(#goo)">${links}${circles}</g>`;
+            const cx = (nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length).toFixed(1);
+            const cy = (nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length).toFixed(1);
+            // 用 getFaction 取本局显示名（国策更名后由 game.factionNames 覆盖），不要直接用静态 faction.name。
+            const displayName = GameState.getFaction(faction.id).name;
+            labels += `<text class="territory-label" x="${cx}" y="${cy}" fill="${color}"`
+                + ` style="font-size:${fontSize}px" text-anchor="middle" dominant-baseline="middle">${displayName}</text>`;
+        });
+        return {
+            blobs: `<g class="faction-territory" style="opacity:${territoryOpacity}">${blobs}</g>`,
+            labels: `<g class="territory-labels" style="opacity:${labelOpacity}">${labels}</g>`
+        };
+    },
+
+    factionTerritoryColor(factionId) {
+        const faction = GameState.getFaction(factionId);
+        const baseHex = (faction && faction.color) || '#888888';
+        let ideologyId = faction && faction.ideology;
+        if (factionId === GameState.getPlayerFactionId()) {
+            ideologyId = (GameState.game && GameState.game.currentIdeology) || ideologyId;
+        }
+        const ideology = ideologyId && GameState.ideologies ? GameState.ideologies[ideologyId] : null;
+        return ideology && ideology.color ? this.mixHex(baseHex, ideology.color, 0.18) : baseHex;
+    },
+
+    mixHex(a, b, t) {
+        const parse = (hex) => {
+            let h = String(hex).replace('#', '');
+            if (h.length === 3) h = h.split('').map(c => c + c).join('');
+            return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+        };
+        const ca = parse(a);
+        const cb = parse(b);
+        const mix = ca.map((v, i) => Math.round(v + (cb[i] - v) * t));
+        return '#' + mix.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+    },
+
+    zoomVisuals(width) {
+        const t = Math.max(0, Math.min(1, (width - 520) / 430));
+        return {
+            zoomT: t,
+            territoryOpacity: (0.55 * t).toFixed(3),
+            labelOpacity: (0.95 * t).toFixed(3),
+            nodesOpacity: (0.5 + 0.5 * (1 - t)).toFixed(3),
+            labelScale: width / 1000
+        };
+    },
+
+    // 缩放/平移时由 app.updateSvgViewBox 调用：实时更新融合色块/国名/圆点的强弱，
+    // 不必整页重渲（避免“点一下节点才刷新一次”）。
+    applyTerritoryZoom(svg) {
+        if (!svg || !GameState.game || !GameState.game.mapViewport) return;
+        const zv = this.zoomVisuals(GameState.game.mapViewport.width);
+        const territory = svg.querySelector('.faction-territory');
+        const labels = svg.querySelector('.territory-labels');
+        const nodes = svg.querySelector('.map-nodes-layer');
+        if (territory) territory.style.opacity = zv.territoryOpacity;
+        if (labels) labels.style.opacity = zv.labelOpacity;
+        if (nodes) nodes.style.opacity = zv.nodesOpacity;
+        const fontSize = (26 * zv.labelScale).toFixed(1) + 'px';
+        svg.querySelectorAll('.territory-label').forEach(label => { label.style.fontSize = fontSize; });
     },
 
     renderNode(node, context) {
