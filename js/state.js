@@ -957,6 +957,12 @@ const GameState = {
         this.game.factionNames[factionId] = { name: name || null, shortName: shortName || name || null };
     },
 
+    // 清空本局的国策更名覆盖，让 getFaction 回退到各势力的静态初始名。
+    // 退出/重建房间时调用，避免上一局的更名残留到房间和主菜单。
+    clearFactionNameOverrides() {
+        if (this.game) this.game.factionNames = {};
+    },
+
     /**
      * 累加当前意识形态对某个简单 numeric 加成键的总贡献。
      * key 可以是 'ppCapBonus' / 'ppIncome' / 'moneyIncome' / 'recruitCostDelta' /
@@ -1610,6 +1616,8 @@ const GameState = {
      * 设定本地大厅（单机沙盒模式）。会重置 slots、把房主放到 USA 槽位上、其他默认空。
      */
     initLocalLobby() {
+        // 退出/重建房间时清掉上一局的国策更名，房间内恢复各国初始名称（见 getFaction 覆盖逻辑）。
+        this.clearFactionNameOverrides();
         // 在本地模式下重新生成稳定的本地 userId（避免重用 Firebase uid 等不可控的值），
         // 这样从联机模式回到单机时 USA 槽位的 userId 一定与本地 myUserId 匹配。
         const myUserId = `local-${Math.random().toString(36).slice(2, 10)}`;

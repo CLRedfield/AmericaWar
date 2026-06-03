@@ -51,6 +51,7 @@ const GameAI = {
             recruitBatch: 5,
             recruitMinBalance: 2,
             reinforceBatch: 4,
+            reinforceMaxHops: 2,
             capitalReserve: 10,
             frontReserve: 4,
             buildMoneyReserve: 18
@@ -68,6 +69,7 @@ const GameAI = {
             recruitBatch: 9,
             recruitMinBalance: 0,
             reinforceBatch: 10,
+            reinforceMaxHops: 2,
             capitalReserve: 8,
             frontReserve: 5,
             buildMoneyReserve: 14
@@ -88,6 +90,7 @@ const GameAI = {
             recruitBatch: 14,
             recruitMinBalance: -6,
             reinforceBatch: 14,
+            reinforceMaxHops: 2,
             capitalReserve: 9,
             frontReserve: 6,
             buildMoneyReserve: 10
@@ -189,14 +192,14 @@ const GameAI = {
         // 3. 进攻后优先补兵，避免有钱时先盖厂而前线兵力不足。
         if (this.aiRecruitBestNode(factionId, resources, profile)) return true;
 
-        // 4. 普通/困难 AI 会把后方兵力往前线推，避免只在首都堆兵。
-        if (difficulty !== 'easy' && this.aiReinforceFront(factionId, resources, profile)) return true;
+        // 4. easy 及以上的 AI 会把后方兵力往前线推，避免只在首都堆兵（very_easy 最弱，不调兵）。
+        if (difficulty !== 'very_easy' && this.aiReinforceFront(factionId, resources, profile)) return true;
 
         // 5. 钱和 PP 都宽裕时，再补工业。
-        if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile, true)) return true;
+        if (difficulty !== 'very_easy' && this.aiBuildBestIndustry(factionId, resources, profile, true)) return true;
 
         // 6. 前几手如果没有战术动作，就推进更有价值的国策。
-        if (difficulty !== 'easy' && resources.pp >= 2 && actionIndex <= 2) {
+        if (difficulty !== 'very_easy' && resources.pp >= 2 && actionIndex <= 2) {
             const focus = this.pickFocus(factionId);
             if (focus) {
                 const capitalNode = MapData.getNode(GameState.getCapitalNodeId(factionId));
@@ -205,10 +208,10 @@ const GameAI = {
         }
 
         // 7. 如果前面没触发富余建厂，局面稳定时仍可补工业。
-        if (difficulty !== 'easy' && this.aiBuildBestIndustry(factionId, resources, profile)) return true;
+        if (difficulty !== 'very_easy' && this.aiBuildBestIndustry(factionId, resources, profile)) return true;
 
         // 8. 兜底：有 PP 但战线暂时无事，就继续国策。
-        if (difficulty !== 'easy' && resources.pp >= 2) {
+        if (difficulty !== 'very_easy' && resources.pp >= 2) {
             const focus = this.pickFocus(factionId);
             if (focus) {
                 const capitalNode = MapData.getNode(GameState.getCapitalNodeId(factionId));
@@ -956,9 +959,12 @@ const GameAI = {
                     - distance * 1
                     - sourcePressure * 0.8;
 
+                // 前线确有缺口时单次最多推进 maxHops 格（直奔增援）；仅屯兵时仍逐格推进。
+                const maxHops = profile.reinforceMaxHops || 2;
+                const hopIndex = frontNeed > 0 ? Math.min(maxHops, route.length - 1) : 1;
                 return {
                     source,
-                    target: nextStep,
+                    target: route[hopIndex],
                     amount,
                     score,
                     destination: front
@@ -974,13 +980,27 @@ const GameAI = {
         const enemyPressure = this.getEnemyPressure(node, factionId);
         const friendlySupport = this.getFriendlySupport(node, factionId);
         const isCurrentCapital = GameState.getCapitalNodeId(factionId) === node.id;
-        const base = isCurrentCapital
-            ? profile.capitalReserve
-            : enemyPressure > 0
-                ? profile.frontReserve
-                : Math.max(2, Math.ceil(node.industry / 2) + 1);
-        const need = Math.max(1, Math.ceil(base + enemyPressure * 0.55 + node.industry * 0.25 - friendlySupport * 0.18));
-        return isCurrentCapital ? Math.min(need, this.getCapitalDefenseCap(factionId)) : need;
+        // 留守需求按“离前线远近”分档，而不再按工业规模——避免深后方无谓囤兵、把余兵锁死。
+        const reserveFor = base => Math.max(1, Math.ceil(
+            base + enemyPressure * 0.55 + node.industry * 0.25 - friendlySupport * 0.18
+        ));
+        if (isCurrentCapital) {
+            return Math.min(reserveFor(profile.capitalReserve), this.getCapitalDefenseCap(factionId));
+        }
+        if (enemyPressure > 0) {
+            // 前线节点（紧邻敌军）：维持原 frontReserve 公式。
+            return reserveFor(profile.frontReserve);
+        }
+        // 四邻无敌，下回合不可能被攻击（战斗仅发生在相邻节点之间）：按是否紧邻前线决定留守。
+        const neighborIsFront = MapData.getNeighbors(node.id).some(
+            neighbor => neighbor.factionId === factionId && this.getEnemyPressure(neighbor, factionId) > 0
+        );
+        if (neighborIsFront) {
+            // 二线：留一点回填缓冲，工业不再抬高留守。
+            return Math.max(1, Math.ceil(Math.max(2, profile.frontReserve * 0.5)));
+        }
+        // 深后方（两跳内无敌）：只留 1 兵，其余全部可前压。
+        return 1;
     },
 
     aiEmergencyRecruit(factionId, resources, profile) {
