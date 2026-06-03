@@ -353,8 +353,9 @@ const Multiplayer = {
 
         // 进入新回合：为"本地玩家所控势力"补上本回合的金钱 / PP 收入。
         // 收尾方已在 endTurn 内完整结算并置 lastSettledTurn，这里靠 lastSettledTurn 去重。
-        if (window.App && App.settleLocalResourcesForRound) {
-            App.settleLocalResourcesForRound(remote.turn);
+        // 注意：全局导出是 window.app（小写），之前误写成 window.App 导致这里永远不执行、客人不回 PP/钱。
+        if (window.app && window.app.settleLocalResourcesForRound) {
+            window.app.settleLocalResourcesForRound(remote.turn);
         }
 
         // 切换视图：如果状态在 online 且尚未进入 game-page，自动跳过去
