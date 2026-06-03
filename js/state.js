@@ -810,6 +810,7 @@ const GameState = {
 
     game: {
         currentTurn: 1,
+        lastSettledTurn: 1,
         currentPlayerId: 'USA',
         currentIdeology: null,
         timerRemaining: 180,
@@ -1731,6 +1732,7 @@ const GameState = {
 
         this.game = {
             currentTurn: 1,
+            lastSettledTurn: 1,
             currentPlayerId: firstFactionId,
             currentIdeology: myFaction.ideology || 'wartime_democracy',
             turnOrder,

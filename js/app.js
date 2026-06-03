@@ -49,6 +49,7 @@ const App = {
     focusTreeTouchGesture: null,
     focusTreeCentered: false,
     pendingFocusTreeScroll: null,
+    focusTreeScroll: null,
     lastFocusDragEndedAt: 0,
 
     init() {
@@ -448,6 +449,11 @@ const App = {
 
         this.timerId = window.setInterval(() => {
             if (GameState.currentView !== 'game-page') return;
+            if (!GameState.game || GameState.game.gameOver) return;
+
+            // 联机：只有"轮到自己的本地玩家"才跑倒计时；观战 / 等待他人行动时冻结，
+            // 否则别人机器上的计时器归零会把当前玩家的回合提前结束。
+            if (window.Multiplayer && Multiplayer.isOnline && !this.isMyTurnToAct()) return;
 
             if (GameState.game.timerRemaining <= 0) {
                 this.endTurn(true);
@@ -1430,6 +1436,16 @@ const App = {
     endTurn(auto = false) {
         if (GameState.game.gameOver) return;
 
+        // 联机：只有"该行动的本地玩家"可以结束自己的回合；AI / 空席由房主代为结束。
+        // 防止其他客户端（例如观战中倒计时归零）误把当前玩家的回合结束掉。
+        if (window.Multiplayer && Multiplayer.isOnline) {
+            const actingId = GameState.game.currentPlayerId;
+            const localActs = GameState.isFactionPlayedByLocalUser(actingId);
+            const slot = GameState.getSlot(actingId);
+            const hostHandlesNonHuman = GameState.isHost() && (!slot || slot.kind !== 'human');
+            if (!localActs && !hostHandlesNonHuman) return;
+        }
+
         const turnLimit = Number(GameState.lobby.settings.turnLimit) || 180;
         const turnOrder = (GameState.game.turnOrder && GameState.game.turnOrder.length)
             ? GameState.game.turnOrder
@@ -1456,7 +1472,9 @@ const App = {
         if (isLastInRound) {
             // 一轮全部行动完了：回合数 +1、所有人结算 settleTurnStart
             GameState.game.currentTurn += 1;
-            // 玩家结算
+            // 标记本机已为这一回合结算（联机下其他客户端凭 lastSettledTurn 各自结算自己的势力，避免重复）
+            GameState.game.lastSettledTurn = GameState.game.currentTurn;
+            // 玩家结算（本机所控势力：完整结算，含首都补员/逃散/可移动重置）
             const settlement = this.settleTurnStart(playerFactionId);
             // AI 结算（只动 aiResources）
             this.settleAiTurnStart(turnOrder, playerFactionId);
@@ -1474,6 +1492,33 @@ const App = {
         GameState.refreshFactionStatus(false);
         GameState.checkVictory(true);
         GameState.notify();
+    },
+
+    /**
+     * 联机收端结算：为"本地玩家所控势力"做每回合一次的金钱 / PP 结算。
+     * 触发本轮收尾的那台机器已经在 endTurn 内做了完整结算（并设置 lastSettledTurn），
+     * 其他客户端收到新回合后在此为自己的势力补上收入 —— 否则客人永远不回 PP、不进钱。
+     * 只动本地资源（money / pp），不动地图（首都补员/逃散由收尾方完成并同步），避免快照覆盖产生地图错乱。
+     */
+    settleLocalResourcesForRound(turn) {
+        if (!GameState.game || GameState.game.gameOver) return;
+        if (!turn) return;
+        if (turn <= 1) { GameState.game.lastSettledTurn = turn; return; }
+        if (GameState.game.lastSettledTurn === turn) return; // 本机（含 endTurn）已结算该回合
+
+        GameState.game.lastSettledTurn = turn;
+        const factionId = GameState.getPlayerFactionId();
+        if ((GameState.game.eliminatedFactions || []).includes(factionId)) return;
+
+        GameState.recalculatePlayerResources();
+        const resources = GameState.game.playerResources;
+        const preview = GameState.getNextTurnResourcePreview(factionId);
+        resources.money = (resources.money || 0) + preview.moneyDelta;
+        resources.pp = Math.min(GameState.getEffectivePPCap(), (resources.pp || 0) + preview.ppIncome);
+
+        const debtText = preview.debtPenalty && preview.debtPenalty.threshold > 0
+            ? `，赤字状态：${preview.debtPenalty.label}` : '';
+        GameState.addLog(`第 ${turn} 回合开始：收入 $${formatMoney(preview.grossIncome)}，维护 $${formatMoney(preview.maintenance)}，金钱 ${formatSignedMoney(preview.moneyDelta)}，余额 $${formatMoney(resources.money)}，获得 ${preview.ppIncome} PP${debtText}。`, 'system', false);
     },
 
     settleAiTurnStart(turnOrder, playerFactionId) {
@@ -1847,6 +1892,7 @@ const App = {
             GameState.game.focusTreeViewport = { scale: 1, autoFit: true };
             this.focusTreeCentered = false;
             this.pendingFocusTreeScroll = null;
+            this.focusTreeScroll = null;
         }
 
         const tree = GameState.getFocusTree(viewFactionId);
@@ -1990,11 +2036,21 @@ const App = {
         if (this.pendingFocusTreeScroll) {
             scroller.scrollLeft = this.pendingFocusTreeScroll.left;
             scroller.scrollTop = this.pendingFocusTreeScroll.top;
+            this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };
             this.pendingFocusTreeScroll = null;
             return;
         }
 
-        if (this.focusTreeCentered) return;
+        // 已经居中过：每次重渲染都会重建 modal DOM、把新 scroller 的滚动清零，
+        // 这里必须把上次记录的滚动位置还原回去 —— 否则联机远端更新、日志刷新等
+        // “非用户触发”的重渲染会让国策树跳回左上角。
+        if (this.focusTreeCentered) {
+            if (this.focusTreeScroll) {
+                scroller.scrollLeft = this.focusTreeScroll.left;
+                scroller.scrollTop = this.focusTreeScroll.top;
+            }
+            return;
+        }
 
         const selectedFocusId = GameState.game.selectedFocusId;
         const selectedCard = selectedFocusId ? document.querySelector(`[data-focus-id="${selectedFocusId}"]`) : null;
@@ -2004,6 +2060,7 @@ const App = {
         const scale = this.getFocusTreeScale();
         scroller.scrollLeft = Math.max(0, rootCard.offsetLeft * scale - scroller.clientWidth / 2 + (rootCard.offsetWidth * scale) / 2);
         scroller.scrollTop = 0;
+        this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };
         this.focusTreeCentered = true;
     },
 
@@ -2054,6 +2111,11 @@ const App = {
         this.applyFocusTreeTransform();
         this.focusTreePointers = new Map();
         this.focusTreeTouchGesture = null;
+
+        // 记录当前滚动位置，供重渲染后还原（拖动 / 滚轮缩放 / 滚动条都会触发）。
+        scroller.addEventListener('scroll', () => {
+            this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };
+        });
 
         scroller.addEventListener('wheel', event => {
             event.preventDefault();
