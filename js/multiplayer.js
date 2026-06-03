@@ -168,6 +168,9 @@ const Multiplayer = {
         this.detachRoomListeners();
         this.isOnline = true;
         this.isHost = asHost;
+        // 本地玩家是否已为这局初始化过自己的会话（资源/意识形态/外交/国策修正）。
+        // 客人不会走 startGameSession，需要首次收到对局状态时补一次初始化。
+        this._localSessionStarted = false;
         this.roomRef = this.db.ref(`rooms/${code}`);
 
         const lobbyRef = this.roomRef.child('lobby');
@@ -240,7 +243,8 @@ const Multiplayer = {
                 aiIdeologies: GameState.game.aiIdeologies || {},
                 aiFreeFocusTurns: GameState.game.aiFreeFocusTurns || {},
                 gameOver: !!GameState.game.gameOver,
-                modifiers: GameState.game.modifiers || {},
+                // 注意：game.modifiers 是"本地玩家自己国策加成"的私有对象，绝不能上传/共享，
+                // 否则会互相覆盖（房主每跑一个 AI 就 push 一次 → 客人的国策加成被清掉）。
                 nodeIndustryCaps: GameState.game.nodeIndustryCaps || {},
                 map: MapData.nodes.map(node => ({
                     id: node.id,
@@ -294,6 +298,20 @@ const Multiplayer = {
 
     applyStateFromRemote(remote) {
         if (!remote || !window.MapData) return;
+
+        // 客人首次进入对局（或房主开了新的一局，turn 回退到较小值）：先用"自己的势力"建立本地会话，
+        // 保证 playerResources（按本势力 startingStats）、currentIdeology、diplomacy、modifiers 正确初始化。
+        // 否则客人一直用默认 game 模板里的 money=25/pp=10，且后续无人为它结算。
+        const isGuest = !GameState.isHost();
+        const isNewGame = remote.turn && GameState.game && remote.turn < (GameState.game.currentTurn || 0);
+        if (isGuest && remote.turn && (!this._localSessionStarted || isNewGame)) {
+            this._localSessionStarted = true;
+            if (window.MapData.reset) window.MapData.reset();
+            GameState.startGameSession();
+        }
+
+        const prevPlayerId = GameState.game.currentPlayerId;
+
         // 把 game 关键字段刷新
         GameState.game.currentTurn = remote.turn;
         GameState.game.currentPlayerId = remote.currentPlayerId;
@@ -308,7 +326,7 @@ const Multiplayer = {
         GameState.game.aiIdeologies = remote.aiIdeologies || {};
         GameState.game.aiFreeFocusTurns = remote.aiFreeFocusTurns || {};
         GameState.game.gameOver = !!remote.gameOver;
-        if (remote.modifiers) GameState.game.modifiers = remote.modifiers;
+        // 不再用 remote.modifiers 覆盖本地国策加成 —— 那是每个玩家各自的私有数据（见 pushGameState 注释）。
         if (remote.nodeIndustryCaps) GameState.game.nodeIndustryCaps = remote.nodeIndustryCaps;
 
         // 同步地图
@@ -325,6 +343,18 @@ const Multiplayer = {
                 node.freshTroops = remoteNode.freshTroops || 0;
                 node.movedThisTurn = !!remoteNode.movedThisTurn;
             });
+        }
+
+        // 轮到本地玩家行动：重置本机倒计时（计时器在非自己回合是冻结的）。
+        if (remote.currentPlayerId !== prevPlayerId &&
+            GameState.isFactionPlayedByLocalUser(remote.currentPlayerId)) {
+            GameState.game.timerRemaining = Number(GameState.lobby.settings.turnLimit) || 180;
+        }
+
+        // 进入新回合：为"本地玩家所控势力"补上本回合的金钱 / PP 收入。
+        // 收尾方已在 endTurn 内完整结算并置 lastSettledTurn，这里靠 lastSettledTurn 去重。
+        if (window.App && App.settleLocalResourcesForRound) {
+            App.settleLocalResourcesForRound(remote.turn);
         }
 
         // 切换视图：如果状态在 online 且尚未进入 game-page，自动跳过去
