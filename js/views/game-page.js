@@ -93,6 +93,7 @@ const GamePageView = {
             game.battlePreview ? this.renderBattlePreviewModal(game.battlePreview) : '',
             game.showFocusModal ? this.renderFocusTreeModal() : '',
             game.showDiplomacyModal ? this.renderDiplomacyModal() : '',
+            game.showModifiersModal ? this.renderModifiersModal() : '',
             game.winner && game.showEndGameModal !== false ? this.renderEndGameModal(game.winner) : ''
         ].join('');
     },
@@ -237,6 +238,7 @@ const GamePageView = {
                     <div class="passive-line">有效政治点收入：每回合 +${GameState.getTurnPPIncome()} PP；步兵维护：每人 $${formatMoney(GameState.getMaintenanceRate())}</div>
                     <div class="panel-actions">
                         <button class="btn btn-primary" onclick="window.app.openFocusModal()">国策</button>
+                        <button class="btn btn-outline" onclick="window.app.openModifiersModal()">国家修正</button>
                         <button class="btn btn-outline" onclick="window.app.openDiplomacyModal()">外交</button>
                     </div>
                 </section>
@@ -385,7 +387,8 @@ const GamePageView = {
             const relationClass = data.relation === '战争' ? 'war' : data.relation === '停战' ? 'truce' : 'neutral';
             return `
                 <span class="diplomacy-badge ${relationClass}" style="--faction-color: ${faction.color}">
-                    ${faction.id} ${data.relation}
+                    <span class="diplomacy-badge-name">${faction.shortName}</span>
+                    <span class="diplomacy-badge-relation">${data.relation}</span>
                 </span>
             `;
         }).join('');
@@ -1003,17 +1006,148 @@ const GamePageView = {
         return [...new Set([...directParents, ...optionalParents])];
     },
 
+    branchColor(branch) {
+        if (!branch) return 'rgba(148, 163, 184, 0.6)';
+        // 太平洋国主要分支：厘定主题色，保证每条线一眼可分。
+        const palette = {
+            '进步联邦': 'hsl(212, 72%, 64%)',   // 民主蓝
+            '休斯财团': 'hsl(45, 82%, 60%)',     // 工业金
+            '好莱坞': 'hsl(330, 76%, 67%)',      // 好莱坞粉
+            '太平洋帝国': 'hsl(2, 74%, 63%)',    // 帝国红
+            '神秘主义': 'hsl(275, 62%, 70%)',    // 神秘紫
+            '太平洋终局': 'hsl(48, 88%, 62%)',   // 终局亮金
+            '太平洋卫队': 'hsl(150, 54%, 56%)',  // 卫队绿
+            '太平洋经济': 'hsl(26, 78%, 60%)',   // 经济橙
+            '外援后盾': 'hsl(265, 58%, 70%)',    // 外交紫
+            // 宪政国（CON）：左右两翼色调对立 + 四条支线各异。
+            '宪政国': 'hsl(220, 65%, 60%)',      // 宪政蓝
+            '黑人起义': 'hsl(45, 80%, 55%)',     // 泛非金
+            '南方军': 'hsl(95, 35%, 52%)',       // 军绿橄榄
+            '深南方': 'hsl(28, 72%, 56%)',       // 工业橙
+            '南大西洋': 'hsl(190, 60%, 54%)',    // 海岸青
+            '秩序信仰': 'hsl(280, 50%, 66%)',    // 信仰紫
+            // 联盟国（AUS）：以紫为基调，但每条线一眼可分。
+            '朗派机器': 'hsl(45, 85%, 58%)',     // 民粹金（王鱼）
+            '社会正义': 'hsl(350, 62%, 60%)',    // 神职酒红（库格林）
+            '银军团': 'hsl(220, 12%, 66%)',      // 银灰（皮利）
+            '义勇民兵': 'hsl(268, 55%, 64%)',    // 民兵紫（军政强人）
+            '密西西比军务': 'hsl(200, 58%, 56%)',// 河蓝
+            '南方经济': 'hsl(30, 72%, 54%)',     // 棉油橙
+            '南方外交': 'hsl(150, 46%, 50%)',    // 外交绿
+            '联盟国终局': 'hsl(285, 70%, 62%)',  // 终局紫
+            // 联合工团（CSA）：以工团红为基调，但每条线一眼可分。
+            '里德工团': 'hsl(2, 78%, 57%)',      // 工团红（里德）
+            '总工团': 'hsl(22, 58%, 46%)',       // 集权砖红（托派计划）
+            '激进社会主义': 'hsl(340, 56%, 63%)',// 玫瑰粉（托马斯）
+            '卡彭机器': 'hsl(46, 44%, 50%)',     // 做旧暗金（卡彭）
+            '美国赤军': 'hsl(352, 55%, 47%)',    // 赤军深红（巴特勒）
+            '五大湖工业': 'hsl(208, 16%, 57%)',  // 工业钢灰
+            '第三国际': 'hsl(28, 72%, 54%)',     // 国际橙
+            '工团终局': 'hsl(0, 80%, 64%)',      // 终局亮红
+            // 德克萨斯（TEX）：4 政治线 + 4 支线各异，孤星红点睛。
+            '石油寡头': 'hsl(32, 55%, 42%)',     // 石油暗褐（德士古）
+            '帕皮民粹': 'hsl(50, 82%, 56%)',     // 广播金黄（奥丹尼尔）
+            '新政民主': 'hsl(210, 66%, 61%)',    // 新政蓝（LBJ/奥尔雷德）
+            '孤星共和': 'hsl(2, 72%, 58%)',      // 孤星红（收复主义）
+            '游骑兵军务': 'hsl(96, 34%, 50%)',   // 游骑军绿
+            '石油经济': 'hsl(18, 76%, 55%)',     // 油橙
+            '边境外交': 'hsl(178, 52%, 48%)',    // 边境青
+            '边疆社会': 'hsl(276, 48%, 65%)',    // 边疆紫
+            // 西部军区（WDC）：山地灰为基调，蜂巢金点睛，4 政治线 + 4 支线各异。
+            '山地军政': 'hsl(212, 12%, 52%)',    // 军政钢灰
+            '德塞雷特': 'hsl(46, 78%, 53%)',     // 摩门蜂蜜金
+            '矿业财阀': 'hsl(22, 50%, 44%)',     // 矿铜褐
+            '边疆联邦': 'hsl(150, 42%, 48%)',    // 联邦绿
+            '山地防务': 'hsl(8, 45%, 52%)',      // 荒漠红
+            '矿牧经济': 'hsl(38, 62%, 52%)',     // 矿牧橙黄
+            '西部边境': 'hsl(192, 52%, 50%)',    // 山区青
+            '拓荒社会': 'hsl(278, 42%, 63%)',    // 拓荒紫
+            // 新英格兰（NEN）：洛夫克拉夫特调色，三神各异。
+            '自由州': 'hsl(210, 55%, 60%)',      // 自由蓝
+            '商贸委员会': 'hsl(45, 60%, 50%)',   // 商贸金
+            '保护协定': 'hsl(225, 28%, 56%)',    // 保护灰蓝
+            '普罗维登斯学社': 'hsl(275, 45%, 60%)', // 神秘紫
+            '克苏鲁觉醒': 'hsl(165, 45%, 42%)',  // 深海绿（克苏鲁）
+            '犹格-索托斯之钥': 'hsl(52, 45%, 52%)', // 旧金（知识）
+            '奈亚拉托提普化身': 'hsl(305, 42%, 52%)', // 混沌品红
+            '海岸防务': 'hsl(200, 48%, 50%)',    // 海岸青
+            '扬基经济': 'hsl(32, 58%, 52%)',     // 工坊橙
+            '哈德逊外交': 'hsl(150, 42%, 50%)',  // 外交绿
+            // 合众国（USA）：合众国之翼 + 纽约市之翼 + 4 支线。
+            '军政府': 'hsl(222, 16%, 50%)',      // 军政钢灰（凯撒）
+            '民主修复': 'hsl(218, 68%, 62%)',    // 民主蓝
+            '技术官僚': 'hsl(186, 45%, 48%)',    // 技术青
+            '战后重建': 'hsl(160, 40%, 46%)',    // 重建青绿
+            '纽约市': 'hsl(285, 28%, 56%)',      // 大都会紫灰
+            '华尔街': 'hsl(140, 48%, 38%)',      // 美钞绿
+            '坦慕尼厅': 'hsl(30, 55%, 46%)',     // 老虎厅褐
+            '红色纽约': 'hsl(2, 70%, 52%)',      // 工团红
+            '拉瓜迪亚': 'hsl(48, 78%, 55%)',     // 融合金
+            '军事改革': 'hsl(95, 28%, 48%)',     // 军绿橄榄
+            '经济动员': 'hsl(28, 62%, 52%)',     // 工业橙
+            '海空军': 'hsl(205, 58%, 46%)',      // 海军蓝
+            '门罗主义': 'hsl(265, 45%, 62%)'     // 外交紫
+        };
+        if (palette[branch]) return palette[branch];
+        let hash = 0;
+        for (let i = 0; i < branch.length; i++) {
+            hash = (hash * 31 + branch.charCodeAt(i)) >>> 0;
+        }
+        const hue = hash % 360;
+        return `hsl(${hue}, 62%, 64%)`;
+    },
+
+    focusLinkPath(source, target) {
+        const sx = source.centerX;
+        const sy = source.bottomY;
+        const tx = target.centerX;
+        const ty = target.topY;
+        if (sx === tx) return `M ${sx} ${sy} L ${tx} ${ty}`;
+        const midY = sy + Math.max(18, (ty - sy) / 2);
+        const dir = tx > sx ? 1 : -1;
+        const r = Math.max(0, Math.min(12, Math.abs(tx - sx) / 2, midY - sy, ty - midY));
+        if (r < 1) return `M ${sx} ${sy} V ${midY} H ${tx} V ${ty}`;
+        return `M ${sx} ${sy} L ${sx} ${midY - r} Q ${sx} ${midY} ${sx + dir * r} ${midY} L ${tx - dir * r} ${midY} Q ${tx} ${midY} ${tx} ${midY + r} L ${tx} ${ty}`;
+    },
+
     renderFocusConnectors(tree, layout) {
         const lines = [];
+        const bands = [];
         const mutualPairs = new Set();
+
+        // 分支泳道：把每条线圈成一簇（≥3 节点的分支才画底色+标题）
+        const byBranch = {};
+        tree.forEach(focus => { (byBranch[focus.branch] = byBranch[focus.branch] || []).push(focus); });
+        Object.entries(byBranch).forEach(([branch, nodes]) => {
+            if (!branch || nodes.length < 3) return;
+            const color = this.branchColor(branch);
+            let minL = Infinity, minT = Infinity, maxR = -Infinity, maxB = -Infinity;
+            nodes.forEach(n => {
+                const p = layout.positions[n.id];
+                if (!p) return;
+                minL = Math.min(minL, p.left);
+                minT = Math.min(minT, p.topY);
+                maxR = Math.max(maxR, p.left + layout.cardWidth);
+                maxB = Math.max(maxB, p.bottomY);
+            });
+            if (!isFinite(minL)) return;
+            const pad = 16;
+            const labelGap = 22;
+            const x = minL - pad;
+            const y = minT - pad - labelGap;
+            const w = (maxR - minL) + pad * 2;
+            const h = (maxB - minT) + pad * 2 + labelGap;
+            bands.push(`<rect class="focus-lane-band" x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${color}" />`);
+            bands.push(`<text class="focus-lane-label" x="${x + 16}" y="${y + 24}" fill="${color}">${escapeHtml(branch)}</text>`);
+        });
 
         tree.forEach(focus => {
             const target = layout.positions[focus.id];
+            const color = this.branchColor(focus.branch);
             this.getFocusParentIds(focus).forEach(parentId => {
                 const source = layout.positions[parentId];
                 if (!source || !target) return;
-                const midY = source.bottomY + Math.max(18, (target.topY - source.bottomY) / 2);
-                lines.push(`<path class="focus-link" d="M ${source.centerX} ${source.bottomY} V ${midY} H ${target.centerX} V ${target.topY}" />`);
+                lines.push(`<path class="focus-link" stroke="${color}" d="${this.focusLinkPath(source, target)}" />`);
             });
 
             (focus.mutuallyExclusive || []).forEach(otherId => {
@@ -1027,6 +1161,7 @@ const GamePageView = {
 
         return `
             <svg class="focus-connector-layer" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">
+                ${bands.join('')}
                 ${lines.join('')}
             </svg>
         `;
@@ -1079,8 +1214,8 @@ const GamePageView = {
         const progressPercent = Math.round(progress.ratio * 100);
 
         return `
-            <button class="focus-card ${stateClass} ${selected ? 'selected' : ''} ${mobileHidden ? 'mobile-focus-hidden' : ''}" data-focus-id="${focus.id}"
-                style="left: ${position.left}px; top: ${position.top}px;"
+            <button class="focus-card ${stateClass} ${selected ? 'selected' : ''} ${mobileHidden ? 'mobile-focus-hidden' : ''}" data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch || '')}"
+                style="left: ${position.left}px; top: ${position.top}px; --branch-color: ${this.branchColor(focus.branch)};"
                 onclick="window.app.selectFocus('${focus.id}')">
                 <div class="focus-branch">${focus.branch}</div>
                 <div class="focus-title">${focus.name}</div>
@@ -1329,7 +1464,8 @@ const GamePageView = {
         if (effect.type === 'badge') return `获得国家修正：${effect.label}`;
         if (effect.type === 'ideology') {
             const ideology = GameState.ideologies[effect.id];
-            return ideology ? `意识形态切换为「${ideology.name}」（替换上一意识形态的所有加成）` : `意识形态切换：${effect.id}`;
+            const base = ideology ? `意识形态切换为「${ideology.name}」（替换上一意识形态的所有加成）` : `意识形态切换：${effect.id}`;
+            return effect.name ? `${base}；国号更名为「${effect.name}」` : base;
         }
 
         return `${effect.type} ${signed}`;
@@ -1391,6 +1527,80 @@ const GamePageView = {
         `;
     },
 
+    renderModifiersModal() {
+        const ideology = GameState.getIdeology();
+        const modifiers = GameState.getGameModifiers();
+        const badges = modifiers.badges || [];
+        const ideologyBonuses = ((ideology && ideology.bonuses) || [])
+            .map(bonus => this.formatIdeologyBonus(bonus))
+            .filter(Boolean);
+        const focusEntries = this.formatNationalModifiers(modifiers);
+
+        const listSection = (title, items, emptyText) => `
+            <div class="modifier-group">
+                <h4>${escapeHtml(title)}</h4>
+                ${items.length
+                    ? `<ul class="modifier-list">${items.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>`
+                    : `<p class="text-muted">${escapeHtml(emptyText)}</p>`}
+            </div>
+        `;
+
+        const badgeHtml = badges.length
+            ? `<div class="modifier-badges">${badges.map(b => `<span class="modifier-badge">${escapeHtml(b)}</span>`).join('')}</div>`
+            : `<p class="text-muted">暂无国家修正徽章</p>`;
+
+        return `
+            <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
+                <section class="modal-panel modifiers-modal"${ideology ? ` style="--ideology-color: ${ideology.color}"` : ''}>
+                    <header class="modal-header">
+                        <h3>国家修正</h3>
+                        <button class="modal-close" onclick="window.app.closeModals()">×</button>
+                    </header>
+                    <div class="modifiers-modal-body">
+                        <div class="modifier-group">
+                            <h4>国家修正徽章</h4>
+                            ${badgeHtml}
+                        </div>
+                        ${listSection(`意识形态加成${ideology ? `（${ideology.name}）` : ''}`, ideologyBonuses, '暂无意识形态加成')}
+                        ${listSection('国策累积修正', focusEntries, '尚未从国策获得任何修正')}
+                    </div>
+                </section>
+            </div>
+        `;
+    },
+
+    formatNationalModifiers(m) {
+        if (!m) return [];
+        const out = [];
+        const sign = (n) => (n > 0 ? `+${n}` : `${n}`);
+        const pct = (n) => `${n > 0 ? '+' : ''}${(n * 100).toFixed(0)}%`;
+        if (m.ppIncome) out.push(`每回合 PP ${sign(m.ppIncome)}`);
+        if (m.moneyIncome) out.push(`每回合金钱 ${sign(m.moneyIncome)}`);
+        if (m.ppCapBonus) out.push(`PP 上限 ${sign(m.ppCapBonus)}`);
+        if (m.maintenanceRateDelta) out.push(`部队维护费率 ${pct(m.maintenanceRateDelta)}`);
+        if (m.recruitCostDelta) out.push(`每个士兵金钱成本 ${sign(m.recruitCostDelta)}`);
+        if (m.recruitAmount) out.push(`每次征兵数量 ${sign(m.recruitAmount)}`);
+        if (m.freeTroops) out.push(`免维护士兵 ${sign(m.freeTroops)} 名`);
+        if (m.globalAttack) out.push(`全局进攻力 ${pct(m.globalAttack)}`);
+        if (m.globalDefense) out.push(`全局防守力 ${pct(m.globalDefense)}`);
+        if (m.crisisPP) out.push(`首都失守时 PP 危机收入 ${sign(m.crisisPP)}`);
+        if (m.captureMoneyOnWin) out.push(`每次占领额外 ${sign(m.captureMoneyOnWin)} 金钱`);
+        if (m.captureTroopsOnWin) out.push(`每次占领额外 ${sign(m.captureTroopsOnWin)} 驻军`);
+        if (m.damageOnCapture) out.push(`占领后破坏敌方工业 ${sign(m.damageOnCapture)}`);
+        if (m.industryCapBoosts) out.push(`工业上限强化 ×${m.industryCapBoosts}`);
+        const actionNames = { recruit: '征兵', disband: '裁军', move: '移动', build: '建设', focus: '推进国策', all: '全部行动' };
+        Object.entries(m.actionBaseCost || {}).forEach(([action, delta]) => {
+            if (delta) out.push(`${actionNames[action] || action} 基础 PP ${sign(delta)}`);
+        });
+        Object.entries(m.taggedIncome || {}).forEach(([tag, amt]) => {
+            if (amt) out.push(`每个${tag}节点每回合 ${sign(amt)} 金钱`);
+        });
+        Object.entries(m.taggedDefense || {}).forEach(([tag, amt]) => {
+            if (amt) out.push(`${tag}节点防守 ${pct(amt)}`);
+        });
+        return out;
+    },
+
     renderEndGameModal(winner) {
         const faction = GameState.getFaction(winner.factionId);
         return `
@@ -1400,8 +1610,9 @@ const GamePageView = {
                         <h3>${winner.type}</h3>
                     </header>
                     <div class="modal-body">
-                        <div class="winner-mark">${faction.id}</div>
+                        <div class="winner-mark"><span class="winner-mark-star">★</span></div>
                         <h3>${faction.name}</h3>
+                        <div class="winner-mark-sub">${faction.shortName}</div>
                         <p class="text-muted">${winner.text}</p>
                     </div>
                     <footer class="modal-actions">

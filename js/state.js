@@ -225,6 +225,456 @@ const GameState = {
                 { type: 'recruitAmount', amount: 1 },
                 { type: 'globalDefense', amount: -0.05 }
             ]
+        },
+        entertainment_state: {
+            id: 'entertainment_state', name: '娱乐国家', color: '#db2777',
+            description: '好莱坞、广播与赫斯特报系把战争包装成全民演出。士气与政治资本高，但宣传机器吞噬财政。',
+            bonuses: [
+                { type: 'ppIncome', amount: 1 },
+                { type: 'crisisPP', amount: 4 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 },
+                { type: 'ppCapBonus', amount: -20 }
+            ]
+        },
+        pacific_imperium: {
+            id: 'pacific_imperium', name: '太平洋帝国', color: '#0d9488',
+            description: '诺顿二世加冕，太平洋舰队把港口变成跳板。海权与缴获双高，靠扩张维持。',
+            bonuses: [
+                { type: 'taggedIncome', tag: '港口', amount: 1 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'globalAttack', amount: 0.05 },
+                { type: 'captureMoney', amount: 2 },
+                { type: 'ppCapBonus', amount: 10 }
+            ]
+        },
+        pacific_spiritualism: {
+            id: 'pacific_spiritualism', name: '太平洋神秘主义', color: '#7e22ce',
+            description: '罗里奇的圣域同盟与哈伯德的灵性教团把战争变成精神动员。政治资本与韧性极高，进攻平平。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 30 },
+                { type: 'ppIncome', amount: 1 },
+                { type: 'crisisPP', amount: 5 },
+                { type: 'freeTroops', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        fordism: {
+            id: 'fordism', name: '福特统合', color: '#0e7490',
+            description: '工程师与承包商财团把国家当成一条流水线。建设便宜、工业高，但政治资本平平。',
+            bonuses: [
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'ppCapBonus', amount: 20 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        white_league: {
+            id: 'white_league', name: '白人同盟', color: '#7f1d1d',
+            description: '隐形帝国接管国家机器，靠恐惧与暴力维持秩序。进攻强、免维护兵多，但财政与政治资本受损。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.08 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'captureTroops', amount: 1 },
+                { type: 'crisisPP', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.02 },
+                { type: 'ppCapBonus', amount: -30 }
+            ]
+        },
+        christian_identity: {
+            id: 'christian_identity', name: '基督教认同', color: '#6d28d9',
+            description: '白人福音派神学成为国家意识形态。防御与危机韧性极高，主动进攻乏力。',
+            bonuses: [
+                { type: 'globalDefense', amount: 0.10 },
+                { type: 'crisisPP', amount: 5 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'globalAttack', amount: -0.05 }
+            ]
+        },
+        pan_africanism: {
+            id: 'pan_africanism', name: '泛非社会主义', color: '#166534',
+            description: '杜波依斯式的左翼泛非主义，以合作社与工人团结立国。征兵便宜、免维护兵多。',
+            bonuses: [
+                { type: 'recruitCost', amount: -1 },
+                { type: 'recruitAmount', amount: 2 },
+                { type: 'freeTroops', amount: 5 },
+                { type: 'ppCapBonus', amount: -20 }
+            ]
+        },
+        progressive_democracy: {
+            id: 'progressive_democracy', name: '进步民主', color: '#3b82f6',
+            description: '威尔金斯式的进步民主，战时仍保留选举与公民权利。政治资本高、防御稳。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 40 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        garveyism: {
+            id: 'garveyism', name: '加维主义', color: '#b45309',
+            description: '加维的 UNIA 以黑星航运与返非建国为纲。港口收入高、海路赚钱。',
+            bonuses: [
+                { type: 'taggedIncome', tag: '港口', amount: 1 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'taggedDefense', tag: '港口', amount: 0.05 },
+                { type: 'ppCapBonus', amount: -10 }
+            ]
+        },
+        black_nationalism: {
+            id: 'black_nationalism', name: '黑人民族主义', color: '#065f46',
+            description: '伊斯兰国度以信仰与纪律自立社区。免维护兵多、危机韧性高、后方稳固。',
+            bonuses: [
+                { type: 'freeTroops', amount: 5 },
+                { type: 'recruitAmount', amount: 1 },
+                { type: 'crisisPP', amount: 4 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        afrofuturism: {
+            id: 'afrofuturism', name: '非洲未来主义', color: '#7c3aed',
+            description: '太阳神拉把黑带共和国想象成驶向群星的方舟。危机 PP 与韧性极高，玩法天马行空。',
+            bonuses: [
+                { type: 'ppIncome', amount: 1 },
+                { type: 'crisisPP', amount: 6 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'ppCapBonus', amount: -20 }
+            ]
+        },
+        black_belt: {
+            id: 'black_belt', name: '黑带共和', color: '#be123c',
+            description: '各派系结成的黑带共和国。征兵活、免维护兵多、攻防均衡，靠起义热情维持。',
+            bonuses: [
+                { type: 'recruitAmount', amount: 2 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'ppCapBonus', amount: 20 },
+                { type: 'globalAttack', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+
+        // ===== 联盟国 (AUS) 路线意识形态 =====
+        national_populism: {
+            id: 'national_populism', name: '国家民粹主义', color: '#b45309',
+            description: '"人人皆王"——王鱼朗的政治机器。政治资本上限与征兵极强。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 40 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'recruitAmount', amount: 2 },
+                { type: 'freeTroops', amount: 3 }
+            ]
+        },
+        clerical_populism: {
+            id: 'clerical_populism', name: '福音民粹主义', color: '#92400e',
+            description: '史密斯的福音右翼。狂热民兵多、进攻略强。',
+            bonuses: [
+                { type: 'recruitAmount', amount: 2 },
+                { type: 'freeTroops', amount: 3 },
+                { type: 'globalAttack', amount: 0.05 },
+                { type: 'crisisPP', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        corporatism: {
+            id: 'corporatism', name: '法团主义', color: '#0f766e',
+            description: '把劳资编进受国家监管的行会。经济稳、建设高效。',
+            bonuses: [
+                { type: 'moneyIncome', amount: 3 },
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: 20 }
+            ]
+        },
+        clerical_corporatism: {
+            id: 'clerical_corporatism', name: '神职法团主义', color: '#9d174d',
+            description: '库格林的"社会正义"政教合一。宣传与防御见长。',
+            bonuses: [
+                { type: 'crisisPP', amount: 4 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.03 }
+            ]
+        },
+        esoteric_fascism: {
+            id: 'esoteric_fascism', name: '神秘法西斯主义', color: '#6d28d9',
+            description: '皮利的"灵魂学"教团。狂热信徒多、宣传强，政治资本低。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.05 },
+                { type: 'crisisPP', amount: 5 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: -30 }
+            ]
+        },
+        clerical_fascism: {
+            id: 'clerical_fascism', name: '教权法西斯主义', color: '#831843',
+            description: '皮利的基督教邦联，政教合一的战争国家。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.08 },
+                { type: 'capitalTroopsPerTurn', amount: 1 },
+                { type: 'crisisPP', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: -40 }
+            ]
+        },
+        national_fascism: {
+            id: 'national_fascism', name: '国家法西斯主义', color: '#7f1d1d',
+            description: '银色革命下的持续净化。进攻与缴获双高。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.10 },
+                { type: 'captureMoney', amount: 3 },
+                { type: 'captureTroops', amount: 1 },
+                { type: 'crisisPP', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: -40 }
+            ]
+        },
+        american_caesarism: {
+            id: 'american_caesarism', name: '美国凯撒主义', color: '#374151',
+            description: '军政强人把指挥权集于一身。进攻强、维护贵。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.10 },
+                { type: 'capitalTroopsPerTurn', amount: 1 },
+                { type: 'recruitAmount', amount: 1 },
+                { type: 'maintenanceRate', amount: 0.02 }
+            ]
+        },
+
+        // ===== 联合工团 (CSA) 路线意识形态 =====
+        anarcho_syndicalism: {
+            id: 'anarcho_syndicalism', name: '无政府工团主义', color: '#991b1b',
+            description: '海伍德的去中心化工人委员会。征兵极便宜、免维护兵多，但中央权力弱。',
+            bonuses: [
+                { type: 'recruitCost', amount: -1 },
+                { type: 'recruitAmount', amount: 3 },
+                { type: 'freeTroops', amount: 8 },
+                { type: 'maintenanceRate', amount: -0.02 },
+                { type: 'ppCapBonus', amount: -40 }
+            ]
+        },
+        de_leonism: {
+            id: 'de_leonism', name: '德里昂主义', color: '#9f1239',
+            description: '中央集权的产业工会（"一个大工会"）。工业建设高效。',
+            bonuses: [
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'ppCapBonus', amount: 20 }
+            ]
+        },
+        popular_communism: {
+            id: 'popular_communism', name: '人民共产主义', color: '#dc2626',
+            description: '白劳德靠美国价值观赢得人心，而非清洗。政治资本高、经济稳。',
+            bonuses: [
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'ppCapBonus', amount: 30 }
+            ]
+        },
+        totalism: {
+            id: 'totalism', name: '托塔主义', color: '#7f1d1d',
+            description: '福斯特的列宁主义先锋队专政。进攻强、建设快，但行政摩擦大。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.08 },
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'crisisPP', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: -30 }
+            ]
+        },
+        radical_socialism: {
+            id: 'radical_socialism', name: '激进社会主义', color: '#db2777',
+            description: '托马斯的民主社会主义。政治资本充裕、防御稳、维护低。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 50 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        bellamyism: {
+            id: 'bellamyism', name: '贝拉米主义', color: '#9d174d',
+            description: '贝拉米式乌托邦的"产业军队"。生产有序、可快速动员。',
+            bonuses: [
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'recruitAmount', amount: 1 },
+                { type: 'freeTroops', amount: 2 }
+            ]
+        },
+        caponeism: {
+            id: 'caponeism', name: '卡彭主义', color: '#a16207',
+            description: '黑帮社会主义。金钱与缴获极多，但维护贵、政治资本少。',
+            bonuses: [
+                { type: 'moneyIncome', amount: 5 },
+                { type: 'captureMoney', amount: 3 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'maintenanceRate', amount: 0.02 },
+                { type: 'ppIncome', amount: -0.5 }
+            ]
+        },
+        mafia_state: {
+            id: 'mafia_state', name: '黑帮专政', color: '#713f12',
+            description: '科萨诺斯特拉委员会的高压清洗专政。进攻与镇压强，政治资本低。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.05 },
+                { type: 'crisisPP', amount: 4 },
+                { type: 'captureMoney', amount: 2 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: -40 }
+            ]
+        },
+        new_deal: {
+            id: 'new_deal', name: '新政自由', color: '#1d72c2',
+            description: '奥尔雷德与约翰逊把新政带进孤星共和国：公共工程、选举与工业并举。政治资本高、建设便宜。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 30 },
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        lone_star_nationalism: {
+            id: 'lone_star_nationalism', name: '孤星民族主义', color: '#c2410c',
+            description: '重建孤星共和国、收复旧疆界。进攻与征召强、缴获多，靠民族主义热情维持。',
+            bonuses: [
+                { type: 'globalAttack', amount: 0.08 },
+                { type: 'recruitAmount', amount: 1 },
+                { type: 'captureTroops', amount: 1 },
+                { type: 'maintenanceRate', amount: -0.02 },
+                { type: 'ppCapBonus', amount: -20 }
+            ]
+        },
+
+        // ===== 政治线"中路/合流"路线意识形态（每条政治线的第三种结局）=====
+        distributism: {
+            id: 'distributism', name: '分配主义', color: '#4d7c0f',
+            description: '库格林社会正义的天主教经济：广泛产权、合作社、反垄断。经济稳、维护低。',
+            bonuses: [
+                { type: 'moneyIncome', amount: 2 },
+                { type: 'freeTroops', amount: 3 },
+                { type: 'maintenanceRate', amount: -0.02 },
+                { type: 'ppCapBonus', amount: 20 }
+            ]
+        },
+        national_mobilization: {
+            id: 'national_mobilization', name: '国家总动员', color: '#4b5563',
+            description: '义勇民兵全民动员体制：举国征召、民兵海洋，但中央政治资本受限。',
+            bonuses: [
+                { type: 'recruitAmount', amount: 2 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'ppCapBonus', amount: -20 }
+            ]
+        },
+        council_socialism: {
+            id: 'council_socialism', name: '工人议会社会主义', color: '#be185d',
+            description: '工会理事会自下而上的直接民主。政治资本充裕、征兵便宜、免维护兵多。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 40 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'recruitCost', amount: -1 }
+            ]
+        },
+        gangster_syndicalism: {
+            id: 'gangster_syndicalism', name: '帮会工团主义', color: '#854d0e',
+            description: '卡彭帮会务实运营的灰色国家。金钱与缴获多、征兵便宜。',
+            bonuses: [
+                { type: 'moneyIncome', amount: 3 },
+                { type: 'captureMoney', amount: 2 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'freeTroops', amount: 2 }
+            ]
+        },
+        dixiecrat: {
+            id: 'dixiecrat', name: '迪克西联盟', color: '#475569',
+            description: '罗素的迪克西联盟：温和的宪政隔离主义南方民主党。政治资本高、防御稳。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 30 },
+                { type: 'moneyIncome', amount: 1 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        deseret: {
+            id: 'deseret', name: '德塞雷特神权', color: '#a8741a',
+            description: '盐湖城的圣徒以教会、什一税与纳府军团立国。防御与韧性极高、免维护兵多，靠信仰共同体维持。',
+            bonuses: [
+                { type: 'globalDefense', amount: 0.08 },
+                { type: 'freeTroops', amount: 4 },
+                { type: 'crisisPP', amount: 4 },
+                { type: 'maintenanceRate', amount: -0.03 },
+                { type: 'ppCapBonus', amount: -10 }
+            ]
+        },
+        quaker_commonwealth: {
+            id: 'quaker_commonwealth', name: '贵格共同体', color: '#5b8a72',
+            description: '贵格会的和平见证与镇会民主：防御稳、免维护兵多、政治资本高，但主动进攻乏力。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 30 },
+                { type: 'globalDefense', amount: 0.08 },
+                { type: 'freeTroops', amount: 3 },
+                { type: 'globalAttack', amount: -0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        anarcho_capitalism: {
+            id: 'anarcho_capitalism', name: '无政府资本主义', color: '#b59410',
+            description: '私法社会与无政府资本：金钱极多、征兵便宜、免维护兵多，但政治资本与行政几乎不存在。',
+            bonuses: [
+                { type: 'moneyIncome', amount: 4 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'freeTroops', amount: 2 },
+                { type: 'maintenanceRate', amount: 0.02 },
+                { type: 'ppCapBonus', amount: -40 }
+            ]
+        },
+        new_england_monarchy: {
+            id: 'new_england_monarchy', name: '新英格兰君主', color: '#7a3b8f',
+            description: '复辟的新英格兰王冠：秩序、政治资本与防御并重，靠王室合法性维持后方。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 40 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'capitalTroopsPerTurn', amount: 1 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        shadow_presidency: {
+            id: 'shadow_presidency', name: '影子总统', color: '#3f6fb0',
+            description: '麦克阿瑟任命傀儡"影子总统"过渡到大选：政治资本高、行政高效，但权力实际仍在军方手中。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 35 },
+                { type: 'actionCost', action: 'focus', amount: -1 },
+                { type: 'ppIncome', amount: 0.5 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
+        },
+        machine_politics: {
+            id: 'machine_politics', name: '坦慕尼机器', color: '#9a6a2f',
+            description: '坦慕尼厅式的老板政治：靠恩庇网络与移民票仓维持，征兵便宜、金钱多，但政治资本上限低。',
+            bonuses: [
+                { type: 'moneyIncome', amount: 3 },
+                { type: 'recruitCost', amount: -1 },
+                { type: 'recruitAmount', amount: 1 },
+                { type: 'ppCapBonus', amount: -30 }
+            ]
+        },
+        fusion_progressivism: {
+            id: 'fusion_progressivism', name: '融合进步派', color: '#2f9e8f',
+            description: '拉瓜迪亚式的改革融合派：廉洁市政、公共工程与公民自由并举。政治资本与建设效率高、防御稳。',
+            bonuses: [
+                { type: 'ppCapBonus', amount: 35 },
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'globalDefense', amount: 0.05 },
+                { type: 'maintenanceRate', amount: -0.02 }
+            ]
         }
     },
 
@@ -281,7 +731,7 @@ const GameState = {
             id: 'NEN',
             name: '新英格兰',
             shortName: '新英格兰',
-            color: '#0284c7',
+            color: '#06b6d4',
             capitalNodeId: 'BOS',
             difficulty: 5,
             playstyleTags: ['偏安一隅', '外援窗口'],
@@ -305,7 +755,7 @@ const GameState = {
             id: 'WDC',
             name: '西部指挥军区',
             shortName: '西部军区',
-            color: '#64748b',
+            color: '#a8a29e',
             capitalNodeId: 'DEN',
             difficulty: 4,
             playstyleTags: ['荒漠游击', '纵深防御'],
@@ -317,7 +767,7 @@ const GameState = {
             id: 'TEX',
             name: '德克萨斯临时政府',
             shortName: '德克萨斯',
-            color: '#92400e',
+            color: '#a16207',
             capitalNodeId: 'DAL',
             difficulty: 4,
             playstyleTags: ['石油经济', '孤星防线'],
@@ -350,7 +800,9 @@ const GameState = {
             turnLimit: '180',
             victory: '统一',
             diplomacy: true,
-            ai: true
+            ai: true,
+            randomness: false,
+            restoreHistory: true
         },
         slots: [],
         chat: []
@@ -374,6 +826,7 @@ const GameState = {
         actionConfirm: null,
         showFocusModal: false,
         showDiplomacyModal: false,
+        showModifiersModal: false,
         showGridView: false,
         activeLogTab: 'battle',
         completedFocuses: [],
@@ -426,46 +879,7 @@ const GameState = {
     },
 
     focusTrees: {
-        USA: [
-            { id: 'usa_secure_command', name: '战时指挥委员会', branch: '战时统合', x: 9, y: 0, cost: 4, description: '把华盛顿周边的军政权力压进一套统一指挥链。', effects: [{ type: 'pp', amount: 5 }, { type: 'capitalTroops', amount: 2 }] },
-
-            { id: 'usa_emergency_war_powers', name: '紧急战争权力', branch: '政治路线', x: 3, y: 1, cost: 5, prerequisites: ['usa_secure_command'], description: '授权总统与总参谋部绕过常规程序处理叛乱。', effects: [{ type: 'pp', amount: 4 }] },
-            { id: 'usa_restore_congress', name: '召回国会委员会', branch: '民主修复', x: 1, y: 2, cost: 6, prerequisites: ['usa_emergency_war_powers'], mutuallyExclusive: ['usa_american_caesar', 'usa_military_directorate'], description: '保留军政府框架下的文官合法性。', effects: [{ type: 'money', amount: 12 }, { type: 'pp', amount: 3 }] },
-            { id: 'usa_american_caesar', name: '美国凯撒', branch: '军政府', x: 3, y: 2, cost: 6, prerequisites: ['usa_emergency_war_powers'], mutuallyExclusive: ['usa_restore_congress', 'usa_military_directorate'], description: '承认麦克阿瑟个人权威是维持联邦的核心。', effects: [{ type: 'capitalTroops', amount: 5 }, { type: 'pp', amount: 3 }] },
-            { id: 'usa_military_directorate', name: '军政委员会', branch: '技术官僚', x: 5, y: 2, cost: 6, prerequisites: ['usa_emergency_war_powers'], mutuallyExclusive: ['usa_restore_congress', 'usa_american_caesar'], description: '用军官、州长和工程官僚组成临时管理机构。', effects: [{ type: 'money', amount: 10 }, { type: 'capitalIndustry', amount: 1 }] },
-            { id: 'usa_special_elections', name: '特别选举筹备', branch: '民主修复', x: 1, y: 3, cost: 7, prerequisites: ['usa_restore_congress'], description: '为内战后的临时选举保留制度入口。', effects: [{ type: 'money', amount: 10 }, { type: 'pp', amount: 6 }] },
-            { id: 'usa_government_by_decree', name: '命令治国', branch: '军政府', x: 3, y: 3, cost: 8, prerequisites: ['usa_american_caesar'], description: '所有州际事务由军令直达。', effects: [{ type: 'allTroops', amount: 1 }, { type: 'pp', amount: 7 }] },
-            { id: 'usa_balanced_restoration', name: '有限复归方案', branch: '技术官僚', x: 5, y: 3, cost: 8, prerequisites: ['usa_military_directorate'], description: '预设一套既保留军管效率又恢复法统的路线。', effects: [{ type: 'money', amount: 12 }, { type: 'capitalIndustry', amount: 1 }] },
-
-            { id: 'usa_war_department_expansion', name: '扩编战争部', branch: '军事改革', x: 9, y: 1, cost: 5, prerequisites: ['usa_secure_command'], description: '重开各局办公室，协调陆军、民兵与州防卫队。', effects: [{ type: 'capitalTroops', amount: 4 }] },
-            { id: 'usa_mcarthur_in_command', name: '麦克阿瑟亲自指挥', branch: '军事改革', x: 9, y: 2, cost: 6, prerequisites: ['usa_war_department_expansion'], description: '让总司令部直接接管关键战区。', effects: [{ type: 'pp', amount: 5 }, { type: 'allTroops', amount: 1 }] },
-            { id: 'usa_all_to_general_staff', name: '一切归于总参', branch: '军事改革', x: 8, y: 3, cost: 6, prerequisites: ['usa_mcarthur_in_command'], mutuallyExclusive: ['usa_field_command_autonomy'], description: '集中计划、统一调配，避免战区军阀化。', effects: [{ type: 'allTroops', amount: 1 }, { type: 'pp', amount: 3 }] },
-            { id: 'usa_field_command_autonomy', name: '战区指挥自主', branch: '军事改革', x: 10, y: 3, cost: 6, prerequisites: ['usa_mcarthur_in_command'], mutuallyExclusive: ['usa_all_to_general_staff'], description: '授予前线司令更大机动权限。', effects: [{ type: 'money', amount: 10 }, { type: 'capitalTroops', amount: 3 }] },
-            { id: 'usa_mcnair_report', name: '麦克奈尔报告', branch: '军事改革', x: 9, y: 4, cost: 6, prerequisiteAny: [['usa_all_to_general_staff'], ['usa_field_command_autonomy']], description: '评估内战中暴露出的编制与训练问题。', effects: [{ type: 'pp', amount: 4 }, { type: 'allTroops', amount: 1 }] },
-            { id: 'usa_armored_thrust', name: '装甲突击理论', branch: '军事改革', x: 8, y: 5, cost: 7, prerequisites: ['usa_mcnair_report'], mutuallyExclusive: ['usa_infantry_superiority'], description: '把稀缺燃料和工厂优先用于机动作战。', effects: [{ type: 'nodeIndustry', nodeId: 'PIT', amount: 1 }, { type: 'capitalTroops', amount: 3 }] },
-            { id: 'usa_infantry_superiority', name: '步兵优势学说', branch: '军事改革', x: 10, y: 5, cost: 7, prerequisites: ['usa_mcnair_report'], mutuallyExclusive: ['usa_armored_thrust'], description: '用火炮、工兵和训练提升普通步兵战力。', effects: [{ type: 'allTroops', amount: 2 }] },
-            { id: 'usa_joint_operations', name: '联合战役司令部', branch: '军事改革', x: 9, y: 6, cost: 9, prerequisiteAny: [['usa_armored_thrust'], ['usa_infantry_superiority']], description: '把陆军、航空队和海军支援纳入统一战役计划。', effects: [{ type: 'pp', amount: 6 }, { type: 'capitalTroops', amount: 4 }] },
-
-            { id: 'usa_emergency_industry_board', name: '紧急工业委员会', branch: '经济动员', x: 13, y: 1, cost: 5, prerequisites: ['usa_secure_command'], description: '将军工合同、铁路运输和原料配给集中审查。', effects: [{ type: 'money', amount: 15 }, { type: 'capitalIndustry', amount: 1 }] },
-            { id: 'usa_war_bonds_drive', name: '战争债券宣传', branch: '经济动员', x: 12, y: 2, cost: 5, prerequisites: ['usa_emergency_industry_board'], description: '向忠诚城市发行短期债券。', effects: [{ type: 'money', amount: 25 }] },
-            { id: 'usa_arsenal_of_the_capital', name: '首都兵工厂', branch: '经济动员', x: 12, y: 3, cost: 6, prerequisites: ['usa_war_bonds_drive'], description: '扩建首都圈军工产能。', effects: [{ type: 'capitalIndustry', amount: 2 }] },
-            { id: 'usa_military_factories_first', name: '军工优先', branch: '经济动员', x: 11, y: 4, cost: 7, prerequisites: ['usa_arsenal_of_the_capital'], mutuallyExclusive: ['usa_civilian_retooling'], description: '牺牲民生恢复速度，优先扩大前线军需。', effects: [{ type: 'allIndustry', amount: 1, maxNodes: 4 }] },
-            { id: 'usa_civilian_retooling', name: '民用复产', branch: '经济动员', x: 14, y: 4, cost: 7, prerequisites: ['usa_arsenal_of_the_capital'], mutuallyExclusive: ['usa_military_factories_first'], description: '保住城市财政和运输体系，再反哺战争。', effects: [{ type: 'money', amount: 35 }] },
-            { id: 'usa_treasury_reorganization', name: '财政部重组', branch: '经济动员', x: 13, y: 5, cost: 8, prerequisiteAny: [['usa_military_factories_first'], ['usa_civilian_retooling']], description: '建立战时预算和维护费优先级。', effects: [{ type: 'money', amount: 20 }, { type: 'pp', amount: 5 }] },
-            { id: 'usa_total_war_production', name: '全面战争生产', branch: '经济动员', x: 13, y: 6, cost: 10, prerequisites: ['usa_treasury_reorganization'], description: '把所有剩余工业纳入统一战争经济。', effects: [{ type: 'allIndustry', amount: 1, maxNodes: 6 }, { type: 'money', amount: 20 }] },
-
-            { id: 'usa_reopen_naval_bureau', name: '重开海军局', branch: '海空军', x: 17, y: 1, cost: 5, prerequisites: ['usa_secure_command'], description: '恢复东海岸港口与海军仓库的最低运转。', effects: [{ type: 'taggedTroops', tag: '港口', amount: 1 }] },
-            { id: 'usa_atlantic_patrols', name: '大西洋巡逻线', branch: '海空军', x: 16, y: 2, cost: 5, prerequisites: ['usa_reopen_naval_bureau'], description: '守住诺福克、巴尔的摩和纽约的海上补给。', effects: [{ type: 'money', amount: 12 }, { type: 'taggedTroops', tag: '港口', amount: 1 }] },
-            { id: 'usa_army_air_corps', name: '陆军航空队', branch: '海空军', x: 18, y: 2, cost: 5, prerequisites: ['usa_reopen_naval_bureau'], description: '用侦察和近距支援补足前线兵力不足。', effects: [{ type: 'pp', amount: 4 }] },
-            { id: 'usa_chief_of_combined_operations', name: '联合作战部长', branch: '海空军', x: 18, y: 3, cost: 9, prerequisites: ['usa_atlantic_patrols', 'usa_army_air_corps'], description: '海空军支援不再各自为战。', effects: [{ type: 'pp', amount: 8 }, { type: 'taggedTroops', tag: '港口', amount: 1 }] },
-
-            { id: 'usa_plan_for_reconstruction', name: '重建白皮书', branch: '战后路线', x: 23, y: 1, cost: 5, prerequisites: ['usa_secure_command'], description: '在战争还没结束时就准备战后治理方案。', effects: [{ type: 'pp', amount: 4 }] },
-            { id: 'usa_restore_federal_courts', name: '恢复联邦法院', branch: '战后路线', x: 23, y: 2, cost: 6, prerequisites: ['usa_plan_for_reconstruction'], description: '让被军令压住的司法体系逐步恢复。', effects: [{ type: 'money', amount: 12 }, { type: 'pp', amount: 4 }] },
-            { id: 'usa_rebuild_monroe_doctrine', name: '重建门罗主义', branch: '外交路线', x: 22, y: 3, cost: 7, prerequisites: ['usa_restore_federal_courts'], mutuallyExclusive: ['usa_enter_the_fray', 'usa_fortress_america'], description: '把重心放在西半球秩序。', effects: [{ type: 'money', amount: 18 }] },
-            { id: 'usa_enter_the_fray', name: '加入世界风暴', branch: '外交路线', x: 24, y: 3, cost: 7, prerequisites: ['usa_restore_federal_courts'], mutuallyExclusive: ['usa_rebuild_monroe_doctrine', 'usa_fortress_america'], description: '以美国回归世界战争作为战后合法性。', effects: [{ type: 'pp', amount: 9 }] },
-            { id: 'usa_fortress_america', name: '美洲堡垒', branch: '外交路线', x: 26, y: 3, cost: 7, prerequisites: ['usa_restore_federal_courts'], mutuallyExclusive: ['usa_rebuild_monroe_doctrine', 'usa_enter_the_fray'], description: '拒绝海外冒险，优先巩固大陆。', effects: [{ type: 'allIndustry', amount: 1, maxNodes: 3 }] },
-            { id: 'usa_hemisphere_defense', name: '半球防御计划', branch: '外交路线', x: 24, y: 4, cost: 8, prerequisiteAny: [['usa_rebuild_monroe_doctrine'], ['usa_enter_the_fray'], ['usa_fortress_america']], description: '沿海、港口和首都圈进入长期防御规划。', effects: [{ type: 'taggedTroops', tag: '港口', amount: 2 }, { type: 'capitalTroops', amount: 4 }] }
-        ],
+        USA: [],
         default: [
             { id: 'generic_mobilize', name: '战时动员', branch: '通用', x: 2, y: 0, cost: 4, description: '把残余行政系统转入战争状态。', effects: [{ type: 'pp', amount: 4 }] },
             { id: 'generic_militia', name: '民兵组织', branch: '通用', x: 1, y: 1, cost: 5, prerequisites: ['generic_mobilize'], description: '在首都组建守备民兵。', effects: [{ type: 'capitalTroops', amount: 4 }] },
@@ -501,7 +915,16 @@ const GameState = {
     },
 
     getFaction(factionId = this.selectedFactionId || this.game.currentPlayerId) {
-        return this.factions.find(faction => faction.id === factionId) || this.factions[0];
+        const faction = this.factions.find(faction => faction.id === factionId) || this.factions[0];
+        // 国策可把势力更名：本局内用 game.factionNames 覆盖显示名，不污染静态数据。
+        const override = faction && this.game && this.game.factionNames && this.game.factionNames[faction.id];
+        if (override && (override.name || override.shortName)) {
+            return Object.assign({}, faction, {
+                name: override.name || faction.name,
+                shortName: override.shortName || faction.shortName
+            });
+        }
+        return faction;
     },
 
     getIdeology(idOrFactionId) {
@@ -525,6 +948,13 @@ const GameState = {
     setCurrentIdeology(ideologyId) {
         if (!this.ideologies[ideologyId]) return;
         this.game.currentIdeology = ideologyId;
+    },
+
+    // 国策更名：覆盖某势力本局的显示名（name/shortName）。仅影响显示，不改静态数据。
+    setFactionName(factionId, name, shortName) {
+        if (!factionId || (!name && !shortName)) return;
+        this.game.factionNames = this.game.factionNames || {};
+        this.game.factionNames[factionId] = { name: name || null, shortName: shortName || name || null };
     },
 
     /**
@@ -1199,7 +1629,9 @@ const GameState = {
                 turnLimit: '180',
                 victory: '统一',
                 diplomacy: true,
-                ai: true
+                ai: true,
+                randomness: false,
+                restoreHistory: true
             },
             slots: this.createDefaultSlots(),
             chat: [
@@ -1309,6 +1741,7 @@ const GameState = {
             actionConfirm: null,
             showFocusModal: false,
             showDiplomacyModal: false,
+            showModifiersModal: false,
             showGridView: false,
             activeLogTab: 'battle',
             completedFocuses: [],
@@ -1432,6 +1865,7 @@ const GameState = {
         this.game.actionConfirm = null;
         this.game.showFocusModal = false;
         this.game.showDiplomacyModal = false;
+        this.game.showModifiersModal = false;
         this.notify();
     },
 
@@ -1444,6 +1878,13 @@ const GameState = {
 
     toggleDiplomacyModal(forceValue) {
         this.game.showDiplomacyModal = typeof forceValue === 'boolean' ? forceValue : !this.game.showDiplomacyModal;
+        this.game.actionConfirm = null;
+        this.game.battlePreview = null;
+        this.notify();
+    },
+
+    toggleModifiersModal(forceValue) {
+        this.game.showModifiersModal = typeof forceValue === 'boolean' ? forceValue : !this.game.showModifiersModal;
         this.game.actionConfirm = null;
         this.game.battlePreview = null;
         this.notify();

@@ -23,7 +23,7 @@ const LobbyView = {
             : null;
 
         return `
-            <div class="view-lobby animate-fade-in mobile-lobby-panel-${mobilePanel}">
+            <div class="view-lobby mobile-lobby-panel-${mobilePanel}">
                 <header class="lobby-header">
                     <div>
                         <div class="eyebrow">${isOnline ? '联机房间' : '本地沙盒房间'}</div>
@@ -68,6 +68,8 @@ const LobbyView = {
                             ${this.renderSelect('victory', '胜利条件', ['统一', '霸权'], !isHost)}
                             ${this.renderSwitch('diplomacy', '启用外交', !isHost)}
                             ${this.renderSwitch('ai', '允许 AI', !isHost)}
+                            ${this.renderSwitch('restoreHistory', '还原历史', !isHost)}
+                            ${this.renderSwitch('randomness', '增大随机性', !isHost)}
                         </div>
                         ${isHost ? this.renderAiFillControls() : ''}
                     </section>

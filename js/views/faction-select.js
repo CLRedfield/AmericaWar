@@ -8,9 +8,9 @@ const FactionSelectView = {
             <div class="faction-item ${f.id === selectedId ? 'active' : ''}" 
                  onclick="window.app.selectFaction('${f.id}')">
                 <div class="faction-color-indicator" style="background-color: ${f.color}; color: ${f.color}"></div>
-                <div>
-                    <div style="font-weight: 600">${f.id}</div>
-                    <div style="font-size: 0.875rem; color: var(--color-text-muted)">${f.shortName}</div>
+                <div class="faction-item-label">
+                    <div class="faction-item-name">${f.name}</div>
+                    <div class="faction-item-sub">${f.shortName} · ${f.id}</div>
                 </div>
             </div>
         `).join('');

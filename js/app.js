@@ -86,11 +86,39 @@ const App = {
             document.body.classList.toggle('is-game-view', GameState.currentView === 'game-page');
             document.body.classList.toggle('is-lobby-view', GameState.currentView === 'lobby');
         }
+        // 全量重渲染会重建 DOM、把滚动容器的 scrollTop 清零；先快照、替换后再还原，
+        // 避免点击按钮后视图“跳回顶部”。焦点树滚动由 alignFocusTree 单独处理，这里不碰。
+        const scrollState = this.capturePreservedScroll();
         this.root.innerHTML = view.render();
+        this.restorePreservedScroll(scrollState);
         this.modalRoot.innerHTML = typeof view.renderModals === 'function' ? view.renderModals() : '';
         this.attachMapInteraction();
         this.attachFocusTreeInteraction();
         this.alignFocusTree();
+    },
+
+    // 跨重渲染保留滚动位置的容器（按稳定选择器记录）。切换视图时旧容器消失、新容器没有
+    // 旧位置，querySelector 取不到即自动跳过，不会误还原。
+    PRESERVED_SCROLL_SELECTORS: ['.view-lobby', '.slot-list', '.lobby-chat-log'],
+
+    capturePreservedScroll() {
+        const state = {};
+        this.PRESERVED_SCROLL_SELECTORS.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el && (el.scrollTop || el.scrollLeft)) {
+                state[selector] = { top: el.scrollTop, left: el.scrollLeft };
+            }
+        });
+        return state;
+    },
+
+    restorePreservedScroll(state) {
+        Object.keys(state).forEach(selector => {
+            const el = document.querySelector(selector);
+            if (!el) return;
+            el.scrollTop = state[selector].top;
+            el.scrollLeft = state[selector].left;
+        });
     },
 
     navigateTo(viewName) {
@@ -1783,13 +1811,16 @@ const App = {
             const newId = effect.id;
             const next = GameState.ideologies[newId];
             if (!next) return;
+            // 更名为显示用，玩家/AI 都生效（其他势力的意识形态加成仍按 baseline）
+            if (effect.name) GameState.setFactionName(factionId, effect.name, effect.shortName);
             const playerFactionId = GameState.getPlayerFactionId();
-            // 只对玩家自己持续生效；其他 AI 势力暂时只显示 baseline
+            // 意识形态加成只对玩家自己持续生效
             if (factionId !== playerFactionId) return;
             const previousId = GameState.game.currentIdeology;
-            if (previousId === newId) return;
+            if (previousId === newId && !effect.name) return;
             GameState.setCurrentIdeology(newId);
-            GameState.addLog(`你的国策意识形态已转为「${next.name}」。`, 'system', false);
+            const renameNote = effect.name ? `，国号定为「${effect.name}」` : '';
+            GameState.addLog(`你的国策意识形态已转为「${next.name}」${renameNote}。`, 'system', false);
             return;
         }
     },
@@ -1812,7 +1843,8 @@ const App = {
         GameState.game.focusViewFactionId = viewFactionId;
 
         if (!GameState.game.showFocusModal || previousViewFactionId !== viewFactionId) {
-            GameState.game.focusTreeViewport = GameState.game.focusTreeViewport || { scale: 1 };
+            // 每次（重新）打开都按视口自动适配，给出总览而不是 100% 打开后狂滑
+            GameState.game.focusTreeViewport = { scale: 1, autoFit: true };
             this.focusTreeCentered = false;
             this.pendingFocusTreeScroll = null;
         }
@@ -1835,6 +1867,10 @@ const App = {
 
     openDiplomacyModal() {
         GameState.toggleDiplomacyModal(true);
+    },
+
+    openModifiersModal() {
+        GameState.toggleModifiersModal(true);
     },
 
     closeModals() {
@@ -1883,9 +1919,27 @@ const App = {
         return Math.min(1.45, Math.max(0.1, Number(scale) || 1));
     },
 
+    // 计算"打开即总览"的缩放：整棵树能放进视口就整体显示，否则按树高适配
+    // （看完整一条竖线，过宽的树留给横向滚动）。绝不放大超过 100%，并保留可读下限。
+    getFocusTreeFitScale() {
+        const scroller = document.querySelector('.focus-tree-scroll');
+        const canvas = document.querySelector('.focus-tree-canvas');
+        if (!scroller || !canvas) return null;
+        const vpW = scroller.clientWidth;
+        const vpH = scroller.clientHeight;
+        const baseW = Number(canvas.dataset.baseWidth) || canvas.offsetWidth;
+        const baseH = Number(canvas.dataset.baseHeight) || canvas.offsetHeight;
+        if (!vpW || !vpH || !baseW || !baseH) return null;
+        const fitWhole = Math.min(vpW / baseW, vpH / baseH);
+        const scale = fitWhole >= 0.5 ? fitWhole : (vpH / baseH) * 0.98;
+        return Math.max(0.25, Math.min(1, scale));
+    },
+
     setFocusTreeScale(scale) {
         GameState.game.focusTreeViewport = GameState.game.focusTreeViewport || { scale: 1 };
         GameState.game.focusTreeViewport.scale = this.clampFocusTreeScale(scale);
+        // 用户手动缩放后关闭自动适配，保留其缩放
+        GameState.game.focusTreeViewport.autoFit = false;
         this.applyFocusTreeTransform();
     },
 
@@ -1922,6 +1976,13 @@ const App = {
         if (!scroller) {
             this.focusTreeCentered = false;
             return;
+        }
+
+        // 自动适配：未被用户手动缩放时，按视口算一个总览缩放（修复手机端 100% 打开狂滑）
+        const viewport = GameState.game.focusTreeViewport || (GameState.game.focusTreeViewport = { scale: 1 });
+        if (viewport.autoFit) {
+            const fit = this.getFocusTreeFitScale();
+            if (fit != null) viewport.scale = fit;
         }
 
         this.applyFocusTreeTransform();
@@ -2116,9 +2177,9 @@ const App = {
     },
 
     resetFocusTreeView() {
-        GameState.game.focusTreeViewport = { scale: 1 };
+        // "居中"按钮：回到自动总览缩放并重新居中
+        GameState.game.focusTreeViewport = { scale: 1, autoFit: true };
         this.focusTreeCentered = false;
-        this.applyFocusTreeTransform();
         this.alignFocusTree();
     },
 
@@ -2336,6 +2397,7 @@ const App = {
         if (!svg) return;
         const viewport = GameState.game.mapViewport;
         svg.setAttribute('viewBox', `${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`);
+        if (typeof MapView !== 'undefined' && MapView.applyTerritoryZoom) MapView.applyTerritoryZoom(svg);
     }
 };
 
