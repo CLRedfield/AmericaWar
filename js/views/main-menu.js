@@ -56,6 +56,9 @@ const MainMenuView = {
                         <button class="btn btn-outline" ${connecting ? 'disabled' : ''} onclick="window.app.promptJoinRoom()">
                             通过房间码加入
                         </button>
+                        <button class="btn btn-primary btn-tutorial" onclick="window.app.openTutorial()">
+                            📖 新手教程
+                        </button>
                         <button class="btn btn-outline" onclick="window.app.openRulesHelp()">
                             规则说明
                         </button>

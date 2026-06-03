@@ -50,6 +50,7 @@ const App = {
     focusTreeCentered: false,
     pendingFocusTreeScroll: null,
     focusTreeScroll: null,
+    tutorialTab: 'intro',
     lastFocusDragEndedAt: 0,
 
     init() {
@@ -79,7 +80,8 @@ const App = {
             'main-menu': MainMenuView,
             lobby: LobbyView,
             'faction-select': FactionSelectView,
-            'game-page': GamePageView
+            'game-page': GamePageView,
+            tutorial: TutorialView
         };
         const view = views[GameState.currentView] || MainMenuView;
 
@@ -269,6 +271,20 @@ const App = {
             GameState.lobby.statusMessage = `邀请链接：${url}`;
             GameState.notify();
         }
+    },
+
+    openTutorial() {
+        this.tutorialTab = 'intro';
+        GameState.setView('tutorial');
+    },
+
+    setTutorialTab(tab) {
+        this.tutorialTab = tab || 'intro';
+        GameState.notify();
+    },
+
+    closeTutorial() {
+        GameState.setView('main-menu');
     },
 
     openRulesHelp() {
