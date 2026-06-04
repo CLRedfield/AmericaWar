@@ -187,6 +187,25 @@
 .tut-steps-big li { padding: var(--spacing-4) 0; }
 .tut-steps-big .tut-step-n { width: 34px; height: 34px; font-size: 1.05rem; }
 
+/* —— rule bullet list (规则速查) —— */
+.tut-rule-list { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }
+.tut-rule-list li {
+    position: relative;
+    padding: var(--spacing-2) 0 var(--spacing-2) var(--spacing-6);
+    border-bottom: 1px dashed var(--color-border);
+    line-height: 1.65;
+    color: var(--color-text-muted);
+}
+.tut-rule-list li:last-child { border-bottom: none; }
+.tut-rule-list li::before {
+    content: '▸';
+    position: absolute;
+    left: var(--spacing-2);
+    color: var(--color-text-accent);
+    font-weight: 700;
+}
+.tut-rule-list li b { color: var(--color-text-main); }
+
 /* —— tables —— */
 .tut-table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .tut-table { width: 100%; border-collapse: collapse; min-width: 460px; }

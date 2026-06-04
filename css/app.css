@@ -1878,6 +1878,95 @@ button:disabled {
     font-size: 1.25rem;
 }
 
+/* —— 联机房间对话框 —— */
+.room-dialog { width: min(460px, 100%); }
+.room-dialog-body { display: flex; flex-direction: column; gap: var(--spacing-3); }
+.room-dialog-field-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+}
+.room-trans-options { display: flex; flex-direction: column; gap: var(--spacing-2); }
+.room-trans-option {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-3);
+    width: 100%;
+    text-align: left;
+    padding: var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.5);
+    color: var(--color-text-main);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.room-trans-option:hover:not(:disabled) { border-color: var(--color-primary); }
+.room-trans-option:disabled { opacity: 0.6; cursor: default; }
+.room-trans-option.active {
+    border-color: var(--color-primary);
+    background: rgba(59, 130, 246, 0.12);
+}
+.room-trans-radio {
+    flex-shrink: 0;
+    width: 18px; height: 18px;
+    margin-top: 2px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border);
+    position: relative;
+}
+.room-trans-option.active .room-trans-radio { border-color: var(--color-primary); }
+.room-trans-option.active .room-trans-radio::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: var(--color-primary);
+}
+.room-trans-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.room-trans-top { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }
+.room-trans-name { font-weight: 600; }
+.room-trans-desc { font-size: 0.8rem; color: var(--color-text-muted); line-height: 1.45; }
+.room-trans-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.room-trans-badge.warn { background: rgba(248, 113, 113, 0.18); color: #fca5a5; }
+.room-trans-badge.ok { background: rgba(52, 211, 153, 0.18); color: #6ee7b7; }
+.room-dialog-field { display: flex; flex-direction: column; gap: var(--spacing-2); }
+.room-dialog-field > input {
+    width: 100%;
+    padding: var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: rgba(2, 6, 23, 0.55);
+    color: var(--color-text-main);
+    font-size: 0.95rem;
+}
+.room-dialog-field > input:focus { outline: none; border-color: var(--color-primary); }
+.room-code-input {
+    text-transform: uppercase;
+    letter-spacing: 0.35em;
+    font-weight: 700;
+    font-size: 1.4rem !important;
+    text-align: center;
+    font-family: var(--font-mono, ui-monospace, monospace);
+}
+.room-code-input::placeholder { letter-spacing: 0.35em; opacity: 0.4; }
+.room-dialog-hint { font-size: 0.78rem; color: var(--color-text-muted); line-height: 1.45; }
+.room-dialog-error {
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-sm);
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    color: #fca5a5;
+    font-size: 0.85rem;
+}
+
 .confirm-line {
     display: flex;
     justify-content: space-between;

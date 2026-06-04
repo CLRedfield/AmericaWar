@@ -14,6 +14,7 @@ const TutorialView = {
         { id: 'focus', icon: '🌳', title: '国策意识形态' },
         { id: 'victory', icon: '🏆', title: '怎么赢' },
         { id: 'factions', icon: '🚩', title: '八大势力' },
+        { id: 'rules', icon: '📜', title: '规则速查' },
         { id: 'tips', icon: '🎯', title: '新手三步走' }
     ],
 
@@ -54,6 +55,7 @@ const TutorialView = {
             case 'focus': return this.focus();
             case 'victory': return this.victory();
             case 'factions': return this.factions();
+            case 'rules': return this.rules();
             case 'tips': return this.tips();
             default: return this.intro();
         }
@@ -245,6 +247,78 @@ const TutorialView = {
             <h2 class="tut-h2">八大势力速览</h2>
             <p class="tut-lead">阵营差异鲜明：地盘、工业、兵力、被动各不相同。难度点越多越吃操作。</p>
             <div class="tut-faction-grid">${cards}</div>
+        `;
+    },
+
+    rules() {
+        return `
+            <h2 class="tut-h2">规则速查</h2>
+            <p class="tut-lead">把全部正式规则压缩成一页——开局忘了哪条，回来扫一眼即可。前面各章是详细讲解，这里只列结论。</p>
+
+            <h3 class="tut-h3">💰 资源</h3>
+            <div class="tut-table-wrap">
+                <table class="tut-table">
+                    <thead><tr><th>资源</th><th>来源</th><th>用途 / 规则</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>金钱 $</b></td><td>每回合 = 你所有节点<b>工业值之和</b>，自动入账</td><td>征兵、部队维护、建设工业；<b>赤字会触发财政危机</b>（逃兵 + 收入战力削弱）</td></tr>
+                        <tr><td><b>政治点 PP</b></td><td>每回合固定 <b>+3</b>，可跨回合储存（上限约 60，受意识形态 / 国策影响）</td><td>几乎一切行动都要花 PP，决定你“这回合能做几件事”</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="tut-h3">🔄 回合开始结算（自动）</h3>
+            <ol class="tut-steps">
+                <li><span class="tut-step-n">1</span><div><b>收金钱</b>：进账 = 全部节点工业值之和。</div></li>
+                <li><span class="tut-step-n">2</span><div><b>付维护</b>：每个士兵 <b>$0.5</b>。</div></li>
+                <li><span class="tut-step-n">3</span><div><b>财政兜底</b>：钱不够付维护，自动从后方解散部分部队。</div></li>
+                <li><span class="tut-step-n">4</span><div><b>领政治点</b>：<b>+3 PP</b>（可攒）。</div></li>
+                <li><span class="tut-step-n">5</span><div><b>首都补员</b>：部分意识形态让首都每回合自动多出驻军。</div></li>
+            </ol>
+
+            <h3 class="tut-h3">⚡ 行动与递增消耗</h3>
+            <div class="tut-table-wrap">
+                <table class="tut-table">
+                    <thead><tr><th>行动</th><th>基础消耗</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>征兵</td><td>1 PP + $2/兵</td><td><b>只能在首都</b>（或你占领的敌方原首都）进行</td></tr>
+                        <tr><td>移动士兵</td><td>1 PP</td><td>本回合所有未移动过的部队各移动一格</td></tr>
+                        <tr><td>建设工业</td><td>5 PP + $10</td><td>选一个己方节点，工业 +1</td></tr>
+                        <tr><td>推进国策</td><td>1 PP</td><td>把某国策推进一步，集满解锁永久增益</td></tr>
+                        <tr><td>裁军</td><td>0 PP</td><td>解散部队换少量金钱并降低维护</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="tut-callout tut-callout-warn">
+                🔑 <b>行动越做越贵：</b>本回合每多做一次行动，下一次额外 +1 PP（第 1 次 +0、第 2 次 +1、第 3 次 +2…）。所以<b>攒 PP 打集中爆发的大回合</b>更划算。
+            </div>
+
+            <h3 class="tut-h3">⚔️ 移动 · 战斗 · 占领</h3>
+            <ul class="tut-rule-list">
+                <li>只能移动到<b>相邻节点</b>；移入<b>空节点</b>→直接占领；移入<b>敌方节点</b>→开战。</li>
+                <li>战力 = 兵力 ×（1 + 修正）。<b>攻方战力 &gt; 守方战力</b> → 攻方占领，否则守方守住。</li>
+                <li>守方天然 <b>+15%</b>；<b>城市 / 山地 / 港口</b>等地形、国策、意识形态再叠加防御。</li>
+                <li><b>被包围 −35%：</b>若某节点直接相邻的节点<b>全是敌方</b>，该节点部队<b>进攻和防守都 −35%</b>。</li>
+            </ul>
+
+            <h3 class="tut-h3">🏰 首都 · 灭亡 · 胜利</h3>
+            <ul class="tut-rule-list">
+                <li><b>首都是唯一征兵点。</b>丢首都<b>不会立刻灭国</b>，但会断掉兵源。</li>
+                <li><b>灭亡判定：</b>一个势力<b>失去全部节点</b>时才出局——还剩一城即可苟住翻盘。</li>
+                <li><b>统一胜利：</b>成为地图上最后存活的势力。</li>
+                <li><b>霸权胜利：</b>控制全图 <b>≥ 60%</b> 节点立即获胜（胜利方式由房主在大厅设置）。</li>
+            </ul>
+
+            <h3 class="tut-h3">🤝 联机与回合顺序</h3>
+            <ul class="tut-rule-list">
+                <li><b>单机沙盒：</b>本地房间，空席国家在游戏中待机（不行动、不外交，但可被进攻）。</li>
+                <li><b>联机房间：</b>玩家<b>按座位顺序轮流</b>行动；AI 由本地 / 房主代为执行。轮到别人时你只能观战。</li>
+                <li><b>房主</b>控制开局、添加 / 移除 AI、踢人，并负责写入完整对局状态。</li>
+                <li><b>两种联机后端：</b><span class="tut-chip" style="--c:#f87171">Firebase（需翻墙）</span> 与 <span class="tut-chip" style="--c:#34d399">EMQX 公共服务器（免翻墙）</span>——<b>同一房间里所有人必须选同一种</b>，房间码才互通。</li>
+            </ul>
+
+            <div class="tut-callout tut-callout-info">
+                📌 国内联网对战找不到房间？多半是房主用了 <b>Firebase</b> 而你没开代理。改用 <b>EMQX 公共服务器</b>，双方都选它即可免翻墙直连。
+            </div>
         `;
     },
 

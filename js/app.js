@@ -52,6 +52,7 @@ const App = {
     focusTreeScroll: null,
     tutorialTab: 'intro',
     lastFocusDragEndedAt: 0,
+    roomDialog: null,
 
     init() {
         this.root = document.getElementById('app');
@@ -71,7 +72,7 @@ const App = {
         // 处理 hash 链接邀请：#room=ABCDEF 自动跳转到加入对话
         if (location.hash.startsWith('#room=')) {
             const code = decodeURIComponent(location.hash.slice('#room='.length));
-            if (code) setTimeout(() => this.promptJoinRoom(code), 300);
+            if (code) setTimeout(() => this.openJoinRoomDialog(code), 300);
         }
     },
 
@@ -200,38 +201,107 @@ const App = {
         GameState.setView('lobby');
     },
 
-    async createOnlineRoom() {
+    // ——— 联机房间对话框（选择后端 + 输入房间码） ———
+
+    openCreateRoomDialog() {
         if (!window.Multiplayer) return alert('多人模块未加载');
-        try {
-            GameState.lobby.connecting = true;
-            GameState.lobby.statusMessage = '正在创建房间…';
-            GameState.notify();
-            const code = await Multiplayer.createRoom(GameState.lobby.myName);
-            GameState.lobby.connecting = false;
-            GameState.lobby.statusMessage = `房间 ${code} 已创建。把房间码告诉朋友以邀请他们。`;
-            GameState.setView('lobby');
-        } catch (err) {
-            GameState.lobby.connecting = false;
-            GameState.lobby.statusMessage = '创建房间失败：' + (err && err.message ? err.message : err);
-            GameState.notify();
-        }
+        this.roomDialog = {
+            mode: 'create',
+            transport: 'firebase',
+            code: '',
+            server: Multiplayer.emqxDefaultServer(),
+            error: '',
+            busy: false
+        };
+        GameState.notify();
     },
 
-    async promptJoinRoom(prefilledCode = '') {
+    openJoinRoomDialog(prefilledCode = '') {
         if (!window.Multiplayer) return alert('多人模块未加载');
-        const code = (prefilledCode || prompt('请输入房间码（6 位字母 / 数字）：') || '').trim();
-        if (!code) return;
-        try {
-            GameState.lobby.connecting = true;
-            GameState.lobby.statusMessage = '正在加入房间…';
+        this.roomDialog = {
+            mode: 'join',
+            transport: 'firebase',
+            code: String(prefilledCode || '').trim().toUpperCase(),
+            server: Multiplayer.emqxDefaultServer(),
+            error: '',
+            busy: false
+        };
+        GameState.notify();
+    },
+
+    // 旧入口保留：主菜单按钮 / hash 邀请链接仍可调用
+    createOnlineRoom() { this.openCreateRoomDialog(); },
+    promptJoinRoom(prefilledCode = '') { this.openJoinRoomDialog(prefilledCode); },
+
+    closeRoomDialog() {
+        if (this.roomDialog && this.roomDialog.busy) return; // 连接中不允许关闭
+        this.roomDialog = null;
+        GameState.notify();
+    },
+
+    closeRoomDialogOnBackdrop(event) {
+        if (event.target.classList.contains('room-dialog-backdrop')) this.closeRoomDialog();
+    },
+
+    // 切换后端会触发整页重渲染——先把输入框里的内容读回 state，避免丢失已输入的房间码/地址。
+    _syncRoomDialogInputs() {
+        if (!this.roomDialog) return;
+        const codeEl = document.getElementById('room-dialog-code');
+        const serverEl = document.getElementById('room-dialog-server');
+        if (codeEl) this.roomDialog.code = codeEl.value;
+        if (serverEl) this.roomDialog.server = serverEl.value;
+    },
+
+    setRoomDialogTransport(transport) {
+        if (!this.roomDialog) return;
+        this._syncRoomDialogInputs();
+        this.roomDialog.transport = transport;
+        this.roomDialog.error = '';
+        GameState.notify();
+    },
+
+    _transportLabel(transport) {
+        const opt = (Multiplayer.transportOptions() || []).find(o => o.id === transport);
+        return opt ? opt.label : transport;
+    },
+
+    async submitRoomDialog() {
+        const dialog = this.roomDialog;
+        if (!dialog || dialog.busy) return;
+        this._syncRoomDialogInputs();
+
+        const transport = dialog.transport || 'firebase';
+        const config = transport === 'emqx'
+            ? { server: (dialog.server || '').trim() || Multiplayer.emqxDefaultServer() }
+            : {};
+
+        if (dialog.mode === 'join' && !String(dialog.code || '').trim()) {
+            dialog.error = '请输入房间码。';
             GameState.notify();
-            await Multiplayer.joinRoom(code, GameState.lobby.myName);
-            GameState.lobby.connecting = false;
-            GameState.lobby.statusMessage = '已加入房间。';
-            GameState.setView('lobby');
+            return;
+        }
+
+        dialog.busy = true;
+        dialog.error = '';
+        GameState.notify();
+
+        try {
+            if (dialog.mode === 'create') {
+                const code = await Multiplayer.createRoom(GameState.lobby.myName, { transport, config });
+                this.roomDialog = null;
+                GameState.lobby.statusMessage = `房间 ${code} 已创建（${this._transportLabel(transport)}）。把房间码告诉朋友以邀请他们。`;
+                GameState.setView('lobby');
+            } else {
+                const code = await Multiplayer.joinRoom(dialog.code, GameState.lobby.myName, { transport, config });
+                this.roomDialog = null;
+                GameState.lobby.statusMessage = `已加入房间 ${code}（${this._transportLabel(transport)}）。`;
+                GameState.setView('lobby');
+            }
         } catch (err) {
-            GameState.lobby.connecting = false;
-            GameState.lobby.statusMessage = '加入失败：' + (err && err.message ? err.message : err);
+            if (this.roomDialog) {
+                this.roomDialog.busy = false;
+                this.roomDialog.error = (err && err.message ? err.message : String(err));
+            }
             GameState.notify();
         }
     },
@@ -288,7 +358,9 @@ const App = {
     },
 
     openRulesHelp() {
-        alert('裂旗战争（v0.3）：\n\n· 单机沙盒：本地房间，每个空席国家在游戏中待机。\n· 联机房间：通过 Firebase 同步，房主控制开局并能添加 AI/踢人。\n· 战场上每个国家依次行动，AI 由本地或房主代为执行。\n· 包围机制：若某节点直接相邻的所有节点都被敌方占据，则该节点视为"被包围"，其部队的进攻和防守均 -35%。');
+        // 规则已并入教程：直接跳到教程的「规则速查」章节。
+        this.tutorialTab = 'rules';
+        GameState.setView('tutorial');
     },
 
     updateLobbySetting(key, value) {
@@ -1201,9 +1273,18 @@ const App = {
         const baseDefenseBonus = 15;
         const isPlayerDefender = defender.factionId === GameState.getPlayerFactionId();
         const defenderSlot = GameState.getSlot(defender.factionId);
-        const defenderModifierBonus = isPlayerDefender
-            ? Math.round(((GameState.getTaggedDefenseBonus(defender) || 0) + (GameState.getEffectiveGlobalDefense() || 0)) * 100)
-            : (window.GameAI && defenderSlot && defenderSlot.kind === 'ai' ? GameAI.getAiDefenseBonusPercent(defender.factionId, defender) : 0);
+        let defenderModifierBonus;
+        if (isPlayerDefender) {
+            // 防守方就是本地玩家：用本地实时的全局 + 标签防御。
+            defenderModifierBonus = Math.round(((GameState.getTaggedDefenseBonus(defender) || 0) + (GameState.getEffectiveGlobalDefense() || 0)) * 100);
+        } else if (window.GameAI && defenderSlot && defenderSlot.kind === 'ai') {
+            // AI 守方：用 AI 防御加成。
+            defenderModifierBonus = GameAI.getAiDefenseBonusPercent(defender.factionId, defender);
+        } else {
+            // 别的人类守方（联机）：用其同步过来的全局防御加成（humanCombat）。缺数据时回退到 0（即旧行为，绝不会更差）。
+            const remoteCombat = GameState.game.humanCombat && GameState.game.humanCombat[defender.factionId];
+            defenderModifierBonus = (remoteCombat && Number(remoteCombat.def)) || 0;
+        }
         const attackerEncircled = MapData.isNodeEncircled(attacker);
         const defenderEncircled = MapData.isNodeEncircled(defender);
         const encirclementPenalty = -35;
@@ -1486,55 +1567,57 @@ const App = {
         const playerFactionId = GameState.getPlayerFactionId();
 
         if (isLastInRound) {
-            // 一轮全部行动完了：回合数 +1、所有人结算 settleTurnStart
+            // 一轮全部行动完了：回合数 +1。
             GameState.game.currentTurn += 1;
-            // 标记本机已为这一回合结算（联机下其他客户端凭 lastSettledTurn 各自结算自己的势力，避免重复）
-            GameState.game.lastSettledTurn = GameState.game.currentTurn;
-            // 玩家结算（本机所控势力：完整结算，含首都补员/逃散/可移动重置）
-            const settlement = this.settleTurnStart(playerFactionId);
-            // AI 结算（只动 aiResources）
+            // AI 结算由"结束本轮的这台机器"统一执行（aiResources 与 AI 的地图变化都会被同步出去）。
+            // 人类各势力不在这里结算 —— 改为各自在"自己的回合开始"时结算自己（见 maybeSettleLocalFactionOnTurnStart）。
             this.settleAiTurnStart(turnOrder, playerFactionId);
             GameState.resetMovementReadiness();
-
-            const prefix = auto ? '计时结束' : '结束回合';
-            const debtText = settlement.debtPenalty.threshold > 0 ? `，赤字状态：${settlement.debtPenalty.label}` : '';
-            const desertionText = settlement.debtDeserted > 0 ? `，财政崩溃逃散 ${settlement.debtDeserted} 步兵` : '';
-            GameState.addLog(`${prefix}：收入 $${formatMoney(settlement.income)}，维护 $${formatMoney(settlement.maintenance)}，金钱 ${formatSignedMoney(settlement.moneyDelta)}，余额 $${formatMoney(settlement.balance)}，获得 ${settlement.ppIncome} PP${debtText}${desertionText}，第 ${GameState.game.currentTurn} 回合开始。`, 'system', false);
+            GameState.addLog(`${auto ? '计时结束' : '结束回合'}：第 ${GameState.game.currentTurn} 回合开始。`, 'system', false);
         } else {
             GameState.addLog(`${GameState.getFactionName(currentId)} 结束行动，下一手：${GameState.getFactionName(nextId)}。`, 'system', false);
         }
 
         GameState.game.currentPlayerId = nextId;
+        // 轮到谁，谁就在自己机器上为自己的势力做"本回合完整结算"（金钱/PP/首都补员/赤字逃兵）。
+        // 因为此刻正是该势力的回合，其拥有者是地图的权威写入方，联机下这些地图改动不会被其他人的快照覆盖。
+        this.maybeSettleLocalFactionOnTurnStart(auto);
         GameState.refreshFactionStatus(false);
         GameState.checkVictory(true);
         GameState.notify();
     },
 
     /**
-     * 联机收端结算：为"本地玩家所控势力"做每回合一次的金钱 / PP 结算。
-     * 触发本轮收尾的那台机器已经在 endTurn 内做了完整结算（并设置 lastSettledTurn），
-     * 其他客户端收到新回合后在此为自己的势力补上收入 —— 否则客人永远不回 PP、不进钱。
-     * 只动本地资源（money / pp），不动地图（首都补员/逃散由收尾方完成并同步），避免快照覆盖产生地图错乱。
+     * 在"轮到本地玩家所控势力"时，为它做本回合一次的【完整结算】：
+     * 金钱/PP 收入、首都补员、赤字逃兵、战争债券惩罚倒计、本势力部队可移动重置。
+     * 关键点：每个客户端只结算自己的势力，且只在自己的回合内执行 —— 此刻它正是该势力地图的
+     * 权威写入方，所以首都补员 / 逃兵这类【地图改动】在联机下不会被其他人的快照覆盖（之前正是
+     * 因为这些改动会被覆盖，才只能给客人补金钱/PP，导致客人没有首都补员、不会赤字逃兵）。
+     * 单机同理：轮到玩家时结算自己，AI 由 endTurn 收尾时统一结算。靠 lastSettledTurn 保证每回合一次。
      */
-    settleLocalResourcesForRound(turn) {
+    maybeSettleLocalFactionOnTurnStart(auto = false) {
         if (!GameState.game || GameState.game.gameOver) return;
-        if (!turn) return;
-        if (turn <= 1) { GameState.game.lastSettledTurn = turn; return; }
-        if (GameState.game.lastSettledTurn === turn) return; // 本机（含 endTurn）已结算该回合
-
-        GameState.game.lastSettledTurn = turn;
+        const turn = GameState.game.currentTurn;
+        if (turn <= 1) { GameState.game.lastSettledTurn = turn; return; } // 第 1 回合用初始资源，不结算
         const factionId = GameState.getPlayerFactionId();
+        // 只在"轮到自己"时结算自己 —— 保证自己是当前地图的权威写入方。
+        if (GameState.game.currentPlayerId !== factionId) return;
+        if (GameState.game.lastSettledTurn === turn) return; // 本回合已结算
+        GameState.game.lastSettledTurn = turn;
         if ((GameState.game.eliminatedFactions || []).includes(factionId)) return;
 
-        GameState.recalculatePlayerResources();
-        const resources = GameState.game.playerResources;
-        const preview = GameState.getNextTurnResourcePreview(factionId);
-        resources.money = (resources.money || 0) + preview.moneyDelta;
-        resources.pp = Math.min(GameState.getEffectivePPCap(), (resources.pp || 0) + preview.ppIncome);
+        const settlement = this.settleTurnStart(factionId);
 
-        const debtText = preview.debtPenalty && preview.debtPenalty.threshold > 0
-            ? `，赤字状态：${preview.debtPenalty.label}` : '';
-        GameState.addLog(`第 ${turn} 回合开始：收入 $${formatMoney(preview.grossIncome)}，维护 $${formatMoney(preview.maintenance)}，金钱 ${formatSignedMoney(preview.moneyDelta)}，余额 $${formatMoney(resources.money)}，获得 ${preview.ppIncome} PP${debtText}。`, 'system', false);
+        // 让本势力新回合补员 / 留存的部队恢复可移动（与单机一致；只动自己势力，不碰别人）。
+        MapData.getFactionNodes(factionId).forEach(node => {
+            node.moveReady = Math.max(0, node.troops);
+            node.freshTroops = 0;
+            node.movedThisTurn = false;
+        });
+
+        const debtText = settlement.debtPenalty.threshold > 0 ? `，赤字状态：${settlement.debtPenalty.label}` : '';
+        const desertionText = settlement.debtDeserted > 0 ? `，财政崩溃逃散 ${settlement.debtDeserted} 步兵` : '';
+        GameState.addLog(`${auto ? '计时结束' : '回合开始'}：第 ${turn} 回合，收入 $${formatMoney(settlement.income)}，维护 $${formatMoney(settlement.maintenance)}，金钱 ${formatSignedMoney(settlement.moneyDelta)}，余额 $${formatMoney(settlement.balance)}，获得 ${settlement.ppIncome} PP${debtText}${desertionText}。`, 'system', false);
     },
 
     settleAiTurnStart(turnOrder, playerFactionId) {
