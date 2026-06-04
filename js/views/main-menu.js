@@ -53,14 +53,11 @@ const MainMenuView = {
                         <button class="btn btn-primary" ${connecting ? 'disabled' : ''} onclick="window.app.openCreateRoomDialog()">
                             创建联机房间
                         </button>
-                        <button class="btn btn-outline" ${connecting ? 'disabled' : ''} onclick="window.app.openJoinRoomDialog()">
+                        <button class="btn btn-primary" ${connecting ? 'disabled' : ''} onclick="window.app.openJoinRoomDialog()">
                             通过房间码加入
                         </button>
                         <button class="btn btn-primary btn-tutorial" onclick="window.app.openTutorial()">
                             📖 新手教程
-                        </button>
-                        <button class="btn btn-outline" onclick="window.app.openRulesHelp()">
-                            📜 规则速查
                         </button>
                     </div>
 
