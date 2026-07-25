@@ -1062,7 +1062,15 @@ const GameState = {
 
     getNodeMovableTroops(node) {
         if (!node) return 0;
-        return Math.max(0, Math.min(this.getNodeMoveReady(node), node.troops - 1));
+        let movable = Math.max(0, Math.min(this.getNodeMoveReady(node), node.troops));
+        if (
+            window.SimultaneousTurns &&
+            SimultaneousTurns.isPlanning() &&
+            node.factionId === this.getPlayerFactionId()
+        ) {
+            movable -= SimultaneousTurns.getReservedTroops(node.id, node.factionId);
+        }
+        return Math.max(0, movable);
     },
 
     getFactionMovableTroops(factionId = this.getPlayerFactionId()) {
@@ -1395,7 +1403,7 @@ const GameState = {
                 this.game.currentCapitals[faction.id] = null;
                 if (!this.game.eliminatedFactions.includes(faction.id)) {
                     this.game.eliminatedFactions.push(faction.id);
-                    if (shouldLog) this.addLog(`${faction.shortName} 已无控制节点，判定灭亡。`, 'system', false);
+                    if (shouldLog) this.addLog(`${this.getFactionName(faction.id)} 已无控制节点，判定灭亡。`, 'system', false);
                 }
                 return;
             }
@@ -1411,9 +1419,9 @@ const GameState = {
             if (shouldLog && previousCapitalId && previousCapitalId !== nextCapitalId) {
                 const nextCapital = window.MapData.getNode(nextCapitalId);
                 if (nextCapitalId === faction.capitalNodeId) {
-                    this.addLog(`${faction.shortName} 收复原首都，政府迁回 ${nextCapital.name}。`, 'system', false);
+                    this.addLog(`${this.getFactionName(faction.id)} 收复原首都，政府迁回 ${nextCapital.name}。`, 'system', false);
                 } else {
-                    this.addLog(`${faction.shortName} 原首都失守，临时首都迁至 ${nextCapital.name}。`, 'system', false);
+                    this.addLog(`${this.getFactionName(faction.id)} 原首都失守，临时首都迁至 ${nextCapital.name}。`, 'system', false);
                 }
             }
 
@@ -1423,7 +1431,7 @@ const GameState = {
                     const crisisPP = this.getGameModifiers().crisisPP || 0;
                     if (crisisPP > 0) {
                         this.game.playerResources.pp = Math.min(this.getEffectivePPCap(), this.game.playerResources.pp + crisisPP);
-                        if (shouldLog) this.addLog(`紧急集会触发：${faction.shortName} 失去原首都，士气号召带来 +${crisisPP} PP。`, 'system', false);
+                        if (shouldLog) this.addLog(`紧急集会触发：${this.getFactionName(faction.id)} 失去原首都，士气号召带来 +${crisisPP} PP。`, 'system', false);
                     }
                 }
                 this.game.lastCapitalNodeIds[faction.id] = nextCapitalId;
@@ -1715,6 +1723,9 @@ const GameState = {
      * 我控制的势力 ID（本地玩家所占的 slot 上的国家）。如果没坐槽位，回退到 selectedFactionId。
      */
     getPlayerFactionId() {
+        if (this.game && this.game.activeRuleFactionId) {
+            return this.game.activeRuleFactionId;
+        }
         if (this.lobby && this.lobby.slots) {
             const slot = this.lobby.slots.find(s => s.kind === 'human' && s.userId === this.lobby.myUserId);
             if (slot) return slot.factionId;
@@ -1810,6 +1821,9 @@ const GameState = {
             ]
         };
 
+        if (window.SimultaneousTurns) {
+            SimultaneousTurns.initializeSession();
+        }
         this.game.selectedFocusId = this.getFocusTree(myFaction.id)[0]?.id || null;
         this.currentView = 'game-page';
         this.refreshFactionStatus(false);

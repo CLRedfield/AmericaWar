@@ -38,6 +38,10 @@ const App = {
     mobilePendingAttack: null,
     mobilePendingMove: null,
     focusMobileFilter: 'all',
+    resolutionAnimation: null,
+    resolutionAnimationTimer: null,
+    lastPresentedResolutionKey: null,
+    simultaneousResolveTimer: null,
     timerId: null,
     mapDrag: null,
     mapPointers: new Map(),
@@ -99,6 +103,78 @@ const App = {
         this.attachMapInteraction();
         this.attachFocusTreeInteraction();
         this.alignFocusTree();
+    },
+
+    playResolutionAnimation(report) {
+        if (!report) return false;
+        const resolutionId = Math.max(0, Number(report.resolutionId) || 0);
+        const sessionId = report.sessionId || (GameState.game && GameState.game.sessionId) || 'local';
+        const presentationKey = `${sessionId}:${resolutionId}`;
+        if (this.lastPresentedResolutionKey === presentationKey) return false;
+
+        this.lastPresentedResolutionKey = presentationKey;
+        const movements = (Array.isArray(report.movements) ? report.movements : [])
+            .map((movement, index) => ({
+                id: String(movement.id || `resolution-${resolutionId}-${index}`),
+                factionId: String(movement.factionId || ''),
+                sourceId: String(movement.sourceId || ''),
+                targetId: String(movement.targetId || ''),
+                amount: Math.max(0, Math.floor(Number(movement.amount) || 0)),
+                kind: movement.kind === 'move' ? 'move' : 'attack'
+            }))
+            .filter(movement => (
+                movement.factionId &&
+                movement.sourceId &&
+                movement.targetId &&
+                movement.amount > 0
+            ));
+        const engagements = (Array.isArray(report.engagements) ? report.engagements : [])
+            .map(engagement => ({
+                targetId: String(engagement.targetId || ''),
+                type: engagement.type === 'occupation' ? 'occupation' : 'battle',
+                winnerFactionId: String(engagement.winnerFactionId || ''),
+                previousOwnerId: String(engagement.previousOwnerId || ''),
+                survivors: Math.max(0, Math.floor(Number(engagement.survivors) || 0))
+            }))
+            .filter(engagement => engagement.targetId && engagement.winnerFactionId);
+
+        if (!movements.length && !engagements.length) {
+            this.resolutionAnimation = null;
+            return true;
+        }
+
+        const reducedMotion = typeof window.matchMedia === 'function'
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const movementDuration = reducedMotion ? 0.16 : 1.05;
+        const baseDelay = reducedMotion ? 0 : 0.12;
+        const staggerStep = reducedMotion ? 0 : 0.04;
+        const maxStagger = reducedMotion ? 0 : Math.min(Math.max(0, movements.length - 1) * staggerStep, 0.28);
+        const impactDuration = reducedMotion ? 0.2 : 0.92;
+        const durationMs = Math.ceil((baseDelay + maxStagger + movementDuration + impactDuration + 0.12) * 1000);
+
+        this.resolutionAnimation = {
+            resolutionId,
+            turn: Math.max(1, Number(report.turn) || Math.max(1, GameState.game.currentTurn - 1)),
+            nextTurn: Math.max(1, Number(report.nextTurn) || GameState.game.currentTurn),
+            startedAt: Date.now(),
+            movementDuration,
+            baseDelay,
+            staggerStep,
+            impactDuration,
+            durationMs,
+            movements,
+            engagements
+        };
+
+        if (this.resolutionAnimationTimer) clearTimeout(this.resolutionAnimationTimer);
+        if (this.root && typeof setTimeout === 'function') {
+            this.resolutionAnimationTimer = setTimeout(() => {
+                this.resolutionAnimationTimer = null;
+                this.resolutionAnimation = null;
+                if (this.root && GameState.currentView === 'game-page') this.render();
+            }, durationMs);
+        }
+        return true;
     },
 
     // 跨重渲染保留滚动位置的容器（按稳定选择器记录）。切换视图时旧容器消失、新容器没有
@@ -457,7 +533,7 @@ const App = {
         if (humans.length < 1) return alert('至少需要 1 个人类玩家');
         MapData.reset();
         GameState.startGameSession();
-        if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushGameState();
+        if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushGameState(true);
     },
 
     startGame() {
@@ -472,6 +548,13 @@ const App = {
      *   - 如果是空席（开放席位）但仍处于 turnOrder（理论不会），跳过。
      */
     maybeRunAi() {
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            const isOnline = window.Multiplayer && Multiplayer.isOnline;
+            if (!isOnline || GameState.isHost()) {
+                SimultaneousTurns.prepareAiPlans();
+            }
+            return;
+        }
         if (!GameState.game || GameState.game.gameOver) return;
         if (GameState.currentView !== 'game-page') return;
 
@@ -519,6 +602,10 @@ const App = {
         if (!window.Multiplayer || !Multiplayer.isOnline) return;
         if (Multiplayer.suppressLocalSync) return;
         if (GameState.currentView === 'game-page') {
+            if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+                Multiplayer.pushLocalTurnPlan();
+                return;
+            }
             Multiplayer.pushGameState();
         }
     },
@@ -528,8 +615,18 @@ const App = {
      */
     isMyTurnToAct() {
         if (!GameState.game) return false;
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            return SimultaneousTurns.canLocalPlayerAct();
+        }
         const currentId = GameState.game.currentPlayerId;
         return GameState.isFactionPlayedByLocalUser(currentId);
+    },
+
+    canLocalPlayerAct() {
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            return SimultaneousTurns.canLocalPlayerAct();
+        }
+        return GameState.game.currentPlayerId === GameState.getPlayerFactionId();
     },
 
     startTimer() {
@@ -539,9 +636,16 @@ const App = {
             if (GameState.currentView !== 'game-page') return;
             if (!GameState.game || GameState.game.gameOver) return;
 
+            const simultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
+            if (simultaneous && this.resolutionAnimation) return;
             // 联机：只有"轮到自己的本地玩家"才跑倒计时；观战 / 等待他人行动时冻结，
             // 否则别人机器上的计时器归零会把当前玩家的回合提前结束。
-            if (window.Multiplayer && Multiplayer.isOnline && !this.isMyTurnToAct()) return;
+            if (
+                !simultaneous &&
+                window.Multiplayer &&
+                Multiplayer.isOnline &&
+                !this.isMyTurnToAct()
+            ) return;
 
             if (GameState.game.timerRemaining <= 0) {
                 this.endTurn(true);
@@ -668,7 +772,7 @@ const App = {
 
         if (action === 'move') {
             if (GameState.game.gameOver) return { enabled: false, reason: '游戏已经结束', cost: meta.cost, ...meta };
-            if (GameState.game.currentPlayerId !== playerFactionId) return { enabled: false, reason: '还未轮到你行动', cost: meta.cost, ...meta };
+            if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', cost: meta.cost, ...meta };
             if (GameState.game.movementOrdersActive) {
                 return { enabled: true, reason: '', cost: '已启用', ppCost: 0, costMoney: 0, meta };
             }
@@ -681,7 +785,7 @@ const App = {
 
         if (!node) return { enabled: false, reason: '未选择节点', cost: meta.cost };
         if (GameState.game.gameOver) return { enabled: false, reason: '游戏已经结束', cost: meta.cost };
-        if (GameState.game.currentPlayerId !== playerFactionId) return { enabled: false, reason: '还未轮到你行动', cost: meta.cost };
+        if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', cost: meta.cost };
         if (node.factionId !== playerFactionId) return { enabled: false, reason: '只能操作己方节点', cost: meta.cost };
         if (action === 'recruit' && !GameState.canRecruitAtNode(node.id, playerFactionId)) {
             return { enabled: false, reason: '征兵只能在当前首都或已占领的原始首都执行', cost: meta.cost };
@@ -698,7 +802,7 @@ const App = {
         }
         if (meta.costMoney > 0 && resources.money < meta.costMoney) return { enabled: false, reason: `缺少 ${formatMoney(meta.costMoney - resources.money)} 金钱`, cost: meta.cost };
         if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${meta.ppCost - resources.pp} PP`, cost: meta.cost };
-        if (action === 'move' && node.troops < 2) return { enabled: false, reason: '至少需要 2 支部队才能移动', cost: meta.cost };
+        if (action === 'move' && node.troops < 1) return { enabled: false, reason: '该节点没有可移动部队', cost: meta.cost };
         if (action === 'move' && requireFriendlyMoveTarget && MapData.getMoveTargets(node.id, playerFactionId).length === 0) {
             return { enabled: false, reason: '没有相邻己方目标', cost: meta.cost };
         }
@@ -780,7 +884,7 @@ const App = {
             GameState.addLog('无法进攻：目标不相邻。', 'system');
             return;
         }
-        if (attacker.troops < 2 || GameState.getNodeMovableTroops(attacker) < 1) {
+        if (GameState.getNodeMovableTroops(attacker) < 1) {
             GameState.addLog('该节点没有可用于进攻的未移动士兵。', 'system');
             return;
         }
@@ -796,6 +900,11 @@ const App = {
     confirmAction() {
         const confirm = GameState.game.actionConfirm;
         if (!confirm) return;
+        if (!this.canLocalPlayerAct()) {
+            GameState.game.actionConfirm = null;
+            GameState.addLog(this.resolutionAnimation ? '统一结算回放期间不能行动。' : '计划已经准备，取消准备后才能继续操作。', 'system');
+            return;
+        }
 
         if (confirm.action === 'move') {
             const source = MapData.getNode(confirm.nodeId);
@@ -1075,10 +1184,16 @@ const App = {
 
     getBattleSummaryText(preview) {
         if (!preview) return '';
+        const simultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
         const outcome = preview.attackerWins
-            ? `预计攻下目标，${preview.remainingTroops} 支参战部队进入`
-            : `预计进攻失败，${preview.remainingTroops} 支参战部队撤回`;
-        return `本次使用 ${preview.attackerBase}/${preview.maxAttackers} 支可动兵进攻，消耗这些部队的本回合移动次数；${outcome}。`;
+            ? `预计攻下目标，${preview.remainingTroops} 支联合部队进入`
+            : simultaneous
+                ? '预计进攻失败，投入统一战斗的攻方部队将损失'
+                : `预计进攻失败，${preview.remainingTroops} 支参战部队撤回`;
+        const coordination = simultaneous
+            ? `；计入既有计划后合计 ${preview.combinedAttackerBase} 支、${preview.attackDirections} 路进攻${preview.multiDirectionBonus > 0 ? `，围攻 +${preview.multiDirectionBonus}%` : ''}`
+            : '';
+        return `本次新增 ${preview.attackerBase}/${preview.maxAttackers} 支可动兵进攻${coordination}，并消耗这些部队的本回合移动次数；${outcome}。`;
     },
 
     syncBattlePreviewDisplay() {
@@ -1099,6 +1214,14 @@ const App = {
         });
         document.querySelectorAll('[data-battle-attacker-power]').forEach(element => {
             element.textContent = preview.attackerPower;
+        });
+        document.querySelectorAll('[data-battle-combined-base]').forEach(element => {
+            element.textContent = preview.combinedAttackerBase;
+        });
+        document.querySelectorAll('[data-battle-coordination]').forEach(element => {
+            element.textContent = preview.multiDirectionBonus > 0
+                ? `${preview.attackDirections} 路协同 · 进攻 +${preview.multiDirectionBonus}%`
+                : `${preview.attackDirections} 路进攻 · 暂无围攻加成`;
         });
         document.querySelectorAll('[data-battle-defender-power]').forEach(element => {
             element.textContent = preview.defenderPower;
@@ -1145,8 +1268,34 @@ const App = {
     },
 
     performMove(targetId, amount = null) {
+        if (!this.canLocalPlayerAct()) {
+            GameState.addLog(this.resolutionAnimation ? '统一结算回放期间不能发布行军令。' : '计划已经准备，取消准备后才能修改行军令。', 'system');
+            return;
+        }
         const source = MapData.getNode(GameState.game.selectedNodeId);
         const target = MapData.getNode(targetId);
+
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            if (!source || !target) return;
+            const movingTroops = Math.max(1, Math.floor(Number(amount) || this.getSelectedMoveAmount(source)));
+            const order = SimultaneousTurns.addOrder({
+                sourceId: source.id,
+                targetId: target.id,
+                amount: movingTroops,
+                kind: target.factionId === source.factionId ? 'move' : 'attack'
+            });
+            if (!order) {
+                GameState.addLog('无法加入行军计划：可用兵力不足或目标不合法。', 'system');
+                return;
+            }
+            GameState.game.actionConfirm = null;
+            GameState.game.selectedNodeId = source.id;
+            GameState.addLog(
+                `第 ${GameState.game.currentTurn} 回合规划：${source.name} → ${target.name}，${order.amount} 支；将在统一结算时执行。`,
+                'system'
+            );
+            return;
+        }
 
         if (!GameState.game.movementOrdersActive) {
             GameState.addLog('请先执行“移动士兵”行动来发布本回合移动令。', 'system');
@@ -1271,6 +1420,7 @@ const App = {
         if (!attacker || !defender) return null;
 
         const baseDefenseBonus = 15;
+        const isSimultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
         const isPlayerDefender = defender.factionId === GameState.getPlayerFactionId();
         const defenderSlot = GameState.getSlot(defender.factionId);
         let defenderModifierBonus;
@@ -1291,8 +1441,6 @@ const App = {
         const defenseBonus = baseDefenseBonus
             + defenderModifierBonus
             + (defenderEncircled ? encirclementPenalty : 0);
-        const attackerAttackBonus = Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100)
-            + (attackerEncircled ? encirclementPenalty : 0);
         const maxAttackers = GameState.getNodeMovableTroops(attacker);
         const draftAmount = requestedAmount === null || typeof requestedAmount === 'undefined'
             ? (Number(GameState.game.battleDraftAmount) || maxAttackers)
@@ -1300,14 +1448,30 @@ const App = {
         const attackerBase = maxAttackers > 0
             ? Math.min(maxAttackers, Math.max(1, Math.floor(Number(draftAmount) || maxAttackers)))
             : 0;
+        const coordination = isSimultaneous
+            ? SimultaneousTurns.getAttackCoordination(defender.id, attacker.factionId, {
+                sourceId: attacker.id,
+                amount: attackerBase
+            })
+            : {
+                directions: attackerBase > 0 ? 1 : 0,
+                bonus: 0,
+                troops: attackerBase,
+                existingTroops: 0
+            };
+        const multiDirectionBonus = coordination.bonus;
+        const baseAttackBonus = Math.round((GameState.getEffectiveGlobalAttack() || 0) * 100)
+            + (attackerEncircled ? encirclementPenalty : 0);
+        const attackerAttackBonus = baseAttackBonus + multiDirectionBonus;
+        const combinedAttackerBase = isSimultaneous ? coordination.troops : attackerBase;
         const defenderBase = defender.troops;
-        const attackerPower = Number((attackerBase * (1 + attackerAttackBonus / 100)).toFixed(1));
+        const attackerPower = Number((combinedAttackerBase * (1 + attackerAttackBonus / 100)).toFixed(1));
         const defenderPower = Number((defenderBase * (1 + defenseBonus / 100)).toFixed(1));
         const attackerWins = attackerPower > defenderPower;
         const margin = Math.abs(attackerPower - defenderPower);
         const remainingTroops = attackerWins
-            ? Math.max(1, Math.min(attackerBase, Math.round(margin)))
-            : Math.max(0, Math.floor(attackerBase * 0.45));
+            ? Math.max(1, Math.min(combinedAttackerBase, Math.round(margin)))
+            : (isSimultaneous ? 0 : Math.max(0, Math.floor(attackerBase * 0.45)));
 
         return {
             attackerId,
@@ -1316,6 +1480,10 @@ const App = {
             maxAttackers,
             attackerBase,
             defenderBase,
+            combinedAttackerBase,
+            existingPlannedTroops: coordination.existingTroops,
+            attackDirections: coordination.directions,
+            multiDirectionBonus,
             attackerPower,
             defenderPower,
             defenseBonus,
@@ -1327,8 +1495,10 @@ const App = {
             remainingTroops,
             ppCost: 0,
             resultText: attackerWins
-                ? `预计结果：攻方胜利，预计 ${remainingTroops} 支参战部队进入目标。`
-                : `预计结果：守方优势，参战部队预计撤回 ${remainingTroops} 支。`
+                ? `预计结果：攻方胜利，预计 ${remainingTroops} 支联合部队进入目标。`
+                : isSimultaneous
+                    ? '预计结果：守方优势，投入本次统一战斗的攻方部队将损失。'
+                    : `预计结果：守方优势，参战部队预计撤回 ${remainingTroops} 支。`
         };
     },
 
@@ -1340,11 +1510,10 @@ const App = {
 
         if (!attacker) return { enabled: false, reason: '未选择进攻节点', ...meta };
         if (GameState.game.gameOver) return { enabled: false, reason: '游戏已经结束', ...meta };
-        if (GameState.game.currentPlayerId !== playerFactionId) return { enabled: false, reason: '还未轮到你行动', ...meta };
+        if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', ...meta };
         if (attacker.factionId !== playerFactionId) return { enabled: false, reason: '你未选中己方可用节点', ...meta };
         if (!GameState.game.movementOrdersActive) return { enabled: false, reason: '请先使用“移动士兵”发布移动令，进攻会作为普通移动执行，不再额外花费 PP。', ...meta };
         if (GameState.game.currentAction !== 'move') return { enabled: false, reason: '请点击“继续移动”后再选择进攻目标。', ...meta };
-        if (attacker.troops < 2) return { enabled: false, reason: '至少需要 2 支部队才能进攻', ...meta };
         if (GameState.getNodeMovableTroops(attacker) < 1) return { enabled: false, reason: '该节点没有可用于进攻的未移动士兵', ...meta };
 
         return { enabled: true, reason: '', ...meta };
@@ -1374,10 +1543,6 @@ const App = {
             GameState.addLog('无法进攻：目标不相邻。', 'system');
             return;
         }
-        if (attacker.troops < 2) {
-            GameState.addLog('无法进攻：至少需要 2 支部队。', 'system');
-            return;
-        }
         if (relation && relation.relation === '停战') {
             GameState.addLog('无法进攻：当前外交协议处于停战。', 'system');
             return;
@@ -1392,9 +1557,37 @@ const App = {
         const preview = GameState.game.battlePreview;
         if (!preview) return;
 
+        if (!this.canLocalPlayerAct()) {
+            GameState.game.battlePreview = null;
+            GameState.addLog(this.resolutionAnimation ? '统一结算回放期间不能进攻。' : '计划已经准备，取消准备后才能修改进攻计划。', 'system');
+            return;
+        }
         const attacker = MapData.getNode(preview.attackerId);
         const defender = MapData.getNode(preview.defenderId);
         if (!attacker || !defender) return;
+
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            const participatingTroops = this.getSelectedBattleAmount(attacker);
+            const order = SimultaneousTurns.addOrder({
+                sourceId: attacker.id,
+                targetId: defender.id,
+                amount: participatingTroops,
+                kind: 'attack'
+            });
+            GameState.game.battlePreview = null;
+            GameState.game.currentAction = 'move';
+            GameState.game.actionConfirm = null;
+            if (!order) {
+                GameState.addLog('无法加入进攻计划：可用兵力不足或目标不合法。', 'system');
+                GameState.notify();
+                return;
+            }
+            GameState.addLog(
+                `第 ${GameState.game.currentTurn} 回合规划：${attacker.name} → ${defender.name}，投入 ${order.amount} 支；战斗将在回合末统一结算。`,
+                'battle'
+            );
+            return;
+        }
 
         if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
             GameState.addLog('请先使用“移动士兵”发布移动令后再进攻。', 'system');
@@ -1423,7 +1616,7 @@ const App = {
 
         if (resolvedPreview.attackerWins) {
             const enteringTroops = Math.max(1, Math.min(participatingTroops, resolvedPreview.remainingTroops));
-            attacker.troops = Math.max(1, attacker.troops - participatingTroops);
+            attacker.troops = Math.max(0, attacker.troops - participatingTroops);
             const wasEnemyOwned = defender.factionId !== attacker.factionId;
             defender.factionId = attacker.factionId;
             defender.troops = enteringTroops;
@@ -1439,7 +1632,7 @@ const App = {
 
         const returningTroops = Math.max(0, Math.min(participatingTroops, resolvedPreview.remainingTroops));
         const attackerLosses = participatingTroops - returningTroops;
-        attacker.troops = Math.max(1, attacker.troops - attackerLosses);
+        attacker.troops = Math.max(0, attacker.troops - attackerLosses);
         defender.troops = Math.max(1, Math.ceil(defender.troops * 0.7));
         GameState.refreshFactionStatus(true);
         GameState.checkVictory(true);
@@ -1533,6 +1726,11 @@ const App = {
     endTurn(auto = false) {
         if (GameState.game.gameOver) return;
 
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            this.submitOrWithdrawTurnPlan(auto);
+            return;
+        }
+
         // 联机：只有"该行动的本地玩家"可以结束自己的回合；AI / 空席由房主代为结束。
         // 防止其他客户端（例如观战中倒计时归零）误把当前玩家的回合结束掉。
         if (window.Multiplayer && Multiplayer.isOnline) {
@@ -1585,6 +1783,105 @@ const App = {
         GameState.refreshFactionStatus(false);
         GameState.checkVictory(true);
         GameState.notify();
+    },
+
+    submitOrWithdrawTurnPlan(auto = false) {
+        if (!window.SimultaneousTurns || !SimultaneousTurns.isPlanning()) return;
+        if (this.resolutionAnimation) return;
+        const factionId = GameState.getPlayerFactionId();
+        const alreadySubmitted = SimultaneousTurns.isFactionSubmitted(factionId);
+
+        if (auto && alreadySubmitted && window.Multiplayer && Multiplayer.isOnline && !GameState.isHost()) {
+            return;
+        }
+
+        if (alreadySubmitted && !auto) {
+            SimultaneousTurns.snapshotLocalPlan(false);
+            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：已取消准备，可以继续调整。`, 'system', false);
+            if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushLocalTurnPlan(true);
+            GameState.notify();
+            this.tryResolveSimultaneousTurn();
+            return;
+        }
+
+        if (!alreadySubmitted) {
+            SimultaneousTurns.snapshotLocalPlan(true);
+            const orderCount = SimultaneousTurns.getOrders(factionId).length;
+            GameState.game.actionConfirm = null;
+            GameState.game.battlePreview = null;
+            GameState.game.currentAction = null;
+            this.mobilePendingAttack = null;
+            this.mobilePendingMove = null;
+            GameState.addLog(
+                `${auto ? '计时结束，自动' : ''}准备完成第 ${GameState.game.currentTurn} 回合计划（${orderCount} 道行军令）；取消准备后可继续修改。`,
+                'system',
+                false
+            );
+            if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushLocalTurnPlan(true);
+        }
+
+        const isOnline = window.Multiplayer && Multiplayer.isOnline;
+        const authority = !isOnline || GameState.isHost();
+        if (auto && authority && !SimultaneousTurns.allRequiredPlansSubmitted()) {
+            SimultaneousTurns.forceSubmitMissingPlans();
+            GameState.addLog('规划时间结束：未提交势力按当前草案或原地待命处理。', 'system', false);
+        }
+
+        GameState.notify();
+        this.tryResolveSimultaneousTurn();
+    },
+
+    clearPendingSimultaneousResolution() {
+        if (!this.simultaneousResolveTimer) return;
+        clearTimeout(this.simultaneousResolveTimer);
+        this.simultaneousResolveTimer = null;
+    },
+
+    tryResolveSimultaneousTurn() {
+        if (!window.SimultaneousTurns || !SimultaneousTurns.isPlanning()) {
+            this.clearPendingSimultaneousResolution();
+            return false;
+        }
+        const isOnline = window.Multiplayer && Multiplayer.isOnline;
+        if (isOnline && !GameState.isHost()) return false;
+        SimultaneousTurns.prepareAiPlans();
+        if (!SimultaneousTurns.allRequiredPlansSubmitted()) {
+            this.clearPendingSimultaneousResolution();
+            return false;
+        }
+
+        if (isOnline) {
+            if (this.simultaneousResolveTimer) return true;
+            const expectedSessionId = GameState.game.sessionId;
+            const expectedTurn = GameState.game.currentTurn;
+            this.simultaneousResolveTimer = setTimeout(() => {
+                this.simultaneousResolveTimer = null;
+                if (!Multiplayer.isOnline || !GameState.isHost()) return;
+                if (!SimultaneousTurns.isPlanning()) return;
+                if (GameState.game.sessionId !== expectedSessionId || GameState.game.currentTurn !== expectedTurn) return;
+                SimultaneousTurns.prepareAiPlans();
+                if (!SimultaneousTurns.allRequiredPlansSubmitted()) return;
+                if (!SimultaneousTurns.resolveTurn(this)) return;
+                GameState.notify();
+                Multiplayer.pushGameState(true);
+            }, 450);
+            return true;
+        }
+
+        const resolved = SimultaneousTurns.resolveTurn(this);
+        if (!resolved) return false;
+        GameState.notify();
+        return true;
+    },
+
+    cancelPlannedOrder(orderId) {
+        if (!window.SimultaneousTurns || !SimultaneousTurns.removeOrder(orderId)) return;
+        GameState.addLog('已撤销一道行军令。', 'system');
+    },
+
+    clearPlannedOrders() {
+        if (!window.SimultaneousTurns || !SimultaneousTurns.clearOrders()) return;
+        GameState.addLog('已清空本回合全部行军令。', 'system');
     },
 
     /**
@@ -1677,7 +1974,7 @@ const App = {
 
         if (!focus) return { enabled: false, reason: '未选择国策', ...actionMeta };
         if (GameState.game.gameOver) return { enabled: false, reason: '游戏已经结束', ...actionMeta };
-        if (GameState.game.currentPlayerId !== playerFactionId) return { enabled: false, reason: '还未轮到你行动', ...actionMeta };
+        if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', ...actionMeta };
         if (completed.includes(focus.id)) return { enabled: false, reason: '国策已完成', ...actionMeta };
         if (GameState.isFocusBlockedByMutual(focus, completed)) return { enabled: false, reason: '互斥国策已完成', ...actionMeta };
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return { enabled: false, reason: '前置国策未满足', ...actionMeta };
@@ -1922,6 +2219,20 @@ const App = {
                 .filter(node => node.factionId && node.factionId !== factionId && node.industry > 0)
                 .sort((a, b) => b.industry - a.industry)
                 .slice(0, targetCount);
+            if (window.SimultaneousTurns && SimultaneousTurns.isPlanning()) {
+                const effects = GameState.game.pendingWorldEffects || (GameState.game.pendingWorldEffects = []);
+                effects.push({
+                    id: `${factionId}-${GameState.game.currentTurn}-damage-${Date.now().toString(36)}`,
+                    type: 'damageIndustry',
+                    factionId,
+                    nodeIds: enemies.map(node => node.id),
+                    amount
+                });
+                if (enemies.length > 0) {
+                    GameState.addLog(`已规划异变效应：回合末令 ${enemies.length} 个敌方节点工业 -${amount}。`, 'system', false);
+                }
+                return;
+            }
             enemies.forEach(node => {
                 node.industry = Math.max(0, node.industry - amount);
             });
@@ -1972,12 +2283,16 @@ const App = {
     setDiplomacy(factionId, relation) {
         if (!GameState.game.diplomacy[factionId]) return;
 
+        if (!this.canLocalPlayerAct()) {
+            GameState.addLog(this.resolutionAnimation ? '统一结算回放期间不能调整外交。' : '计划已经准备，取消准备后才能调整外交。', 'system');
+            return;
+        }
         const faction = GameState.getFaction(factionId);
         GameState.game.diplomacy[factionId] = {
             relation,
             treaty: relation === '停战' ? '2 回合' : relation === '中立' ? '互不侵犯' : '无'
         };
-        GameState.addLog(`外交广播：你对 ${faction.shortName} 的关系调整为“${relation}”。`, 'diplomacy');
+        GameState.addLog(`外交广播：你对 ${GameState.getFactionName(faction.id)} 的关系调整为“${relation}”。`, 'diplomacy');
     },
 
     openFocusModal(factionId = GameState.getPlayerFactionId()) {

@@ -1239,7 +1239,7 @@ const GameAI = {
 
         if (preview.attackerWins) {
             const enteringTroops = Math.max(1, Math.min(participatingTroops, preview.remainingTroops));
-            attacker.troops = Math.max(1, attacker.troops - participatingTroops);
+            attacker.troops = Math.max(0, attacker.troops - participatingTroops);
             defender.factionId = factionId;
             defender.troops = enteringTroops;
             defender.moveReady = 0;
@@ -1255,7 +1255,7 @@ const GameAI = {
         } else {
             const returningTroops = Math.max(0, Math.min(participatingTroops, preview.remainingTroops));
             const attackerLosses = participatingTroops - returningTroops;
-            attacker.troops = Math.max(1, attacker.troops - attackerLosses);
+            attacker.troops = Math.max(0, attacker.troops - attackerLosses);
             defender.troops = Math.max(1, Math.ceil(defender.troops * 0.7));
             GameState.refreshFactionStatus(true);
             GameState.checkVictory(true);

@@ -193,6 +193,11 @@ const MapView = {
             playerFactionId
         })).join('');
 
+        const plannedOrders = window.SimultaneousTurns && SimultaneousTurns.isEnabled()
+            ? SimultaneousTurns.getOrders(playerFactionId)
+            : [];
+        const plannedOrdersLocked = window.SimultaneousTurns && SimultaneousTurns.isEnabled()
+            ? !SimultaneousTurns.canLocalPlayerAct() : false;
         // 缩放联动：viewport.width 420(拉近)↔1300(拉远)，默认 1000。
         // 拉远/总览时融合色块+国名最突出、圆点淡出；拉近时圆点/驻军接管。
         // 数值由 zoomVisuals 统一计算；缩放/平移时 app.updateSvgViewBox→applyTerritoryZoom 实时刷新，无需整页重渲。
@@ -208,6 +213,13 @@ const MapView = {
                 <button class="btn btn-outline mobile-map-shortcut" onclick="window.app.centerCapital()">首都</button>
                 <button class="btn btn-outline mobile-map-shortcut" onclick="window.app.centerSelectedNode()">选中</button>
                 <button class="btn btn-outline" onclick="window.app.resetMapViewport()">重置视角</button>
+                ${window.SimultaneousTurns && SimultaneousTurns.isEnabled() ? `
+                    <span class="plan-order-count ${plannedOrders.length ? 'has-orders' : ''}">
+                        已规划 ${plannedOrders.length} 道行军令
+                    </span>
+                    <button class="btn btn-outline plan-clear-button" ${plannedOrders.length && !plannedOrdersLocked ? '' : 'disabled'}
+                        onclick="window.app.clearPlannedOrders()">清空计划</button>
+                ` : ''}
             </div>
             <svg id="svg-map" viewBox="${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}" aria-label="战略地图">
                 <defs>
@@ -224,6 +236,12 @@ const MapView = {
                         <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -8" result="goo" />
                         <feBlend in="SourceGraphic" in2="goo" />
                     </filter>
+                    <marker id="planArrowMove" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"></path>
+                    </marker>
+                    <marker id="planArrowAttack" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L8,3 z" fill="#f87171"></path>
+                    </marker>
                 </defs>
 
                 <g class="background-map-shape">
@@ -244,9 +262,141 @@ const MapView = {
                 <g class="map-links-layer">${linkHtml}</g>
                 <g class="map-nodes-layer" style="opacity:${nodesOpacity}">${nodeHtml}</g>
                 ${territory.labels}
+                <g class="planned-orders-layer ${plannedOrdersLocked ? 'is-locked' : ''}">${this.renderPlannedOrders(plannedOrders, plannedOrdersLocked)}</g>
+                <g class="resolution-movement-layer">${this.renderResolutionMovements()}</g>
             </svg>
             ${this.renderTooltip()}
         `;
+    },
+
+    renderPlannedOrders(orders = [], locked = false) {
+        return orders.map((order, index) => {
+            const source = MapData.getNode(order.sourceId);
+            const target = MapData.getNode(order.targetId);
+            if (!source || !target) return '';
+            const dx = target.x - source.x;
+            const dy = target.y - source.y;
+            const length = Math.max(1, Math.hypot(dx, dy));
+            const ux = dx / length;
+            const uy = dy / length;
+            const startX = source.x + ux * 22;
+            const startY = source.y + uy * 22;
+            const endX = target.x - ux * 28;
+            const endY = target.y - uy * 28;
+            const bend = (index % 2 === 0 ? 1 : -1) * Math.min(18, length * 0.12);
+            const controlX = (startX + endX) / 2 - uy * bend;
+            const controlY = (startY + endY) / 2 + ux * bend;
+            const labelX = (startX + 2 * controlX + endX) / 4;
+            const labelY = (startY + 2 * controlY + endY) / 4;
+            const attack = order.kind === 'attack';
+            const coordination = attack && window.SimultaneousTurns
+                ? SimultaneousTurns.getAttackCoordination(order.targetId, order.factionId)
+                : null;
+            const coordinated = coordination && coordination.bonus > 0;
+            return `
+                <g class="planned-order ${attack ? 'attack' : 'move'} ${coordinated ? 'coordinated' : ''}" ${locked ? '' : `onclick="event.stopPropagation(); window.app.cancelPlannedOrder('${order.id}')"`}>
+                    <title>${locked ? '计划已锁定，取消准备后可调整' : coordinated ? `${coordination.directions} 路围攻，进攻 +${coordination.bonus}%` : '点击撤销这道行军令'}</title>
+                    <path d="M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}"
+                        marker-end="url(#${attack ? 'planArrowAttack' : 'planArrowMove'})"></path>
+                    <g class="planned-order-label" transform="translate(${labelX.toFixed(1)} ${labelY.toFixed(1)})">
+                        <circle r="10"></circle><text text-anchor="middle" y="3">${order.amount}</text>
+                    </g>
+                </g>
+            `;
+        }).join('');
+    },
+
+    renderResolutionMovements() {
+        const replay = window.app && window.app.resolutionAnimation;
+        if (!replay) return '';
+        const movements = Array.isArray(replay.movements) ? replay.movements : [];
+        const engagements = Array.isArray(replay.engagements) ? replay.engagements : [];
+        if (!movements.length && !engagements.length) return '';
+
+        const elapsed = Math.max(0, (Date.now() - (Number(replay.startedAt) || Date.now())) / 1000);
+        const movementDuration = Math.max(0.01, Number(replay.movementDuration) || 1.05);
+        const baseDelay = Math.max(0, Number(replay.baseDelay) || 0);
+        const staggerStep = Math.max(0, Number(replay.staggerStep) || 0);
+        const impactDuration = Math.max(0.01, Number(replay.impactDuration) || 0.92);
+        const movementDelay = index => baseDelay + Math.min(index * staggerStep, 0.28);
+
+        const routeHtml = movements.map((movement, index) => {
+            const source = MapData.getNode(movement.sourceId);
+            const target = MapData.getNode(movement.targetId);
+            if (!source || !target) return '';
+            const dx = target.x - source.x;
+            const dy = target.y - source.y;
+            const length = Math.max(1, Math.hypot(dx, dy));
+            const ux = dx / length;
+            const uy = dy / length;
+            const startX = source.x + ux * 18;
+            const startY = source.y + uy * 18;
+            const endX = target.x - ux * 12;
+            const endY = target.y - uy * 12;
+            const bend = (index % 2 === 0 ? 1 : -1) * Math.min(18, length * 0.12);
+            const controlX = (startX + endX) / 2 - uy * bend;
+            const controlY = (startY + endY) / 2 + ux * bend;
+            const motionControlX = (source.x + target.x) / 2 - uy * bend;
+            const motionControlY = (source.y + target.y) / 2 + ux * bend;
+            const routePath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+            const motionPath = `M ${source.x.toFixed(1)} ${source.y.toFixed(1)} Q ${motionControlX.toFixed(1)} ${motionControlY.toFixed(1)} ${target.x.toFixed(1)} ${target.y.toFixed(1)}`;
+            const begin = movementDelay(index) - elapsed;
+            const faction = GameState.getFaction(movement.factionId);
+            const color = (faction && faction.color) || '#94a3b8';
+            const kind = movement.kind === 'move' ? 'move' : 'attack';
+            const label = kind === 'attack' ? '进攻' : '调动';
+            return `
+                <g class="resolution-movement ${kind}" style="--movement-color:${color}">
+                    <title>${GameState.getFactionName(movement.factionId)}${label}：${source.name} → ${target.name}，兵力 ${movement.amount}</title>
+                    <path class="resolution-movement-route ${kind}" d="${routePath}">
+                        <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.82;1"
+                            dur="${(movementDuration + 0.28).toFixed(2)}s" begin="${begin.toFixed(2)}s" fill="freeze"></animate>
+                    </path>
+                    <g class="resolution-unit-token ${kind}" opacity="0">
+                        <circle r="12"></circle>
+                        <text text-anchor="middle" dominant-baseline="central">${movement.amount}</text>
+                        <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.06;.86;1"
+                            dur="${(movementDuration + 0.24).toFixed(2)}s" begin="${begin.toFixed(2)}s" fill="freeze"></animate>
+                        <animateMotion path="${motionPath}" dur="${movementDuration.toFixed(2)}s"
+                            begin="${begin.toFixed(2)}s" rotate="0" fill="freeze"></animateMotion>
+                    </g>
+                </g>
+            `;
+        }).join('');
+
+        const engagementHtml = engagements.map(engagement => {
+            const target = MapData.getNode(engagement.targetId);
+            if (!target) return '';
+            const incomingIndexes = movements
+                .map((movement, index) => movement.targetId === engagement.targetId ? index : -1)
+                .filter(index => index >= 0);
+            const latestMovementDelay = incomingIndexes.length
+                ? Math.max(...incomingIndexes.map(index => movementDelay(index)))
+                : baseDelay;
+            const begin = latestMovementDelay + movementDuration - elapsed;
+            const faction = GameState.getFaction(engagement.winnerFactionId);
+            const color = (faction && faction.color) || '#f8fafc';
+            const type = engagement.type === 'occupation' ? 'occupation' : 'battle';
+            const resultLabel = type === 'occupation' ? '占领' : '交战';
+            const resultText = `${resultLabel} · ${GameState.getFactionName(engagement.winnerFactionId)} ${engagement.survivors}`;
+            return `
+                <g class="resolution-engagement-pulse ${type}" transform="translate(${target.x} ${target.y})"
+                    style="--winner-color:${color}" opacity="0">
+                    <title>${target.name}：${resultText}</title>
+                    <circle class="resolution-impact-ring" r="16">
+                        <animate attributeName="r" values="16;38;48" keyTimes="0;.55;1"
+                            dur="${impactDuration.toFixed(2)}s" begin="${begin.toFixed(2)}s" fill="freeze"></animate>
+                    </circle>
+                    <circle class="resolution-impact-core" r="13"></circle>
+                    <path class="resolution-impact-mark" d="${type === 'battle' ? 'M -7 -7 L 7 7 M 7 -7 L -7 7' : 'M -7 1 L -1 7 L 8 -7'}"></path>
+                    <text class="resolution-result-label" text-anchor="middle" y="-24">${resultText}</text>
+                    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.08;.68;1"
+                        dur="${impactDuration.toFixed(2)}s" begin="${begin.toFixed(2)}s" fill="freeze"></animate>
+                </g>
+            `;
+        }).join('');
+
+        return routeHtml + engagementHtml;
     },
 
     // 每阵营：把所辖节点融成一块大色块（goo 滤镜）+ 质心大号国名。

@@ -1,8 +1,12 @@
 const GamePageView = {
     render() {
         const mobilePanel = window.app.mobilePanel || 'none';
+        const isPlanLocked = window.SimultaneousTurns
+            && SimultaneousTurns.isEnabled()
+            && SimultaneousTurns.isFactionSubmitted(GameState.getPlayerFactionId());
+        const isResolutionLocked = Boolean(window.app && window.app.resolutionAnimation);
         return `
-            <div class="view-game-page mobile-panel-${mobilePanel}">
+            <div class="view-game-page mobile-panel-${mobilePanel} ${isPlanLocked ? 'is-plan-locked' : ''} ${isResolutionLocked ? 'is-resolution-locked' : ''}">
                 ${this.renderTopStatusBar()}
                 ${this.renderLeftFactionPanel()}
                 <main class="game-map-container">${MapView.render()}</main>
@@ -101,19 +105,40 @@ const GamePageView = {
     renderTopStatusBar() {
         const game = GameState.game;
         const resources = game.playerResources;
-        const faction = GameState.getFaction(game.currentPlayerId);
         const playerFaction = GameState.getFaction(GameState.getPlayerFactionId());
         const isLowTime = game.timerRemaining <= 15;
-        const isPlayerTurn = game.currentPlayerId === GameState.getPlayerFactionId();
-        const currentSlot = GameState.getSlot(game.currentPlayerId);
+        const isSimultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
+        const resolutionReplay = window.app && window.app.resolutionAnimation;
+        const submitted = isSimultaneous
+            ? SimultaneousTurns.isFactionSubmitted(GameState.getPlayerFactionId())
+            : false;
+        const readyCount = isSimultaneous ? SimultaneousTurns.getReadyHumanCount() : 0;
+        const humanCount = isSimultaneous ? SimultaneousTurns.getHumanPlayerCount() : 0;
+        const readyProgress = `${readyCount}/${humanCount}`;
+        const allHumansReady = isSimultaneous && humanCount > 0 && readyCount >= humanCount;
+        const finalizingReady = GameState.lobby.mode === 'online' && submitted && allHumansReady;
+        const isPlayerTurn = isSimultaneous
+            ? SimultaneousTurns.canLocalPlayerAct()
+            : game.currentPlayerId === GameState.getPlayerFactionId();
         const resourcePreview = GameState.getNextTurnResourcePreview(GameState.getPlayerFactionId());
         const debtPenalty = GameState.getDebtPenalty(resources.money);
         let turnTag;
-        if (isPlayerTurn) {
+        if (isSimultaneous) {
+            turnTag = resolutionReplay
+                ? `第 ${resolutionReplay.turn} 回合 · 结算回放`
+                : game.phase === 'resolving'
+                ? '统一结算中'
+                : submitted
+                    ? finalizingReady ? `全员已准备 ${readyProgress} · 锁定结算中` : `已准备 ${readyProgress} · 行动已锁定`
+                    : `同时规划 · 已准备 ${readyProgress}`;
+        } else if (isPlayerTurn) {
             turnTag = '你的回合';
-        } else if (currentSlot && currentSlot.kind === 'ai') {
+        } else if (GameState.getSlot(game.currentPlayerId)?.kind === 'ai') {
+            const faction = GameState.getFaction(game.currentPlayerId);
+            const currentSlot = GameState.getSlot(game.currentPlayerId);
             turnTag = `AI 行动中（${currentSlot.playerName || faction.shortName}）`;
-        } else if (currentSlot && currentSlot.kind === 'human') {
+        } else if (GameState.getSlot(game.currentPlayerId)?.kind === 'human') {
+            const currentSlot = GameState.getSlot(game.currentPlayerId);
             turnTag = `等待 ${currentSlot.playerName} 行动`;
         } else {
             turnTag = '轮替中…';
@@ -132,8 +157,12 @@ const GamePageView = {
                         <span class="top-stat-value">${game.currentTurn}</span>
                     </div>
                     <div class="top-stat-item mobile-core-stat">
-                        <span class="top-stat-label">当前</span>
-                        <span class="top-stat-value" style="color: ${faction.color}">${faction.shortName}</span>
+                        <span class="top-stat-label">${isSimultaneous ? '阶段' : '当前'}</span>
+                        ${isSimultaneous ? `
+                            <span class="top-stat-value phase-value">${resolutionReplay ? '回放' : game.phase === 'resolving' ? '结算' : '规划'}</span>
+                        ` : `
+                            <span class="top-stat-value" style="color: ${GameState.getFaction(game.currentPlayerId).color}">${GameState.getFaction(game.currentPlayerId).shortName}</span>
+                        `}
                     </div>
                     <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">计时</span>
@@ -175,8 +204,14 @@ const GamePageView = {
 
                 <div class="top-actions">
                     <span class="connection-dot ${isPlayerTurn ? '' : 'waiting'}">${turnTag}</span>
-                    <button class="btn btn-primary" ${isPlayerTurn && !game.gameOver ? '' : 'disabled'} onclick="window.app.endTurn()">
-                        结束回合
+                    <button class="btn btn-primary ${isSimultaneous ? 'turn-ready-button' : ''} ${submitted ? 'is-submitted' : ''}"
+                        ${!game.gameOver && !resolutionReplay && !finalizingReady && (isSimultaneous ? game.phase === 'planning' : isPlayerTurn) ? '' : 'disabled'}
+                        ${isSimultaneous ? `aria-pressed="${submitted}" title="${finalizingReady ? '全员已准备，等待房主统一结算' : submitted ? '取消准备并恢复本回合操作' : '准备完毕后将锁定本回合操作'}"` : ''}
+                        onclick="window.app.endTurn()">
+                        ${isSimultaneous ? `
+                            <span class="turn-ready-label">${resolutionReplay ? '统一结算中' : finalizingReady ? '锁定结算中' : submitted ? '取消准备' : '准备完毕'}</span>
+                            <span class="turn-ready-count">${resolutionReplay ? `第 ${resolutionReplay.turn} 回合回放` : `${readyProgress} 已准备`}</span>
+                        ` : '结束回合'}
                     </button>
                     <button class="btn btn-danger top-exit-button" onclick="window.app.exitGame()">
                         退出
@@ -582,6 +617,7 @@ const GamePageView = {
                 ` : ''}
             </div>
 
+            ${isFriendly ? this.renderNodePlanOrders(node) : ''}
             ${this.renderSeaModeFactionCard(node.factionId)}
 
             ${isFriendly ? `
@@ -602,6 +638,37 @@ const GamePageView = {
             <div class="neighbor-list">
                 <span>相邻节点</span>
                 <div>${neighbors.map(neighbor => `<button onclick="window.app.handleNodeClick('${neighbor.id}')">${neighbor.abbr}</button>`).join('')}</div>
+            </div>
+        `;
+    },
+
+    renderNodePlanOrders(node) {
+        if (!window.SimultaneousTurns || !SimultaneousTurns.isEnabled()) return '';
+        const orders = SimultaneousTurns.getOrders().filter(order => order.sourceId === node.id);
+        if (!orders.length) return '';
+        const locked = SimultaneousTurns.isFactionSubmitted(GameState.getPlayerFactionId());
+        return `
+            <div class="node-plan-orders">
+                <div class="node-plan-orders-heading">
+                    <span>本节点行军计划</span>
+                    <strong>${orders.reduce((sum, order) => sum + order.amount, 0)} 支已分配</strong>
+                </div>
+                ${orders.map(order => {
+                    const target = MapData.getNode(order.targetId);
+                    const coordination = order.kind === 'attack'
+                        ? SimultaneousTurns.getAttackCoordination(order.targetId, order.factionId)
+                        : null;
+                    const coordinationNote = coordination && coordination.bonus > 0
+                        ? `<small class="coordination-note">${coordination.directions} 路围攻 · 进攻 +${coordination.bonus}%</small>`
+                        : '';
+                    return `
+                        <div class="node-plan-order ${order.kind === 'attack' ? 'attack' : ''}">
+                            <span>${order.kind === 'attack' ? '进攻' : '移动'}至 ${target ? target.name : order.targetId}${coordinationNote}</span>
+                            <strong>${order.amount}</strong>
+                            <button ${locked ? 'disabled' : ''} onclick="window.app.cancelPlannedOrder('${order.id}')">撤销</button>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         `;
     },
@@ -637,7 +704,7 @@ const GamePageView = {
         }
 
         if (maxAmount < 1) {
-            return `<div class="action-help-block">该节点没有可移动士兵。本回合新征召、已经移动过或必须留守的士兵不能再移动。</div>`;
+            return `<div class="action-help-block">该节点没有可移动士兵。本回合新征召或已经移动过的士兵不能再移动。</div>`;
         }
 
         if (!targets.length) {
@@ -858,9 +925,15 @@ const GamePageView = {
                     <div class="battle-preview-grid">
                         <div class="battle-side" style="--faction-color: ${attackerFaction.color}">
                             <span>攻方：${attackerFaction.shortName}</span>
-                            <strong data-battle-attacker-base>${preview.attackerBase}</strong>
+                            <strong data-battle-combined-base>${preview.combinedAttackerBase}</strong>
                             <div>总驻军：${attacker.troops}</div>
-                            <div>参战可动兵：<span data-battle-attacker-base>${preview.attackerBase}</span> / ${maxAttackers}</div>
+                            <div>本路新增：<span data-battle-attacker-base>${preview.attackerBase}</span> / ${maxAttackers}</div>
+                            ${preview.existingPlannedTroops > 0 ? `<div>既有计划：${preview.existingPlannedTroops} 支</div>` : ''}
+                            <div class="battle-coordination ${preview.multiDirectionBonus > 0 ? 'active' : ''}" data-battle-coordination>
+                                ${preview.multiDirectionBonus > 0
+                                    ? `${preview.attackDirections} 路协同 · 进攻 +${preview.multiDirectionBonus}%`
+                                    : `${preview.attackDirections} 路进攻 · 暂无围攻加成`}
+                            </div>
                             <div>进攻修正：${formatSignedPercent(preview.attackerAttackBonus)}</div>
                             ${preview.attackerEncircled ? `<div class="danger-text">⚠ 被包围：进攻 -35%</div>` : ''}
                             <div>最终战力：<span data-battle-attacker-power>${preview.attackerPower}</span></div>
@@ -1488,17 +1561,19 @@ const GamePageView = {
     },
 
     renderDiplomacyModal() {
+        const canAct = window.app.canLocalPlayerAct();
+        const disabled = canAct ? '' : 'disabled title="计划已锁定，取消准备后可调整外交"';
         const rows = Object.entries(GameState.game.diplomacy).map(([factionId, data]) => {
             const faction = GameState.getFaction(factionId);
             return `
                 <tr>
-                    <td><span class="faction-swatch small" style="background: ${faction.color}"></span>${faction.shortName}</td>
+                    <td><span class="faction-swatch small" style="background: ${faction.color}"></span>${GameState.getFactionName(factionId)}</td>
                     <td>${data.relation}</td>
                     <td>${data.treaty}</td>
                     <td>
-                        <button onclick="window.app.setDiplomacy('${factionId}', '停战')">停战</button>
-                        <button onclick="window.app.setDiplomacy('${factionId}', '中立')">互不侵犯</button>
-                        <button onclick="window.app.setDiplomacy('${factionId}', '战争')">宣战</button>
+                        <button ${disabled} onclick="window.app.setDiplomacy('${factionId}', '停战')">停战</button>
+                        <button ${disabled} onclick="window.app.setDiplomacy('${factionId}', '中立')">互不侵犯</button>
+                        <button ${disabled} onclick="window.app.setDiplomacy('${factionId}', '战争')">宣战</button>
                     </td>
                 </tr>
             `;

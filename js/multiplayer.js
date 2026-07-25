@@ -70,6 +70,9 @@ const FirebaseTransport = {
             async writeState(state) {
                 await ref.child('state').set(state);
             },
+            async writePlan(factionId, plan) {
+                await ref.child(`plans/${factionId}`).set(plan);
+            },
             onLobby(cb) {
                 const handler = ref.child('lobby').on('value', snap => cb(snap.val()));
                 subs.push({ child: 'lobby', handler });
@@ -77,6 +80,11 @@ const FirebaseTransport = {
             onState(cb) {
                 const handler = ref.child('state').on('value', snap => cb(snap.val()));
                 subs.push({ child: 'state', handler });
+            },
+            onPlan(factionId, cb) {
+                const child = `plans/${factionId}`;
+                const handler = ref.child(child).on('value', snap => cb(snap.val()));
+                subs.push({ child, handler });
             },
             detach() {
                 subs.forEach(({ child, handler }) => ref.child(child).off('value', handler));
@@ -298,11 +306,17 @@ const EmqxTransport = {
             async writeState(state) {
                 self._publish(T.state, state);
             },
+            async writePlan(factionId, plan) {
+                self._publish(`${base}/plans/${factionId}`, plan);
+            },
             onLobby(cb) {
                 unsubs.push(self._subscribe(T.lobby, cb));
             },
             onState(cb) {
                 unsubs.push(self._subscribe(T.state, cb));
+            },
+            onPlan(factionId, cb) {
+                unsubs.push(self._subscribe(`${base}/plans/${factionId}`, cb));
             },
             detach() {
                 unsubs.forEach(u => { try { u(); } catch (e) { /* ignore */ } });
@@ -312,6 +326,9 @@ const EmqxTransport = {
                 self._clearRetained(T.meta);
                 self._clearRetained(T.lobby);
                 self._clearRetained(T.state);
+                if (window.GameState) {
+                    GameState.factions.forEach(faction => self._clearRetained(`${base}/plans/${faction.id}`));
+                }
             }
         };
     }
@@ -332,6 +349,12 @@ const Multiplayer = {
     listeners: [],
     suppressLocalSync: false,
     pendingPushTimeout: null,
+    pendingPlanPushTimeout: null,
+    lastHostStateUpdate: 0,
+    _hasReceivedGameState: false,
+    _pendingRemotePlans: {},
+    lastAppliedStateUpdate: 0,
+    lastAppliedStateSessionId: null,
 
     /** 可选传输后端列表（供 UI 渲染）。 */
     transportOptions() {
@@ -503,6 +526,11 @@ const Multiplayer = {
         this.detachRoomListeners();
         this.isOnline = true;
         this.isHost = asHost;
+        this.lastHostStateUpdate = 0;
+        this._hasReceivedGameState = false;
+        this._pendingRemotePlans = {};
+        this.lastAppliedStateUpdate = 0;
+        this.lastAppliedStateSessionId = null;
         // 本地玩家是否已为这局初始化过自己的会话（资源/意识形态/外交/国策修正）。
         // 客人不会走 startGameSession，需要首次收到对局状态时补一次初始化。
         this._localSessionStarted = false;
@@ -518,10 +546,34 @@ const Multiplayer = {
 
         room.onState(remote => {
             if (!remote) return;
+            if (
+                this.isHost &&
+                remote.turnMode === 'simultaneous' &&
+                Number(remote.lastUpdate || 0) <= Number(this.lastHostStateUpdate || 0)
+            ) {
+                return;
+            }
             this.suppressLocalSync = true;
             this.applyStateFromRemote(remote);
             this.suppressLocalSync = false;
         });
+
+        if (room.onPlan && window.SimultaneousTurns) {
+            GameState.factions.forEach(faction => {
+                room.onPlan(faction.id, remote => {
+                    if (!remote || remote.factionId !== faction.id) return;
+                    if (!SimultaneousTurns.isEnabled() || (!this.isHost && !this._hasReceivedGameState)) {
+                        this.cacheRemotePlan(faction.id, remote);
+                        return;
+                    }
+                    this.suppressLocalSync = true;
+                    const changed = SimultaneousTurns.applyRemotePlan(remote);
+                    if (changed) GameState.notify();
+                    this.suppressLocalSync = false;
+                    if (changed && this.isHost && window.app) window.app.tryResolveSimultaneousTurn();
+                });
+            });
+        }
     },
 
     detachRoomListeners() {
@@ -532,6 +584,43 @@ const Multiplayer = {
         this.listeners = [];
         this.isOnline = false;
         this.isHost = false;
+        this._hasReceivedGameState = false;
+        if (this.pendingPlanPushTimeout) clearTimeout(this.pendingPlanPushTimeout);
+        this._pendingRemotePlans = {};
+        this.lastAppliedStateUpdate = 0;
+        this.lastAppliedStateSessionId = null;
+    },
+
+    cacheRemotePlan(factionId, remote) {
+        if (!factionId || !remote) return;
+        const current = this._pendingRemotePlans[factionId];
+        if (current && Number(current.revision || 0) >= Number(remote.revision || 0)) return;
+        this._pendingRemotePlans[factionId] = remote;
+    },
+
+    flushPendingRemotePlans() {
+        if (!window.SimultaneousTurns || !SimultaneousTurns.isEnabled()) return false;
+        const pending = this._pendingRemotePlans;
+        this._pendingRemotePlans = {};
+        return Object.entries(pending).reduce((changed, [factionId, remote]) => {
+            if (!remote || remote.factionId !== factionId) return changed;
+            return SimultaneousTurns.applyRemotePlan(remote) || changed;
+        }, false);
+    },
+
+    shouldApplyRemoteState(remote) {
+        if (!remote) return false;
+        const update = Number(remote.lastUpdate || 0);
+        if (update > 0 && this.lastAppliedStateUpdate > 0 && update <= this.lastAppliedStateUpdate) {
+            return false;
+        }
+        return true;
+    },
+
+    markRemoteStateApplied(remote) {
+        const update = Number(remote && remote.lastUpdate || 0);
+        if (update > 0) this.lastAppliedStateUpdate = update;
+        this.lastAppliedStateSessionId = remote && remote.sessionId || null;
     },
 
     /**
@@ -547,10 +636,14 @@ const Multiplayer = {
      * 序列化游戏状态（地图节点 + game 字段）以便 push。
      * 注意 game 中很多字段是 UI-only（actionConfirm, hoveredNodeId, focusTreeViewport 等），不需要同步。
      */
-    pushGameState() {
+    pushGameState(force = false) {
         if (!this.isOnline || this.suppressLocalSync) return;
         if (!this.room) return;
         if (!window.MapData) return;
+        if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
+            if (!this.isHost) return;
+            if (!force && GameState.game.phase === 'planning') return;
+        }
 
         // 节流：100ms 内多次写合并
         if (this.pendingPushTimeout) clearTimeout(this.pendingPushTimeout);
@@ -571,6 +664,16 @@ const Multiplayer = {
                 currentPlayerId: GameState.game.currentPlayerId,
                 turnOrder: GameState.game.turnOrder || [],
                 actionCountThisTurn: GameState.game.actionCountThisTurn,
+                turnMode: GameState.game.turnMode || 'sequential',
+                phase: GameState.game.phase || 'acting',
+                resolutionId: GameState.game.resolutionId || 0,
+                lastResolutionReport: GameState.game.lastResolutionReport || null,
+                sessionId: GameState.game.sessionId || null,
+                submittedFactions: GameState.game.submittedFactions || [],
+                turnStartOwners: GameState.game.turnStartOwners || {},
+                humanStates: GameState.game.humanStates || {},
+                factionNames: GameState.game.factionNames || {},
+                pendingWorldEffects: GameState.game.pendingWorldEffects || [],
                 completedFocuses: GameState.game.completedFocuses || [],
                 focusProgress: GameState.game.focusProgress || {},
                 currentCapitals: GameState.game.currentCapitals || {},
@@ -596,8 +699,26 @@ const Multiplayer = {
                 })),
                 lastUpdate: Date.now()
             };
+            this.lastHostStateUpdate = payload.lastUpdate;
             this.room.writeState(payload);
         }, 80);
+    },
+
+    pushLocalTurnPlan(immediate = false) {
+        if (!this.isOnline || this.suppressLocalSync || !this.room || !this.room.writePlan) return;
+        if (!window.SimultaneousTurns || !SimultaneousTurns.isPlanning()) return;
+        const write = () => {
+            this.pendingPlanPushTimeout = null;
+            const factionId = GameState.getPlayerFactionId();
+            const plan = SimultaneousTurns.snapshotLocalPlan();
+            this.room.writePlan(factionId, plan);
+        };
+        if (this.pendingPlanPushTimeout) clearTimeout(this.pendingPlanPushTimeout);
+        if (immediate) {
+            write();
+        } else {
+            this.pendingPlanPushTimeout = setTimeout(write, 60);
+        }
     },
 
     serializeLobby() {
@@ -638,7 +759,8 @@ const Multiplayer = {
     },
 
     applyStateFromRemote(remote) {
-        if (!remote || !window.MapData) return;
+        if (!remote || !window.MapData) return false;
+        if (!this.shouldApplyRemoteState(remote)) return false;
 
         // 客人首次进入对局（或房主开了新的一局，turn 回退到较小值）：先用"自己的势力"建立本地会话，
         // 保证 playerResources（按本势力 startingStats）、currentIdeology、diplomacy、modifiers 正确初始化。
@@ -652,12 +774,48 @@ const Multiplayer = {
         }
 
         const prevPlayerId = GameState.game.currentPlayerId;
+        const previousTurn = GameState.game.currentTurn;
+        const previousSessionId = GameState.game.sessionId;
+        const previousResolutionId = Number(GameState.game.resolutionId) || 0;
+        const hadRemoteState = this._hasReceivedGameState;
 
         // 把 game 关键字段刷新
         GameState.game.currentTurn = remote.turn;
         GameState.game.currentPlayerId = remote.currentPlayerId;
         GameState.game.turnOrder = remote.turnOrder || GameState.game.turnOrder || [];
-        GameState.game.actionCountThisTurn = remote.actionCountThisTurn || 0;
+        GameState.game.turnMode = remote.turnMode || GameState.game.turnMode || 'sequential';
+        GameState.game.phase = remote.phase || (GameState.game.turnMode === 'simultaneous' ? 'planning' : 'acting');
+        GameState.game.resolutionId = remote.resolutionId || 0;
+        GameState.game.lastResolutionReport = remote.lastResolutionReport || null;
+        GameState.game.sessionId = remote.sessionId || GameState.game.sessionId || null;
+        GameState.game.turnStartOwners = remote.turnStartOwners || {};
+        GameState.game.humanStates = remote.humanStates || GameState.game.humanStates || {};
+        GameState.game.factionNames = Object.assign({}, GameState.game.factionNames || {}, remote.factionNames || {});
+        GameState.game.pendingWorldEffects = remote.pendingWorldEffects || [];
+        if (GameState.game.turnMode === 'simultaneous') {
+            const samePlanningRound = Boolean(
+                previousSessionId &&
+                previousSessionId === GameState.game.sessionId &&
+                previousTurn === remote.turn
+            );
+            const plans = samePlanningRound ? (GameState.game.turnPlans || {}) : {};
+            (remote.submittedFactions || []).forEach(factionId => {
+                const current = plans[factionId];
+                if (current && current.sessionId === GameState.game.sessionId && current.turn === remote.turn) return;
+                plans[factionId] = {
+                    factionId,
+                    sessionId: GameState.game.sessionId,
+                    turn: remote.turn,
+                    submitted: true,
+                    orders: [],
+                    revision: remote.lastUpdate || 0
+                };
+            });
+            GameState.game.turnPlans = plans;
+            if (window.SimultaneousTurns) SimultaneousTurns.refreshSubmittedFactions();
+        } else {
+            GameState.game.actionCountThisTurn = remote.actionCountThisTurn || 0;
+        }
         GameState.game.completedFocuses = remote.completedFocuses || [];
         GameState.game.focusProgress = remote.focusProgress || {};
         GameState.game.currentCapitals = remote.currentCapitals || {};
@@ -681,25 +839,42 @@ const Multiplayer = {
             MapData.nodes.forEach(node => {
                 const remoteNode = byId[node.id];
                 if (!remoteNode) return;
-                node.factionId = remoteNode.factionId;
-                node.troops = remoteNode.troops;
-                node.industry = remoteNode.industry;
-                node.moveReady = remoteNode.moveReady;
-                node.freshTroops = remoteNode.freshTroops || 0;
+                if (remoteNode.factionId) node.factionId = remoteNode.factionId;
+                if (Number.isFinite(remoteNode.troops)) node.troops = Math.max(0, remoteNode.troops);
+                if (Number.isFinite(remoteNode.industry)) node.industry = Math.max(0, remoteNode.industry);
+                if (Number.isFinite(remoteNode.moveReady)) {
+                    node.moveReady = Math.max(0, Math.min(remoteNode.moveReady, node.troops));
+                }
+                if (Number.isFinite(remoteNode.freshTroops)) {
+                    node.freshTroops = Math.max(0, Math.min(remoteNode.freshTroops, node.troops));
+                }
                 node.movedThisTurn = !!remoteNode.movedThisTurn;
             });
         }
 
-        // 轮到本地玩家行动：重置本机倒计时（计时器在非自己回合是冻结的）。
-        if (remote.currentPlayerId !== prevPlayerId &&
-            GameState.isFactionPlayedByLocalUser(remote.currentPlayerId)) {
+        if (GameState.game.turnMode === 'simultaneous') {
+            if (window.SimultaneousTurns) {
+                SimultaneousTurns.loadHumanState(GameState.getPlayerFactionId());
+                if (previousTurn !== remote.turn) {
+                    SimultaneousTurns.resetLocalTurnControls();
+                }
+            }
+            GameState.game.timerRemaining = Number(GameState.lobby.settings.turnLimit) || 180;
+        } else if (
+            remote.currentPlayerId !== prevPlayerId &&
+            GameState.isFactionPlayedByLocalUser(remote.currentPlayerId)
+        ) {
+            // 旧式轮流回合兼容：轮到本地玩家时重置倒计时。
             GameState.game.timerRemaining = Number(GameState.lobby.settings.turnLimit) || 180;
         }
 
         // 轮到本地玩家所控势力时，为它做本回合【完整结算】（金钱/PP/首都补员/赤字逃兵）。
-        // 只在"轮到自己"时结算——此刻自己是地图权威写入方，地图改动不会被他人快照覆盖。
-        // 注意：全局导出是 window.app（小写），曾误写成 window.App 导致这里永不执行、客人不回 PP/钱。
-        if (window.app && window.app.maybeSettleLocalFactionOnTurnStart) {
+        // 同时回合改由房主在统一结算阶段一次性处理全部人类与 AI。
+        if (
+            GameState.game.turnMode !== 'simultaneous' &&
+            window.app &&
+            window.app.maybeSettleLocalFactionOnTurnStart
+        ) {
             window.app.maybeSettleLocalFactionOnTurnStart();
         }
 
@@ -707,7 +882,21 @@ const Multiplayer = {
         if (GameState.currentView !== 'game-page' && remote.turn) {
             GameState.currentView = 'game-page';
         }
+        this._hasReceivedGameState = true;
+        const flushedPlans = this.flushPendingRemotePlans();
+        if (flushedPlans && this.isHost && window.app) window.app.tryResolveSimultaneousTurn();
+        if (
+            hadRemoteState &&
+            Number(remote.resolutionId || 0) > previousResolutionId &&
+            remote.lastResolutionReport &&
+            window.app &&
+            typeof window.app.playResolutionAnimation === 'function'
+        ) {
+            window.app.playResolutionAnimation(remote.lastResolutionReport);
+        }
+        this.markRemoteStateApplied(remote);
         GameState.notify();
+        return true;
     },
 
     /**
