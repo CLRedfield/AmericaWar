@@ -15,6 +15,7 @@ const MainMenuView = {
                 </svg>
                 <div class="main-menu-vignette"></div>
             </div>
+            ${MapView.renderMapCredit(scenario)}
         `;
     },
 
@@ -49,6 +50,14 @@ const MainMenuView = {
                                 onchange="window.app.setPlayerName(this.value)"
                                 placeholder="输入你的指挥官昵称">
                         </label>
+                        <label class="menu-turn-field">
+                            <span>每回合时间</span>
+                            <select onchange="window.app.setMenuTurnLimit(this.value)">
+                                ${GameState.turnLimitOptions.map(option => `
+                                    <option value="${option}" ${option === window.app.menuTurnLimit ? 'selected' : ''}>${GameState.formatTurnLimitOption(option)}</option>
+                                `).join('')}
+                            </select>
+                        </label>
                     </div>
 
                     <div class="main-menu-actions">
@@ -69,7 +78,7 @@ const MainMenuView = {
                     ${status ? `<div class="menu-status text-muted">${escapeHtml(status)}</div>` : ''}
 
                     <div style="margin-top: var(--spacing-8); color: var(--color-text-muted); font-size: 0.875rem;">
-                        v0.7 · 双战役
+                        v0.7.1 · 双战役
                     </div>
                 </div>
             </div>

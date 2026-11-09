@@ -65,12 +65,11 @@ const LobbyView = {
                     <section class="lobby-panel lobby-settings-panel">
                         <h3>房主设置 ${isHost ? '' : '<span class="text-muted">（仅房主可改）</span>'}</h3>
                         <div class="settings-grid">
+                            ${this.renderSelect('turnLimit', '每回合时间', GameState.turnLimitOptions, !isHost, GameState.formatTurnLimitOption)}
                             ${scenario.preparationTurns ? '' : `
                                 ${this.renderSelect('maxPlayers', '最大玩家数', ['4', '6', '8'], !isHost)}
                                 ${this.renderSelect('mapScale', '地图规模', ['小型', '标准', '最大'], !isHost)}
                             `}
-                            ${this.renderSelect('turnLimit', '回合限时', scenario.preparationTurns
-                                ? ['60', '90', '120', '180'] : ['60', '90', '120', '180', '无限'], !isHost)}
                             ${this.renderSelect('victory', '胜利条件', ['统一', '霸权'], !isHost)}
                             ${this.renderSwitch('diplomacy', '启用外交', !isHost)}
                             ${this.renderSwitch('ai', '允许 AI', !isHost)}
@@ -181,7 +180,7 @@ const LobbyView = {
             <div class="slot-row slot-${stateClass}" style="--faction-color: ${faction.color}">
                 <div class="slot-color" style="background: ${faction.color}"></div>
                 <div class="slot-faction">
-                    <div class="slot-faction-name">${faction.id} · ${faction.shortName}</div>
+                    <div class="slot-faction-name">${faction.id} · ${GameState.getScenario().roomPrefix ? faction.name : faction.shortName}</div>
                     <div class="text-muted">${faction.playstyleTags.join(' / ')}${ideology ? ` · 起步意识形态：${ideology.name}` : ''}</div>
                 </div>
                 <div class="slot-state-badge slot-state-${stateClass}">${stateLabel}</div>
@@ -230,10 +229,10 @@ const LobbyView = {
         return f ? f.color : '#94a3b8';
     },
 
-    renderSelect(key, label, options, disabled = false) {
+    renderSelect(key, label, options, disabled = false, format = String) {
         const value = GameState.lobby.settings[key];
         const optionsHtml = options.map(option => `
-            <option value="${option}" ${String(value) === String(option) ? 'selected' : ''}>${option}</option>
+            <option value="${option}" ${String(value) === String(option) ? 'selected' : ''}>${format(option)}</option>
         `).join('');
 
         return `

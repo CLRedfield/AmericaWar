@@ -1555,9 +1555,25 @@ const GameState = {
         this.notify();
     },
 
+    turnLimitOptions: ['30', '60', '90', '120', '180', '300', '无限'],
+
+    normalizeTurnLimit(value) {
+        const option = String(value);
+        return this.turnLimitOptions.includes(option) ? option : '180';
+    },
+
+    getTurnLimitSeconds(value = this.game.turnLimit ?? this.lobby.settings.turnLimit) {
+        const option = this.normalizeTurnLimit(value);
+        return option === '无限' ? null : Number(option);
+    },
+
+    formatTurnLimitOption(option) {
+        return option === '无限' ? '不限时' : `${option} 秒`;
+    },
+
     updateLobbySetting(key, value) {
         if (!this.isHost() || this.currentView !== 'lobby') return false;
-        this.lobby.settings[key] = value;
+        this.lobby.settings[key] = key === 'turnLimit' ? this.normalizeTurnLimit(value) : value;
         this.notify();
         return true;
     },
@@ -1571,13 +1587,13 @@ const GameState = {
         return {
             maxPlayers: String((scenario.factions || this.americanFactions).length),
             mapScale: '标准',
-            turnLimit: '180',
             victory: '统一',
             diplomacy: true,
             ai: true,
             randomness: false,
             restoreHistory: true,
             ...overrides,
+            turnLimit: this.normalizeTurnLimit(overrides.turnLimit),
             story: Boolean(scenario.story && overrides.story === true)
         };
     },
@@ -1706,7 +1722,7 @@ const GameState = {
     /**
      * 设定本地大厅，房主先入座剧本的第一个势力。
      */
-    initLocalLobby(scenarioId = this.lobby.scenarioId) {
+    initLocalLobby(scenarioId = this.lobby.scenarioId, settings = {}) {
         const scenario = this.getScenario(scenarioId);
         const previousSettings = scenario.id === this.lobby.scenarioId && this.lobby.mode === 'local'
             ? this.lobby.settings : {};
@@ -1726,7 +1742,7 @@ const GameState = {
             ready: false,
             connecting: false,
             statusMessage: '',
-            settings: this.createLobbySettings(scenario.id, previousSettings),
+            settings: this.createLobbySettings(scenario.id, { ...previousSettings, ...settings }),
             slots: this.createDefaultSlots(scenario.id),
             chat: [
                 { author: '系统', text: '本地房间已创建，所有空席位将待机不行动。' }
@@ -1815,6 +1831,7 @@ const GameState = {
         const firstFactionId = turnOrder[0] || myFactionId;
         const myFaction = this.getFaction(myFactionId);
         const firstFaction = this.getFaction(firstFactionId);
+        const turnLimit = this.normalizeTurnLimit(this.lobby.settings.turnLimit);
         this.selectedFactionId = myFactionId;
 
         this.game = {
@@ -1828,7 +1845,8 @@ const GameState = {
             currentIdeology: myFaction.ideology || 'wartime_democracy',
             turnOrder,
             firstPlayerId: firstFactionId,
-            timerRemaining: Number(this.lobby.settings.turnLimit) || 180,
+            turnLimit,
+            timerRemaining: this.getTurnLimitSeconds(turnLimit),
             selectedNodeId: myFaction.capitalNodeId,
             hoveredNodeId: null,
             currentAction: null,

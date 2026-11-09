@@ -1,14 +1,16 @@
-"""Build a playable West Russia map from Natural Earth 10m ADM1 and rivers shapefiles."""
+"""Build the West Russia map from OpenStreetMap raions and Natural Earth context."""
 
 import argparse
+import heapq
 import json
 from pathlib import Path
 
 import shapefile
 from pyproj import Transformer
-from shapely import box, make_valid, union_all, voronoi_polygons
-from shapely.geometry import MultiPoint, Point, Polygon, shape
+from shapely import box, coverage_simplify, make_valid, union_all
+from shapely.geometry import Point, Polygon, shape
 from shapely.ops import transform
+from shapely.strtree import STRtree
 
 
 # Faction, anchor, province name, lon, lat, industry, garrison, terrain, tags.
@@ -23,22 +25,20 @@ SEEDS = [
     ("WRF", "KTL", "科特拉斯", 46.65, 61.25, 1, 1, "北德维纳铁路桥", "河港 铁路"),
     ("WRF", "NRM", "纳里扬马尔", 53.00, 67.64, 1, 0, "伯朝拉河下游港口", "港口"),
     ("WRF", "NYA", "尼扬多马", 40.20, 61.67, 0, 1, "北方铁路车辆段", "铁路 森林"),
+    ("WRF", "KHM", "霍尔莫戈雷", 41.65, 64.23, 0, 1, "北德维纳河沿岸", "河港 森林"),
+    ("WRF", "VLS", "韦利斯克", 42.10, 61.07, 1, 1, "瓦加河畔的南线车站", "铁路 粮区"),
+    ("WRF", "KNS", "科诺沙", 40.26, 60.98, 0, 1, "北方铁路分岔站", "铁路 森林"),
+    ("WRF", "OKT", "十月镇", 43.17, 61.09, 0, 1, "乌斯季亚河林区", "森林"),
 
-    ("ONE", "ONG", "奥涅加", 38.11, 63.91, 2, 6, "白海沿岸", "首都 港口 森林"),
-    ("ONE", "SOR", "索罗卡", 34.77, 64.52, 1, 2, "沿海铁路", "港口 铁路"),
-    ("ONE", "PUD", "普多日", 36.53, 61.81, 0, 2, "奥涅加湖东岸", "森林 河港"),
+    ("ONE", "ONG", "奥涅加", 38.11, 63.91, 2, 6, "白海沿岸", "首都 港口 森林 铁路"),
+    ("ONE", "PUD", "普多日", 36.53, 61.81, 1, 1, "奥涅加湖东岸", "森林 河港"),
     ("ONE", "KAR", "卡尔戈波尔", 38.95, 61.51, 1, 2, "北方湖区", "森林"),
-    ("ONE", "KEM", "凯姆", 34.58, 64.96, 0, 1, "白海西岸码头", "港口 铁路"),
-    ("ONE", "SGZ", "谢格扎", 34.32, 63.74, 1, 1, "维戈湖造纸厂", "工厂 森林"),
-    ("ONE", "MDV", "梅德韦日耶戈尔斯克", 34.46, 62.92, 1, 1, "白海运河南端", "河港 铁路"),
-    ("ONE", "KEN", "韦尔希尼诺", 38.11, 62.08, 0, 0, "凯诺泽罗湖间林地", "森林"),
 
     ("KOM", "SYK", "瑟克特夫卡尔", 50.83, 61.67, 3, 6, "维切格达河会合处", "首都 河港 工厂"),
     ("KOM", "KUL", "乌斯季库洛姆", 53.67, 61.69, 1, 2, "林间河岸", "森林 河港"),
     ("KOM", "KOI", "科伊戈罗多克", 51.01, 60.45, 0, 2, "林业定居点", "森林"),
     ("KOM", "KNY", "克尼亚日波戈斯特", 50.87, 62.63, 1, 2, "北方干线", "森林 铁路"),
     ("KOM", "UVM", "乌斯季维姆", 50.41, 62.23, 1, 1, "维姆河口转运站", "河港 铁路"),
-    ("KOM", "TPC", "特罗伊茨科伯朝尔斯克", 56.19, 62.71, 1, 1, "伯朝拉河上游渡口", "河港 森林"),
     ("KOM", "LOK", "洛克奇姆", 52.82, 61.02, 0, 0, "洛克奇姆河林区", "森林"),
     ("KOM", "LET", "列特卡", 49.40, 59.61, 0, 1, "科米南端粮道", "粮区 森林"),
 
@@ -50,13 +50,16 @@ SEEDS = [
     ("VOL", "KIR", "基里洛夫", 38.38, 59.86, 0, 1, "白湖以东的林间道路", "森林"),
     ("VOL", "BAB", "巴巴耶沃", 35.94, 59.38, 0, 1, "西部干线车站", "铁路 森林"),
     ("VOL", "NIK", "尼科利斯克", 45.46, 59.53, 0, 0, "尤格河谷", "粮区 森林"),
+    ("VOL", "GAL", "加利奇", 42.34, 58.38, 0, 1, "加利奇湖铁路枢纽", "铁路 森林"),
+    ("VOL", "SRY", "沙里亚", 45.51, 58.36, 1, 1, "韦特卢加河林区", "铁路 森林"),
+    ("VOL", "SHA", "沙胡尼亚", 46.61, 57.68, 1, 2, "北向铁路", "铁路 森林"),
 
     ("GEO", "GAY", "盖内", 54.33, 60.30, 2, 5, "卡马河上游", "首都 河港 森林"),
     ("GEO", "KOS", "科萨", 54.99, 59.95, 1, 2, "上卡马林区", "森林"),
     ("GEO", "YUR", "尤尔拉", 54.34, 59.33, 0, 2, "森林驿道", "森林 粮区"),
-    ("GEO", "UCH", "乌斯季乔尔纳亚", 52.66, 60.48, 0, 1, "韦斯利亚纳河口林道", "森林 河港"),
     ("GEO", "KOC", "科切沃", 54.32, 59.60, 0, 1, "堂区粮食中转站", "森林 粮区"),
     ("GEO", "NYR", "内罗布", 56.32, 60.73, 1, 0, "北乌拉尔山前道路", "森林 山地"),
+    ("GEO", "TPC", "特罗伊茨科伯朝尔斯克", 56.19, 62.71, 1, 1, "伯朝拉河上游渡口", "河港 森林"),
 
     ("VYA", "VYT", "维亚特卡", 49.67, 58.60, 3, 6, "维亚特卡河枢纽", "首都 铁路 河港"),
     ("VYA", "KOT", "科捷利尼奇", 48.35, 58.31, 1, 2, "西向铁路", "铁路 粮区"),
@@ -83,22 +86,17 @@ SEEDS = [
     ("GOR", "GKY", "高尔基", 44.00, 56.33, 4, 6, "伏尔加河汽车工厂", "首都 河港 工厂"),
     ("GOR", "SEM", "谢苗诺夫", 44.50, 57.15, 1, 2, "林业工坊", "森林 铁路"),
     ("GOR", "LYS", "利斯科沃", 45.04, 56.03, 0, 2, "伏尔加河航道", "河港 粮区"),
-    ("GOR", "SHA", "沙胡尼亚", 46.61, 57.68, 1, 3, "北向铁路", "铁路 森林"),
-    ("GOR", "GAL", "加利奇", 42.34, 58.38, 0, 1, "加利奇湖铁路枢纽", "铁路 森林"),
-    ("GOR", "SRY", "沙里亚", 45.51, 58.36, 0, 0, "韦特卢加河林区", "铁路 森林"),
     ("GOR", "GDT", "戈罗杰茨", 43.47, 56.65, 1, 1, "伏尔加河水电枢纽", "河港 工厂"),
     ("GOR", "ARZ", "阿尔扎马斯", 43.84, 55.39, 1, 1, "奥卡河以东的铁路节点", "铁路 粮区"),
 
     ("TAT", "KAZ", "喀山", 49.12, 55.79, 3, 6, "伏尔加河大学城", "首都 河港 铁路 工厂"),
     ("TAT", "CEB", "切博克萨雷", 47.25, 56.13, 1, 2, "西部渡口", "河港 粮区"),
     ("TAT", "MAR", "约什卡尔奥拉", 47.89, 56.63, 1, 2, "马里林区", "森林 铁路"),
-    ("TAT", "CEL", "卡马河畔切尔内", 52.40, 55.73, 1, 2, "卡马河码头", "河港 工厂"),
-    ("TAT", "ALM", "阿尔梅季耶夫斯克", 52.30, 54.90, 2, 2, "东南油田", "油田 粮区"),
     ("TAT", "ALA", "阿拉特里", 46.58, 54.84, 0, 1, "苏拉河畔的西南门户", "河港 铁路"),
     ("TAT", "ZEL", "泽列诺多尔斯克", 48.52, 55.85, 1, 1, "喀山以西的伏尔加铁路桥", "河港 铁路 工厂"),
     ("TAT", "MAM", "马马德什", 51.40, 55.71, 0, 1, "维亚特卡河汇入卡马河处", "河港 粮区"),
     ("TAT", "CSP", "奇斯托波尔", 50.64, 55.37, 1, 0, "卡马河南岸制表工业", "河港 工厂"),
-    ("TAT", "AGR", "阿格雷兹", 52.99, 56.52, 0, 1, "通往伊热夫斯克的铁路站", "铁路"),
+    ("TAT", "NUR", "努尔拉特", 50.81, 54.43, 1, 1, "卡马河南部的铁路油站", "油田 铁路 粮区"),
 
     ("SAM", "SAM", "萨马拉", 50.14, 53.20, 4, 7, "伏尔加河工业港", "首都 河港 工厂 铁路"),
     ("SAM", "SYZ", "塞兹兰", 48.46, 53.16, 1, 2, "南线桥头", "河港 铁路"),
@@ -108,6 +106,10 @@ SEEDS = [
     ("SAM", "MLK", "梅列克斯", 49.61, 54.22, 1, 1, "伏尔加东岸工业镇", "工厂 粮区"),
     ("SAM", "PKV", "波赫维斯特涅沃", 52.13, 53.65, 1, 1, "东线铁路油料站", "铁路 油田"),
     ("SAM", "BLG", "大格卢希察", 50.46, 52.40, 0, 0, "萨马拉以南的草原粮道", "粮区"),
+    ("SAM", "CEL", "卡马河畔切尔内", 52.40, 55.73, 1, 2, "卡马河码头", "河港 工厂"),
+    ("SAM", "ALM", "阿尔梅季耶夫斯克", 52.30, 54.90, 2, 2, "东南油田", "油田 粮区"),
+    ("SAM", "AGR", "阿格雷兹", 52.99, 56.52, 0, 1, "通往伊热夫斯克的铁路站", "铁路"),
+    ("SAM", "BUZ", "布祖卢克", 52.26, 52.78, 1, 1, "萨马拉河铁路枢纽", "铁路 粮区"),
 
     ("BSH", "UFA", "乌法", 56.00, 54.73, 3, 6, "别拉亚河口", "首都 河港 铁路 工厂"),
     ("BSH", "STE", "斯捷尔利塔马克", 55.95, 53.63, 2, 2, "炼油走廊", "油田 工厂"),
@@ -116,12 +118,11 @@ SEEDS = [
     ("BSH", "YAN", "亚纳乌尔", 54.93, 56.28, 0, 1, "通往北卡马的铁路口", "铁路 粮区"),
     ("BSH", "TYZ", "图伊马济", 53.70, 54.60, 1, 1, "西部油田走廊", "油田 铁路"),
     ("BSH", "DUV", "杜万", 57.90, 55.69, 0, 0, "乌拉尔西麓山谷", "山地 粮区"),
-    ("BSH", "UCHL", "乌恰雷", 59.38, 54.31, 1, 1, "东南乌拉尔矿山", "山地 矿区"),
 ]
 
 LABELS = [
-    ("白海", 36.5, 66.9), ("芬兰影响区", 30.2, 63.4), ("莫斯科辖区", 36.4, 55.9),
-    ("沃尔库塔", 62.9, 65.5), ("西西伯利亚", 65.5, 59.5), ("奥伦堡公社", 55.05, 51.35),
+    ("白海", 36.5, 66.9), ("芬兰共和国", 30.2, 63.4), ("莫斯科专员辖区", 36.4, 55.9),
+    ("沃尔库塔", 67.25, 66.3), ("尤格拉", 65.0, 61.5), ("兹拉托乌斯特", 62.0, 57.1), ("奥伦堡公社", 55.5, 51.4),
 ]
 
 
@@ -153,29 +154,39 @@ def projected_shapes(admin, project):
     return regions, union_all(context)
 
 
-def theatres(regions, project):
+def opening_territories(regions, project):
     def combine(*codes):
         return union_all([regions[code] for code in codes])
 
     def mask(points):
         return transform(project, Polygon(points))
 
-    onega_front = mask([(31.8, 66.6), (35.0, 67.4), (39.8, 65.8), (39.4, 63.8),
-                        (39.9, 62.3), (39.6, 60.7), (35.4, 60.9), (34.6, 62.7), (32.9, 64.4)])
+    # Reference outlines pick whole districts. Their edges are never used to draw provinces.
+    onega_front = mask([(36.0, 64.85), (39.4, 64.85), (39.2, 62.7), (39.5, 61.05),
+                        (38.0, 60.7), (35.7, 61.05), (35.95, 62.4), (36.9, 63.3)])
     north_line = mask([(44, 70), (66, 70), (66, 64.0), (58.2, 64.0),
                        (56.4, 63.2), (52.6, 63.05), (48.1, 62.9), (44, 63.4)])
     komi_limit = mask([(44, 68), (59.8, 68), (61.9, 65.0), (60.5, 62.2),
                        (59.7, 59.0), (43, 59.0)])
     komi_west = combine("ARK", "KIR").intersection(mask([
-        (46.65, 61.02), (47.1, 61.66), (48.4, 62.26), (50.9, 62.0),
+        (47.05, 61.02), (47.32, 61.66), (48.4, 62.26), (50.9, 62.0),
         (49.85, 60.05), (48.6, 60.24), (46.7, 60.45),
     ]))
     order_limit = mask([(51, 63), (57, 63), (56.35, 60.2), (55.6, 59.62),
                         (55.0, 59.08), (51, 59.08)])
+    gayny_north = mask([(53.9, 60.1), (54.4, 62.55), (55.35, 63.6), (59.2, 63.6),
+                        (60.0, 61.6), (59.5, 59.5), (54, 59.5)])
+    vologda_south = combine("KOS", "NIZ").intersection(mask([
+        (40.0, 59.75), (48.2, 59.75), (48.2, 57.3), (46.1, 57.36),
+        (44.1, 57.9), (41.55, 57.93), (40.0, 58.22),
+    ]))
+    gorky_core = regions["NIZ"].intersection(mask([
+        (42.65, 54.85), (46.7, 54.85), (47.6, 56.5), (47.1, 57.55), (43.0, 57.63), (42.45, 56.55),
+    ]))
     samara_east = combine("TA", "ORE").intersection(mask([
-        (53.22, 56.3), (53.7, 56.29), (54.4, 55.86), (54.4, 53.64),
-        (54.1, 52.17), (53.7, 51.8), (50.5, 51.8), (50.9, 53.56),
-        (52.98, 54.1), (53.18, 54.58), (53.43, 55.42),
+        (52.65, 56.6), (53.9, 56.65), (54.5, 55.85), (54.55, 53.64),
+        (54.1, 52.17), (53.05, 50.5), (50.5, 50.6), (50.9, 53.56),
+        (51.45, 54.45), (51.75, 55.42), (51.95, 56.05),
     ]))
     samara_west = regions["MO"].intersection(mask([
         (45.5, 54.1), (46.65, 53.9), (47.24, 54.8), (46.4, 55.01), (45.25, 55.08),
@@ -183,39 +194,138 @@ def theatres(regions, project):
     onega = combine("KR", "ARK").intersection(onega_front)
     komi = regions["KO"].intersection(komi_limit)
     upper_kama = regions["PER"].intersection(order_limit)
+    gayny = upper_kama.union(komi.intersection(gayny_north).difference(north_line))
     mainland_north = combine("ARK", "NEN").intersection(mask([
         (27, 59), (65, 59), (65, 69.3), (27, 69.3),
     ]))
     return {
         "WRF": mainland_north.difference(onega.union(komi_west)).union(komi.intersection(north_line)),
         "ONE": onega,
-        "KOM": komi.difference(north_line).union(komi_west),
-        "VOL": regions["VLG"],
-        "GEO": upper_kama,
+        "KOM": komi.difference(north_line.union(gayny)).union(komi_west),
+        "VOL": regions["VLG"].union(vologda_south),
+        "GEO": gayny,
         "VYA": combine("KIR", "UD").difference(komi_west),
         "PRM": regions["PER"].difference(upper_kama),
-        "GOR": combine("NIZ", "KOS"),
+        "GOR": gorky_core.difference(vologda_south),
         "TAT": combine("TA", "ME", "CU").difference(samara_east),
         "SAM": combine("SAM", "ULY").union(samara_west).union(samara_east),
-        "BSH": regions["BA"],
+        "BSH": regions["BA"].intersection(mask([
+            (52.7, 56.8), (58.8, 56.8), (58.7, 54.25), (58.25, 53.35), (56.9, 52.2), (53.3, 52.2),
+        ])),
     }
 
 
-def province_cells(domains, project):
-    cells = {}
-    cities = {}
-    for faction, domain in domains.items():
-        anchors = [seed for seed in SEEDS if seed[0] == faction]
-        points = [Point(project(seed[3], seed[4])) for seed in anchors]
-        for seed, point in zip(anchors, points):
-            if not domain.covers(point):
-                raise ValueError(f"{seed[1]} outside its initial faction")
-        partition = voronoi_polygons(MultiPoint(points), extend_to=domain.envelope, ordered=True)
-        for seed, point, sector in zip(anchors, points, partition.geoms):
-            code = seed[1]
-            cells[code] = make_valid(sector.intersection(domain))
-            cities[code] = point.coords[0]
-    return cells, cities
+def read_districts(source, project):
+    bounds = box(32, 49, 66, 71)
+    ids, geometries = [], []
+    features = json.loads(source.read_text(encoding="utf-8"))["features"]
+    for feature in sorted(features, key=lambda row: row["properties"]["shapeID"]):
+        raw = shape(feature["geometry"])
+        if raw.is_empty or not box(*raw.bounds).intersects(bounds):
+            continue
+        # Exclude distant island components outside the map, such as Franz Josef Land.
+        polygons = [transform(project, polygon) for polygon in parts(make_valid(raw), "Polygon")
+                    if polygon.intersects(bounds)]
+        if polygons:
+            ids.append(feature["properties"]["shapeID"])
+            geometries.append(make_valid(union_all(polygons)))
+    return ids, geometries
+
+
+def district_neighbors(geometries, tree, selected):
+    neighbors = {index: {} for index in selected}
+    for left in sorted(selected):
+        edge = geometries[left].boundary
+        vicinity = edge.buffer(45)
+        for right in tree.query(vicinity, predicate="intersects"):
+            if right <= left or right not in selected:
+                continue
+            shared = vicinity.intersection(geometries[right].boundary).length
+            if shared >= 650:
+                neighbors[left][right] = shared
+                neighbors[right][left] = shared
+    return neighbors
+
+
+def province_cells(source, domains, project):
+    district_ids, districts = read_districts(source, project)
+    tree = STRtree(districts)
+    territory_ids = list(domains)
+    territory_tree = STRtree(list(domains.values()))
+    owners = {}
+    for index, district in enumerate(districts):
+        overlaps = [(district.intersection(domains[territory_ids[match]]).area, territory_ids[match])
+                    for match in territory_tree.query(district, predicate="intersects")]
+        area, faction = max(overlaps, default=(0, None))
+        if area >= district.area * 0.46:
+            owners[index] = faction
+
+    cities, anchors, capitals = {}, {}, {}
+    for faction, code, _, lon, lat, _, _, _, tags in SEEDS:
+        point = Point(project(lon, lat))
+        matches = tree.query(point, predicate="intersects")
+        if len(matches) == 0:
+            raise ValueError(f"{code} does not lie in a source district")
+        district = min(matches, key=lambda match: districts[match].area)
+        if district in anchors:
+            raise ValueError(f"{code} shares a district with {anchors[district]}")
+        anchors[district], owners[district] = code, faction
+        cities[code] = point.coords[0]
+        if "首都" in tags.split():
+            capitals[faction] = district
+
+    neighbors = district_neighbors(districts, tree, set(owners))
+    connected = set()
+    for faction, capital in capitals.items():
+        reachable = {capital}
+        pending = [capital]
+        for index in pending:
+            for neighbor in neighbors[index]:
+                if owners[neighbor] == faction and neighbor not in reachable:
+                    pending.append(neighbor)
+                    reachable.add(neighbor)
+        connected.update(reachable)
+
+    detached = {code for index, code in anchors.items() if index not in connected}
+    if detached:
+        raise ValueError(f"Disconnected city districts: {', '.join(sorted(detached))}")
+
+    # Dissolve contiguous districts into playable provinces using nearest land routes.
+    # The predecessor is already in the province, so no grouped province can jump a border.
+    centers = [geometry.representative_point() for geometry in districts]
+    queue = [(0, code, index) for index, code in anchors.items()]
+    heapq.heapify(queue)
+    allocated = {}
+    groups = {code: [] for code in cities}
+    while queue:
+        distance, code, index = heapq.heappop(queue)
+        if index in allocated:
+            continue
+        allocated[index] = code
+        groups[code].append(index)
+        for neighbor in neighbors[index]:
+            if neighbor not in allocated and neighbor in connected and owners[index] == owners[neighbor]:
+                heapq.heappush(queue, (distance + centers[index].distance(centers[neighbor]), code, neighbor))
+
+    # Small detached pieces follow their longest shared edge without cutting the source geometry.
+    pending = set(owners) - connected
+    while pending:
+        attached = {}
+        for index in pending:
+            edges = [(length, allocated[neighbor]) for neighbor, length in neighbors[index].items()
+                     if neighbor in allocated]
+            if edges:
+                attached[index] = max(edges)[1]
+        if not attached:
+            break
+        for index, code in sorted(attached.items()):
+            groups[code].append(index)
+            allocated[index] = code
+        pending.difference_update(attached)
+
+    cells = {code: union_all([districts[index] for index in indices]) for code, indices in groups.items()}
+    sources = {f"WR_{code}": sorted(district_ids[index] for index in indices) for code, indices in groups.items()}
+    return cells, cities, sources
 
 
 def river_lines(rivers, project, theatre):
@@ -230,15 +340,16 @@ def river_lines(rivers, project, theatre):
             yield transform(project, shape(record.shape.__geo_interface__)).intersection(theatre).simplify(2400)
 
 
-def make_map(admin, rivers):
+def make_map(admin, rivers, raions):
     project = Transformer.from_crs(
         4326, "+proj=lcc +lat_1=53 +lat_2=65 +lat_0=59 +lon_0=47.5 +datum=WGS84",
         always_xy=True,
     ).transform
     regions, context = projected_shapes(admin, project)
-    domains = theatres(regions, project)
-    cells, cities = province_cells(domains, project)
-    theatre = union_all(list(domains.values()))
+    domains = opening_territories(regions, project)
+    cells, cities, sources = province_cells(raions, domains, project)
+    theatre = union_all(list(cells.values()))
+    drawing_cells = dict(zip(cells, coverage_simplify(list(cells.values()), 1850)))
     min_x, min_y, max_x, max_y = theatre.bounds
     scale = min(846 / (max_x - min_x), 536 / (max_y - min_y))
     center_x, center_y = (min_x + max_x) / 2, (min_y + max_y) / 2
@@ -269,7 +380,7 @@ def make_map(admin, rivers):
         node_id = f"WR_{code}"
         area = max(1, round(cells[code].area * scale ** 2))
         x, y = to_screen(*cities[code])
-        provinces[node_id] = [x, y, area, polygon_paths(cells[code]), faction]
+        provinces[node_id] = [x, y, area, polygon_paths(drawing_cells[code]), faction]
         node = dict(id=node_id, abbr=code, name=name, factionId=faction, x=x, y=y,
                     industry=industry, troops=troops, terrain=terrain, tags=tags.split())
         if "首都" in node["tags"]:
@@ -280,14 +391,14 @@ def make_map(admin, rivers):
     codes = sorted(cells)
     for index, left in enumerate(codes):
         for right in codes[index + 1:]:
-            if cells[left].distance(cells[right]) > 5:
+            if cells[left].distance(cells[right]) > 45:
                 continue
-            # The buffer joins separately split vertices without creating a route across water.
-            edge = cells[left].boundary.intersection(cells[right].boundary.buffer(20))
+            # A narrow tolerance accounts for vertices independently generalized by the source.
+            edge = cells[left].boundary.intersection(cells[right].boundary.buffer(45))
             lines = [line for line in parts(edge, "LineString") if line.length * scale > 0.12]
             if sum(line.length for line in lines) * scale < 1.4:
                 continue
-            border = "".join(path(line.coords) for line in lines)
+            border = "".join(path(line.simplify(1850).coords) for line in lines)
             borders.append([f"WR_{left}", f"WR_{right}", border])
 
     clip = box(center_x - 505 / scale, center_y - 315 / scale,
@@ -295,6 +406,7 @@ def make_map(admin, rivers):
     return {
         "nodes": nodes,
         "provinces": provinces,
+        "districts": sources,
         "borders": borders,
         "surroundings": polygon_paths(context.intersection(clip).simplify(3200), 1.0),
         "rivers": "".join(path(line.coords) for river in river_lines(rivers, project, theatre)
@@ -307,12 +419,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("admin", type=Path)
     parser.add_argument("rivers", type=Path)
+    parser.add_argument("raions", type=Path)
     args = parser.parse_args()
-    result = make_map(args.admin, args.rivers)
+    result = make_map(args.admin, args.rivers, args.raions)
     destination = Path(__file__).resolve().parents[1] / "js/scenarios/west-russia-map.js"
     encode = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     with destination.open("w", encoding="utf-8") as output:
-        output.write("// Generated by tools/build-west-russia-map.py from Natural Earth 10m data.\n")
+        output.write("// Generated by tools/build-west-russia-map.py. District geometry © OpenStreetMap contributors via geoBoundaries, ODbL 1.0.\n")
+        output.write("// https://www.openstreetmap.org/copyright • Natural Earth context and rivers are public domain.\n")
         output.write("const WestRussiaGeography = {\n")
         for key, value in result.items():
             if isinstance(value, dict):

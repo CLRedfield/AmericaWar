@@ -585,7 +585,7 @@ const SimultaneousTurns = {
         game.submittedFactions = [];
         game.turnStartOwners = this.captureOwners();
         game.pendingWorldEffects = [];
-        game.timerRemaining = Number(GameState.lobby.settings.turnLimit) || 180;
+        game.timerRemaining = GameState.getTurnLimitSeconds();
         this.loadHumanState(GameState.getPlayerFactionId());
         this.prepareAiPlans();
 

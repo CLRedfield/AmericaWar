@@ -29,12 +29,12 @@
 
 ## 玩法概览
 
-在主菜单选战役，再开单机或创建联机房间。各势力同时规划征兵、建设、国策和行军，统一在回合末结算。
+在主菜单选战役与每回合时间，再开单机或创建联机房间。两张地图都支持 30、60、90、120、180、300 秒和不限时。房主也可以在开局前改时长。各势力同时规划征兵、建设、国策和行军，统一在回合末结算。
 
 | 战役 | 可玩势力 | 可占领省区 | 每势力国策 |
 | --- | ---: | ---: | ---: |
 | 美国内战 | 8 | 48 | 145–150 项 |
-| 西俄罗斯 · 大动乱 | 11 | 94 | 150 项 |
+| 西俄罗斯 · 大动乱 | 11 | 93 | 150 项 |
 
 各势力有独立国策树与起步意识形态，完成政治路线可切换加成并改换国号。省区拥有工业、驻军和地形标签，调兵和进攻沿省区共边进行。统一模式要求击败其他势力，霸权模式也可通过控制 60% 的省区取胜。
 
@@ -59,21 +59,21 @@
 
 ### 西俄罗斯 · 大动乱
 
-开局取材于 TNO 经典西俄剧本。以白海、北德维纳河、伏尔加河和乌拉尔山为地理骨架，围绕实际城镇和渡口划分 94 个省区。科米与沃洛格达相邻，萨马拉可直接向高尔基、维亚特卡或巴什科尔托斯坦开战。普列谢茨克、乌赫塔作为革命阵线辖区上图，外围的莫斯科辖区、沃尔库塔和奥伦堡公社作为地图背景。各势力的省界按本作战场尺度重画。[西俄势力](https://tno.wiki.gg/wiki/Russia/Situation) · [萨马拉](https://tno.wiki.gg/wiki/Samara)
+开局采用 TNO 经典西俄势力的国名和大致占领范围。地图将 494 个相邻的真实区县合并成 93 个可占领省区，势力边界也沿真实区县边界落位。普列谢茨克、乌赫塔作为革命阵线辖区上图。莫斯科专员辖区、沃尔库塔和奥伦堡公社是战区外背景。[西俄势力](https://tno.wiki.gg/wiki/Russia/Situation) · [1962 年地图参考](https://www.paxhistoria.co/assets/ea71e561-16fe-57fb-962c-47e2e1bf8a5c)
 
 | 势力 | 首都 | 起始省区 |
 | --- | --- | ---: |
-| 西俄罗斯革命阵线 | 阿尔汉格尔斯克 | 10 |
-| 科米共和国 | 瑟克特夫卡尔 | 8 |
+| 西俄罗斯革命阵线 | 阿尔汉格尔斯克 | 14 |
+| 科米共和国 | 瑟克特夫卡尔 | 7 |
 | 维亚特卡总督辖区 | 维亚特卡 | 10 |
-| 萨马拉政府 | 萨马拉 | 8 |
-| 彼尔姆政权 | 彼尔姆 | 10 |
-| 奥涅加志愿卫队 | 奥涅加 | 8 |
-| 高尔基坦克团 | 高尔基 | 8 |
-| 沃洛格达中立国 | 沃洛格达 | 8 |
+| 俄罗斯解放军 | 萨马拉 | 12 |
+| 雅利安兄弟会 | 彼尔姆 | 10 |
+| 反共志愿卫队 | 奥涅加 | 3 |
+| 高尔基军事管制委员会 | 高尔基 | 5 |
+| 沃洛格达中立国 | 沃洛格达 | 11 |
 | 圣乔治骑士团 | 盖内 | 6 |
-| 鞑靼共和国 | 喀山 | 10 |
-| 巴什科尔托斯坦共和国 | 乌法 | 8 |
+| 鞑靼斯坦共和国 | 喀山 | 8 |
+| 巴什科尔托斯坦共和国 | 乌法 | 7 |
 
 前 3 回合为发育期，可建设、征兵、推进早期国策和境内调兵。第 4 回合进入大动乱，开放跨境进攻与战时国策。每个势力有 4 条互斥政治路线，每条路线有两种施政结局，另有经济、补给、军事、民政和地区整合支线。20 种意识形态提供不同的财政、政治与攻防修正。小势力的长线国策包含本作原创设定。[大动乱机制](https://tno.wiki.gg/wiki/Smuta)
 
@@ -122,7 +122,7 @@ http://localhost:8765/
 
 ## 联机模式
 
-美国内战沿用六码房间码，西俄罗斯房间码带 `WR-` 前缀。加入时会根据房间码选择战役。
+美国内战沿用六码房间码，西俄罗斯房间码带 `WR-` 前缀。加入时会根据房间码选择战役。西俄地块更新后，请使用新版新建房间。
 
 ### 1. 启用 Firebase 服务（仅房主需要做一次）
 
@@ -195,8 +195,8 @@ const firebaseConfig = {
 
 | 入口 | 说明 |
 | --- | --- |
-| 主菜单 | 昵称、单机沙盒、创建/加入联机房间 |
-| 房间界面 | 国家席位（空 / AI / 玩家）、房主设置、聊天 |
+| 主菜单 | 战役、每回合时间、昵称、单机沙盒、创建或加入联机房间 |
+| 房间界面 | 国家席位（空 / AI / 玩家）、回合时长等房主设置、聊天 |
 | 战场顶栏 | 当前回合、规划/结算阶段、真人已准备 x/n、PP / 金钱、准备完毕或取消准备 |
 | 地图 | 点省区查看详情，拖动平移，滚轮或双指缩放，「首都」定位己方首都，「全图」恢复总览 |
 | 下达行军令 | 先选己方省区，电脑右键接壤目标，手机点「行军」再点高亮省区。第一次确认命令时支付移动令的 PP |
@@ -231,7 +231,7 @@ AmericaWar/
 │       ├── faction-select.js  单人快速选阵营
 │       └── game-page.js       战场视图（地图 / 面板 / 国策模态）
 ├── tools/build-provinces.py    从公开县界数据重建地图
-├── tools/build-west-russia-map.py  从 Natural Earth 数据重建西俄地图
+├── tools/build-west-russia-map.py  合并真实区县边界并重建西俄地图
 ├── kx_*.md / kx_*.json        国策与效果设计参考文档
 └── README.md
 ```
@@ -251,14 +251,16 @@ AmericaWar/
 - 国策与意识形态系统的灵感大量取自 *Hearts of Iron IV* 与 *Kaiserredux* 模组社区。
 - 地理数据来自美国人口普查局 2017 年制图边界，使用 [us-atlas 3.0.1](https://github.com/topojson/us-atlas) 的 Albers 投影县界数据。上游 [ISC 许可](tools/us-atlas-LICENSE.txt) 随仓库保留。游戏加载本地生成的几何文件。
 - 重建地图时，下载 [counties-albers-10m.json](https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-albers-10m.json) 后运行 `python tools/build-provinces.py /path/to/counties-albers-10m.json`。
-- 西俄地图使用 Natural Earth 公有领域的 1:1000 万行政区与河流数据。重建时先下载并解压[带湖泊的行政区 5.1.1](https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces_lakes.zip)及[河流中心线 5.0.0](https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip)。[Natural Earth 使用条款](https://www.naturalearthdata.com/about/terms-of-use/)
+- 西俄区县边界来自 © OpenStreetMap contributors，由 geoBoundaries 整理。生成的地图文件包含源区县 ID，区县数据及其衍生几何按 ODbL 1.0 提供。[geoBoundaries RUS ADM2](https://www.geoboundaries.org/api/current/gbOpen/RUS/ADM2/) · [源区县 GeoJSON](https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/RUS/ADM2/geoBoundaries-RUS-ADM2_simplified.geojson) · [OpenStreetMap 版权](https://www.openstreetmap.org/copyright) · [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/)
+- 西俄地图背景与河流使用 Natural Earth 公有领域数据。重建时下载并解压[带湖泊的行政区 5.1.1](https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces_lakes.zip)及[河流中心线 5.0.0](https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip)。[Natural Earth 使用条款](https://www.naturalearthdata.com/about/terms-of-use/)
 - 代码基于 [MIT License](LICENSE) 发布；游戏中涉及的真实人名、机构、品牌均为戏剧化处理。
 
 ```bash
 python -m pip install 'shapely==2.1.2' 'pyproj==3.7.2' 'pyshp==2.3.1'
 python tools/build-west-russia-map.py \
   /path/to/ne_10m_admin_1_states_provinces_lakes.shp \
-  /path/to/ne_10m_rivers_lake_centerlines.shp
+  /path/to/ne_10m_rivers_lake_centerlines.shp \
+  /path/to/geoBoundaries-RUS-ADM2_simplified.geojson
 ```
 
 ---

@@ -35,7 +35,7 @@ test('West Russia provides a connected province map and complete, distinct facti
     GameState.initLocalLobby('west-russia');
 
     assert.equal(GameState.lobby.slots.length, 11);
-    assert.equal(MapData.nodes.length, 94);
+    assert.equal(MapData.nodes.length, 93);
     const reachable = new Set([MapData.nodes[0].id]);
     for (const nodeId of reachable) {
         for (const neighbor of MapData.getNeighbors(nodeId)) reachable.add(neighbor.id);
@@ -43,12 +43,20 @@ test('West Russia provides a connected province map and complete, distinct facti
     assert.equal(reachable.size, MapData.nodes.length);
     assert.ok(MapData.geography.borders.every(([a, b, d]) => a !== b && d.startsWith('M')));
     assert.ok(MapData.nodes.every(node => MapData.geography.provinces[node.id][3].startsWith('M')));
+    assert.ok(MapData.nodes.every(node => MapData.geography.districts[node.id].length > 0));
+    const sourceDistricts = Object.values(MapData.geography.districts).flat();
+    assert.equal(sourceDistricts.length, 494);
+    assert.equal(new Set(sourceDistricts).size, sourceDistricts.length, 'each real district belongs to one playable province');
     assert.equal(MapData.getNode('WR_UKH').factionId, 'WRF');
     assert.equal(MapData.getNode('WR_VYT').factionId, 'VYA');
+    assert.equal(GameState.getFaction('ONE').name, '反共志愿卫队');
+    assert.equal(GameState.getFaction('PRM').name, '雅利安兄弟会');
+    assert.equal(GameState.getFaction('GOR').name, '高尔基军事管制委员会');
+    assert.equal(GameState.getFaction('SAM').name, '俄罗斯解放军');
 
     const campaignFocusIds = new Set();
     const campaignIdeologies = new Set();
-    const provincesPerFaction = { WRF: 10, KOM: 8, VYA: 10, SAM: 8, PRM: 10, ONE: 8, GOR: 8, VOL: 8, GEO: 6, TAT: 10, BSH: 8 };
+    const provincesPerFaction = { WRF: 14, KOM: 7, VYA: 10, SAM: 12, PRM: 10, ONE: 3, GOR: 5, VOL: 11, GEO: 6, TAT: 8, BSH: 7 };
     for (const faction of GameState.factions) {
         assert.equal(MapData.getNode(faction.capitalNodeId).factionId, faction.id);
         const owned = MapData.getFactionNodes(faction.id);
@@ -99,7 +107,7 @@ test('West Russia provides a connected province map and complete, distinct facti
     const openingFrontiers = new Set(MapData.connections.map(([a, b]) => (
         [MapData.getNode(a).factionId, MapData.getNode(b).factionId].sort().join('-')
     )));
-    for (const border of ['KOM-VOL', 'BSH-SAM', 'GOR-SAM', 'SAM-VYA', 'ONE-WRF']) {
+    for (const border of ['KOM-VOL', 'BSH-SAM', 'GOR-SAM', 'SAM-VYA', 'ONE-WRF', 'GEO-WRF']) {
         assert.ok(openingFrontiers.has(border), border + ' has a shared land frontier');
     }
 
@@ -116,7 +124,7 @@ test('preparation permits friendly movement and blocks cross-border orders throu
     GameState.addAiToSlot('KOM', 'very_easy');
     GameState.startGameSession();
 
-    const friendly = { sourceId: 'WR_UKH', targetId: 'WR_KTL', amount: 1, kind: 'move' };
+    const friendly = { sourceId: 'WR_UKH', targetId: 'WR_LSH', amount: 1, kind: 'move' };
     const attack = { sourceId: 'WR_UKH', targetId: 'WR_KNY', amount: 4, kind: 'attack' };
     assert.equal(MapData.getAttackTargets(attack.sourceId, 'WRF').length, 0);
     assert.equal(SimultaneousTurns.addOrder(attack), null);
@@ -219,6 +227,39 @@ test('completing a political route changes the ideology, country name and ongoin
     assert.equal(GameState.getFocusStatus(GameState.getFocusById('wr_kom_centre_1_choice')), 'mutually-blocked');
 });
 
+test('both campaigns apply the selected clock to every round and support untimed planning', () => {
+    const client = gameClient();
+    const { GameState, app } = client;
+    let tick;
+    client.setInterval = callback => { tick = callback; return 1; };
+    app.playResolutionAnimation = () => false;
+    app.startTimer();
+
+    for (const [scenarioId, seconds, opponent] of [['america', 60, 'CSA'], ['west-russia', 30, 'KOM']]) {
+        app.selectScenario(scenarioId);
+        app.setMenuTurnLimit(String(seconds));
+        app.startLocalLobby();
+        assert.equal(GameState.lobby.settings.turnLimit, String(seconds));
+        GameState.addAiToSlot(opponent, 'very_easy');
+        GameState.startGameSession();
+        assert.equal(GameState.game.timerRemaining, seconds);
+        for (let remaining = seconds; remaining > 0; remaining--) tick();
+        assert.equal(GameState.game.currentTurn, 2);
+        assert.equal(GameState.game.timerRemaining, seconds);
+
+        app.startLocalLobby();
+        assert.equal(GameState.updateLobbySetting('turnLimit', '无限'), true);
+        GameState.addAiToSlot(opponent, 'very_easy');
+        GameState.startGameSession();
+        for (let remaining = 301; remaining > 0; remaining--) tick();
+        assert.equal(GameState.game.currentTurn, 1);
+        assert.equal(GameState.game.timerRemaining, null);
+        app.endTurn();
+        assert.equal(GameState.game.currentTurn, 2);
+        assert.equal(GameState.game.timerRemaining, null);
+    }
+});
+
 test('West Russia room codes, settings and authoritative snapshots select the same campaign on both clients', async () => {
     const host = gameClient();
     const guest = gameClient();
@@ -249,20 +290,22 @@ test('West Russia room codes, settings and authoritative snapshots select the sa
     connect(host, 'host');
     connect(guest, 'guest');
 
-    const code = await host.Multiplayer.createRoom('房主', { scenarioId: 'west-russia' });
+    const code = await host.Multiplayer.createRoom('房主', { scenarioId: 'west-russia', turnLimit: '90' });
     assert.match(code, /^WR-[A-Z0-9]{6}$/);
+    assert.equal(host.GameState.lobby.settings.turnLimit, '90');
     host.GameState.setView('lobby');
     host.GameState.updateLobbySetting('story', true);
     host.Multiplayer.pushLobby();
-    const roomKey = 'campaign-v1-' + code;
+    const roomKey = 'campaign-v2-' + code;
     assert.equal(rooms.get(roomKey).lobby.scenarioId, 'west-russia');
     assert.equal(rooms.get(roomKey).lobby.settings.story, true);
 
     await guest.Multiplayer.joinRoom(code.toLowerCase(), '客人');
     assert.equal(guest.GameState.getScenario().id, 'west-russia');
     assert.equal(guest.GameState.getPlayerFactionId(), 'KOM');
-    assert.equal(guest.MapData.nodes.length, 94);
+    assert.equal(guest.MapData.nodes.length, 93);
     assert.equal(guest.GameState.lobby.settings.story, true);
+    assert.equal(guest.GameState.lobby.settings.turnLimit, '90');
     guest.GameState.setView('lobby');
     assert.equal(guest.GameState.updateLobbySetting('story', false), false);
 
@@ -272,9 +315,15 @@ test('West Russia room codes, settings and authoritative snapshots select the sa
     const state = rooms.get(roomKey).state;
     assert.equal(state.scenarioId, 'west-russia');
     assert.equal(state.storyEnabled, true);
+    assert.equal(state.turnLimit, '90');
+    guest.GameState.lobby.settings.turnLimit = '180';
     assert.equal(guest.Multiplayer.applyStateFromRemote(state), true);
     assert.equal(guest.GameState.game.sessionId, state.sessionId);
     assert.equal(guest.GameState.game.storyEnabled, true);
+    assert.equal(guest.GameState.game.timerRemaining, 90);
+    guest.GameState.game.timerRemaining = 55;
+    assert.equal(guest.Multiplayer.applyStateFromRemote({ ...state, lastUpdate: state.lastUpdate + 1 }), true);
+    assert.equal(guest.GameState.game.timerRemaining, 55);
     assert.equal(guest.GameState.getCampaignStage().label, '发育期 1/3');
     assert.ok(guest.GameState.getCampaignStories().some(entry => entry.id === 'wr_intro_KOM'));
     assert.equal(guest.Multiplayer.applyStateFromRemote({ ...state, scenarioId: 'america' }), false);

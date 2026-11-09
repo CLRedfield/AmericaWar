@@ -225,9 +225,15 @@ const MapView = {
                 `}
                 ${ordering ? '<span class="atlas-order-hint">行军模式 · 点击高亮目标</span>'
                     : '<span class="atlas-desktop-hint">拖拽平移 · 滚轮缩放 · 右键下令</span>'}
+                ${this.renderMapCredit(scenario)}
             </div>
             ${this.renderTooltip()}
         `;
+    },
+
+    renderMapCredit(scenario) {
+        const credit = scenario.mapSource;
+        return credit ? `<a class="atlas-map-credit" href="${credit.href}" target="_blank" rel="noopener noreferrer">${credit.label}</a>` : '';
     },
 
     renderMapContext(scenario) {
@@ -297,17 +303,22 @@ const MapView = {
 
     renderFactionLabels() {
         const provinces = MapData.geography.provinces;
+        const fontSize = GameState.getScenario().map ? 15 : 20;
+        const placed = [];
         return GameState.factions.map(faction => {
             const nodes = MapData.getFactionNodes(faction.id);
             if (!nodes.length) return '';
             const area = nodes.reduce((sum, node) => sum + provinces[node.id][2], 0);
             const x = nodes.reduce((sum, node) => sum + node.x * provinces[node.id][2], 0) / area;
             const y = nodes.reduce((sum, node) => sum + node.y * provinces[node.id][2], 0) / area;
-            const anchor = nodes.reduce((closest, node) => (
-                Math.hypot(node.x - x, node.y - y) < Math.hypot(closest.x - x, closest.y - y) ? node : closest
-            ));
-            const name = escapeHtml(GameState.getFaction(faction.id).shortName);
-            return `<text class="territory-label" x="${anchor.x}" y="${anchor.y - 18}">${name}</text>`;
+            const name = GameState.getFaction(faction.id).shortName;
+            const width = name.length * fontSize;
+            nodes.sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y));
+            const anchor = nodes.find(node => !placed.some(label => (
+                Math.abs(node.y - label.y) < fontSize + 5 && Math.abs(node.x - label.x) < (width + label.width) / 2 + 5
+            ))) || nodes[0];
+            placed.push({ x: anchor.x, y: anchor.y, width });
+            return `<text class="territory-label" x="${anchor.x}" y="${anchor.y - 18}">${escapeHtml(name)}</text>`;
         }).join('');
     },
 

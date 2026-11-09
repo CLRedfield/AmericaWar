@@ -148,7 +148,7 @@ const GamePageView = {
         const game = GameState.game;
         const resources = game.playerResources;
         const playerFaction = GameState.getFaction(GameState.getPlayerFactionId());
-        const isLowTime = game.timerRemaining <= 15;
+        const isLowTime = Number.isFinite(game.timerRemaining) && game.timerRemaining <= 15;
         const isSimultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
         const resolutionReplay = window.app && window.app.resolutionAnimation;
         const submitted = isSimultaneous

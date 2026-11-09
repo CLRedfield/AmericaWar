@@ -397,7 +397,7 @@ const Multiplayer = {
 
     // America retains its existing room keys. Campaign prefixes keep different maps isolated.
     campaignRoomKey(code, scenario) {
-        return `${scenario.roomPrefix ? 'campaign-v1' : 'provinces-v1'}-${code}`;
+        return `${scenario.roomNamespace || 'provinces-v1'}-${code}`;
     },
 
     enterRoomLobby(lobby) {
@@ -434,7 +434,7 @@ const Multiplayer = {
             ready: false,
             connecting: false,
             statusMessage: '已创建房间，等待玩家加入。',
-            settings: GameState.createLobbySettings(scenario.id),
+            settings: GameState.createLobbySettings(scenario.id, { turnLimit: options.turnLimit }),
             slots: GameState.createDefaultSlots(scenario.id),
             chat: [
                 { author: '系统', text: `房间 ${code} 已创建。` }
@@ -666,6 +666,7 @@ const Multiplayer = {
             const payload = {
                 scenarioId: GameState.getScenario().id,
                 storyEnabled: !!GameState.game.storyEnabled,
+                turnLimit: GameState.game.turnLimit,
                 winner: GameState.game.winner || null,
                 turn: GameState.game.currentTurn,
                 currentPlayerId: GameState.game.currentPlayerId,
@@ -785,12 +786,14 @@ const Multiplayer = {
 
         const prevPlayerId = GameState.game.currentPlayerId;
         const previousTurn = GameState.game.currentTurn;
+        const previousTurnLimit = GameState.game.turnLimit;
         const previousSessionId = GameState.game.sessionId;
         const previousResolutionId = Number(GameState.game.resolutionId) || 0;
         const hadRemoteState = this._hasReceivedGameState;
 
         // 把 game 关键字段刷新
         GameState.game.currentTurn = remote.turn;
+        GameState.game.turnLimit = GameState.normalizeTurnLimit(remote.turnLimit ?? GameState.lobby.settings.turnLimit);
         GameState.game.storyEnabled = Boolean(scenario.story && remote.storyEnabled);
         if (remote.winner && !GameState.game.winner) GameState.game.showEndGameModal = true;
         GameState.game.winner = remote.winner || null;
@@ -872,13 +875,15 @@ const Multiplayer = {
                     SimultaneousTurns.resetLocalTurnControls();
                 }
             }
-            GameState.game.timerRemaining = Number(GameState.lobby.settings.turnLimit) || 180;
+            if (!hadRemoteState || isNewGame || previousTurn !== remote.turn || previousTurnLimit !== GameState.game.turnLimit) {
+                GameState.game.timerRemaining = GameState.getTurnLimitSeconds();
+            }
         } else if (
             remote.currentPlayerId !== prevPlayerId &&
             GameState.isFactionPlayedByLocalUser(remote.currentPlayerId)
         ) {
             // 旧式轮流回合兼容：轮到本地玩家时重置倒计时。
-            GameState.game.timerRemaining = Number(GameState.lobby.settings.turnLimit) || 180;
+            GameState.game.timerRemaining = GameState.getTurnLimitSeconds();
         }
 
         // 轮到本地玩家所控势力时，为它做本回合【完整结算】（金钱/PP/首都补员/赤字逃兵）。

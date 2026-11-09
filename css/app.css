@@ -405,6 +405,7 @@ button:disabled {
 .menu-name-row {
     display: flex;
     justify-content: center;
+    gap: var(--spacing-3);
     margin: var(--spacing-4) 0 var(--spacing-2);
 }
 
@@ -415,10 +416,17 @@ button:disabled {
     font-size: 0.85rem;
     color: var(--color-text-muted);
     width: 100%;
+    min-width: 0;
     max-width: 320px;
 }
 
-.menu-name-row input {
+.menu-name-row .menu-turn-field {
+    flex: 0 0 min(140px, 42%);
+}
+
+.menu-name-row input,
+.menu-name-row select {
+    width: 100%;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: rgba(15, 23, 42, 0.85);
@@ -3588,6 +3596,21 @@ button:disabled {
 .atlas-coordinate {
     color: #ecd4a2;
     font-weight: 800;
+}
+
+.atlas-map-credit {
+    margin-left: auto;
+    color: #c2ced4;
+    font-size: .68rem;
+    white-space: nowrap;
+    pointer-events: auto;
+}
+
+.view-main-menu > .atlas-map-credit {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    z-index: 2;
 }
 
 .atlas-caption i {

@@ -8,6 +8,7 @@ function escapeHtml(value) {
 }
 
 function formatTimer(totalSeconds) {
+    if (totalSeconds === null) return '不限时';
     const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
     const minutes = Math.floor(safeSeconds / 60);
     const seconds = safeSeconds % 60;
@@ -51,6 +52,7 @@ const App = {
     lastFocusDragEndedAt: 0,
     roomDialog: null,
     menuScenarioId: 'america',
+    menuTurnLimit: '180',
 
     init() {
         this.root = document.getElementById('app');
@@ -243,8 +245,12 @@ const App = {
         GameState.notify();
     },
 
+    setMenuTurnLimit(value) {
+        this.menuTurnLimit = GameState.normalizeTurnLimit(value);
+    },
+
     startLocalLobby() {
-        GameState.initLocalLobby(this.menuScenarioId);
+        GameState.initLocalLobby(this.menuScenarioId, { turnLimit: this.menuTurnLimit });
         GameState.setView('lobby');
     },
 
@@ -335,7 +341,9 @@ const App = {
 
         try {
             if (dialog.mode === 'create') {
-                const code = await Multiplayer.createRoom(GameState.lobby.myName, { transport, config, scenarioId: dialog.scenarioId });
+                const code = await Multiplayer.createRoom(GameState.lobby.myName, {
+                    transport, config, scenarioId: dialog.scenarioId, turnLimit: this.menuTurnLimit
+                });
                 this.roomDialog = null;
                 GameState.lobby.statusMessage = `房间 ${code} 已创建（${this._transportLabel(transport)}）。把房间码告诉朋友以邀请他们。`;
                 GameState.setView('lobby');
@@ -412,9 +420,9 @@ const App = {
     },
 
     updateLobbySetting(key, value) {
-        if (GameState.updateLobbySetting(key, value) && window.Multiplayer && Multiplayer.isOnline) {
-            Multiplayer.pushLobby();
-        }
+        if (!GameState.updateLobbySetting(key, value)) return;
+        if (key === 'turnLimit') this.setMenuTurnLimit(value);
+        if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushLobby();
     },
 
     toggleLobbySwitch(key) {
@@ -622,13 +630,10 @@ const App = {
                 !this.isMyTurnToAct()
             ) return;
 
-            if (GameState.game.timerRemaining <= 0) {
-                this.endTurn(true);
-                return;
-            }
-
-            GameState.game.timerRemaining -= 1;
+            if (GameState.game.timerRemaining === null) return;
+            GameState.game.timerRemaining = Math.max(0, GameState.game.timerRemaining - 1);
             this.updateTimerDisplay();
+            if (GameState.game.timerRemaining === 0) this.endTurn(true);
         }, 1000);
     },
 
@@ -636,7 +641,7 @@ const App = {
         const timerElements = document.querySelectorAll('.timer');
         timerElements.forEach(element => {
             element.textContent = formatTimer(GameState.game.timerRemaining);
-            element.classList.toggle('danger', GameState.game.timerRemaining <= 15);
+            element.classList.toggle('danger', Number.isFinite(GameState.game.timerRemaining) && GameState.game.timerRemaining <= 15);
         });
     },
 
@@ -1591,7 +1596,7 @@ const App = {
             if (!localActs && !hostHandlesNonHuman) return;
         }
 
-        const turnLimit = Number(GameState.lobby.settings.turnLimit) || 180;
+        const turnLimit = GameState.getTurnLimitSeconds();
         const turnOrder = (GameState.game.turnOrder && GameState.game.turnOrder.length)
             ? GameState.game.turnOrder
             : GameState.factions.map(f => f.id);
