@@ -395,6 +395,11 @@ const Multiplayer = {
         return userId;
     },
 
+    // Keep the same six-character invite format without mixing rule sets.
+    campaignRoomKey(code) {
+        return `provinces-v1-${code}`;
+    },
+
     /**
      * 创建联机房间。设当前用户为房主，本地 lobby 切换到 online 模式。
      * options: { transport, config }
@@ -404,7 +409,7 @@ const Multiplayer = {
         const cleanName = String(playerName || '').trim() || `指挥官-${userId.slice(-4)}`;
 
         const code = this.generateRoomCode();
-        const room = this.transport.openRoom(code);
+        const room = this.transport.openRoom(this.campaignRoomKey(code));
         // 仅在后端支持快速存在性检查时做撞码重试
         if (room.canCheckExistence && (await room.exists())) {
             return this.createRoom(playerName, options);
@@ -461,12 +466,12 @@ const Multiplayer = {
     async joinRoom(rawCode, playerName, options = {}) {
         const userId = await this.connect(options.transport, options.config);
         const code = String(rawCode || '').trim().toUpperCase();
-        if (!code) throw new Error('请填写房间码');
+        if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error('请输入 6 位房间码');
         const cleanName = String(playerName || '').trim() || `指挥官-${userId.slice(-4)}`;
 
-        const room = this.transport.openRoom(code);
+        const room = this.transport.openRoom(this.campaignRoomKey(code));
         const data = await room.readAll();
-        if (!data || !data.lobby) throw new Error(`房间 ${code} 不存在`);
+        if (!data || !data.lobby) throw new Error(`未找到省区版房间 ${code}，请确认房间码和游戏版本`);
 
         const lobby = data.lobby || {};
         const slots = (lobby.slots || []).map(slot => ({ ...slot }));

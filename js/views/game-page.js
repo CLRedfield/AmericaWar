@@ -22,33 +22,17 @@ const GamePageView = {
         const node = MapData.getNode(GameState.game.selectedNodeId);
         if (!node) return '';
 
-        const pendingAttack = window.app.mobilePendingAttack;
-        const pendingMove = window.app.mobilePendingMove;
         const faction = GameState.getFaction(node.factionId);
-        const playerFactionId = GameState.getPlayerFactionId();
-        const isFriendly = node.factionId === playerFactionId;
-        const movableTroops = GameState.getNodeMovableTroops(node);
-
-        let primaryAction = '';
-        let contextText = `${faction.shortName} · 兵力 ${node.troops} · 可动 ${movableTroops} · 工业 ${node.industry}`;
-
-        if (pendingAttack && pendingAttack.defenderId === node.id) {
-            const attacker = MapData.getNode(pendingAttack.attackerId);
-            if (attacker) {
-                contextText = `${attacker.name} → ${node.name} · 可动 ${GameState.getNodeMovableTroops(attacker)} / 守军 ${node.troops}`;
-                primaryAction = `<button class="btn btn-danger btn-sm" onclick="window.app.openMobilePendingAttack()">进攻预览</button>`;
-            }
-        } else if (pendingMove && pendingMove.targetId === node.id) {
-            const source = MapData.getNode(pendingMove.sourceId);
-            if (source) {
-                contextText = `${source.name} → ${node.name} · 可调动 ${GameState.getNodeMovableTroops(source)}`;
-                primaryAction = `<button class="btn btn-primary btn-sm" onclick="window.app.openMobilePendingMove()">移动确认</button>`;
-            }
-        } else if (isFriendly) {
-            primaryAction = `<button class="btn btn-primary btn-sm" onclick="window.app.openMobileActionPanel()">行动</button>`;
-        } else {
-            primaryAction = `<button class="btn btn-outline btn-sm" onclick="window.app.setMobilePanel('intel')">情报</button>`;
-        }
+        const isFriendly = node.factionId === GameState.getPlayerFactionId();
+        const movable = GameState.getNodeMovableTroops(node);
+        const canOrder = isFriendly && movable > 0 && window.app.getActionAvailability('move', node.id).enabled;
+        const isOrdering = canOrder && GameState.game.currentAction === 'move';
+        const contextText = isOrdering
+            ? '点相邻高亮省区，预览调兵或进攻'
+            : `${faction.shortName} · 驻军 ${node.troops} · 可动 ${movable} · 工业 ${node.industry}`;
+        const primaryAction = canOrder
+            ? `<button class="btn btn-primary btn-sm" onclick="window.app.activateMove()">${isOrdering ? '退出行军' : '行军'}</button>`
+            : '';
 
         return `
             <div class="mobile-node-chip" style="--faction-color: ${faction.color}">
@@ -61,7 +45,7 @@ const GamePageView = {
                 </div>
                 <div class="mobile-node-chip-actions">
                     ${primaryAction}
-                    <button class="btn btn-outline btn-sm" onclick="window.app.centerSelectedNode()">定位</button>
+                    <button class="btn btn-outline btn-sm" onclick="window.app.setMobilePanel('actions')">详情</button>
                 </div>
             </div>
         `;
@@ -193,7 +177,7 @@ const GamePageView = {
                         <span class="top-stat-value">+${GameState.getActionExtraCost()} PP</span>
                     </div>
                     <div class="top-stat-item mobile-optional-stat">
-                        <span class="top-stat-label">节点</span>
+                        <span class="top-stat-label">省区</span>
                         <span class="top-stat-value">${resources.nodes}</span>
                     </div>
                     <div class="top-stat-item mobile-optional-stat">
@@ -256,8 +240,8 @@ const GamePageView = {
                             </strong>
                         </div>
                         <div>
-                            <span>资源</span>
-                            <strong>$ ${formatMoney(resources.money)} / PP ${resources.pp}</strong>
+                            <span>驻军总数</span>
+                            <strong>${resources.totalTroops}</strong>
                         </div>
                         <div>
                             <span>国策</span>
@@ -282,7 +266,7 @@ const GamePageView = {
                     <div class="section-title-row">
                         <h3>势力排行</h3>
                         <select class="compact-select" onchange="window.app.setRankingMetric(this.value)">
-                            <option value="nodes" ${window.app.rankingMetric === 'nodes' ? 'selected' : ''}>节点</option>
+                            <option value="nodes" ${window.app.rankingMetric === 'nodes' ? 'selected' : ''}>省区</option>
                             <option value="industry" ${window.app.rankingMetric === 'industry' ? 'selected' : ''}>工业</option>
                             <option value="troops" ${window.app.rankingMetric === 'troops' ? 'selected' : ''}>兵力</option>
                         </select>
@@ -472,8 +456,8 @@ const GamePageView = {
     renderDefaultActionState() {
         return `
             <div class="empty-state">
-                <strong>未选择节点</strong>
-                <span>选择己方节点后可执行征兵、裁军、移动、建设或进攻。</span>
+                <strong>未选择省区</strong>
+                <span>点击地图上的任意省区查看驻军和工业。选中己方省区后，可以征兵、建设或规划行军。</span>
             </div>
             <div class="action-help-block">
                 当前可用 PP：${GameState.game.playerResources.pp}<br>
@@ -559,7 +543,7 @@ const GamePageView = {
                     <div><span>PP</span><strong>${formatMoney(observed.pp)}</strong></div>
                     <div><span>下回合金钱</span><strong>${observed.nextTurn ? `${formatSignedMoney(observed.nextTurn.moneyDelta)}（+$${formatMoney(observed.nextTurn.income)} / -$${formatMoney(observed.nextTurn.maintenance)}）` : '未知'}</strong></div>
                     <div><span>下回合 PP</span><strong>${observed.nextTurn ? formatSignedMoney(observed.nextTurn.ppIncome) : '未知'}</strong></div>
-                    <div><span>节点</span><strong>${observed.stats.nodes}</strong></div>
+                    <div><span>省区</span><strong>${observed.stats.nodes}</strong></div>
                     <div><span>工业</span><strong>${observed.stats.totalIndustry}</strong></div>
                     <div><span>总兵力</span><strong>${observed.stats.totalTroops}</strong></div>
                     <div><span>首都</span><strong>${observed.capital ? observed.capital.name : '灭亡'}</strong></div>
@@ -587,7 +571,7 @@ const GamePageView = {
         const originalCapitalOwner = GameState.getOriginalCapitalOwner(node.id);
         const isEncircled = MapData.isNodeEncircled(node);
         const nodeLabels = [
-            ...node.tags,
+            ...node.tags.filter(tag => tag !== '首都'),
             currentCapitalOwner ? `${GameState.getFactionName(currentCapitalOwner)}当前首都` : '',
             originalCapitalOwner && originalCapitalOwner !== currentCapitalOwner ? `${GameState.getFactionName(originalCapitalOwner)}原始首都` : ''
         ].filter(Boolean);
@@ -601,15 +585,13 @@ const GamePageView = {
                         <div class="text-muted">${faction.name}</div>
                     </div>
                 </div>
-                <div class="node-detail-grid">
+                <div class="node-detail-grid province-stats">
+                    <div><span>驻军</span><strong>${node.troops}</strong></div>
+                    <div><span>可调动</span><strong>${movableTroops}</strong></div>
                     <div><span>工业</span><strong>${node.industry}</strong></div>
-                    <div><span>兵力</span><strong>${node.troops}</strong></div>
-                    <div><span>可动老兵</span><strong>${movableTroops}</strong></div>
-                    <div><span>本回合新兵</span><strong>${freshTroops}</strong></div>
-                    <div><span>地形</span><strong>${node.terrain}</strong></div>
-                    <div><span>已行动/待命</span><strong>${waitingTroops}</strong></div>
-                    <div><span>标签</span><strong>${nodeLabels.length ? nodeLabels.join(' / ') : '无'}</strong></div>
                 </div>
+                <div class="province-meta">${node.terrain} · 新兵 ${freshTroops} · 已行动／预留 ${waitingTroops}</div>
+                ${nodeLabels.length ? `<div class="province-meta">${nodeLabels.join(' · ')}</div>` : ''}
                 ${isEncircled ? `
                     <div class="action-help-block hostile">
                         ⚠ 该节点已被包围（所有相邻节点均为敌方）：本节点部队进攻 -35%、防守 -35%。
@@ -618,27 +600,26 @@ const GamePageView = {
             </div>
 
             ${isFriendly ? this.renderNodePlanOrders(node) : ''}
-            ${this.renderSeaModeFactionCard(node.factionId)}
-
             ${isFriendly ? `
                 <div class="action-button-grid">
                     ${this.renderActionButton('recruit', '征兵')}
                     ${this.renderActionButton('disband', '裁军')}
-                    ${this.renderActionButton('move', this.getMoveButtonLabel())}
+                    ${this.renderActionButton('move', this.getMoveButtonLabel(), movableTroops > 0)}
                     ${this.renderActionButton('build', '建设工业')}
                 </div>
                 ${GameState.game.currentAction === 'move' ? this.renderMoveTargets(node, moveTargets) : ''}
-                ${this.renderAttackTargets(node, attackTargets)}
+                ${window.app.getActionAvailability('move', node.id).enabled ? this.renderAttackTargets(node, attackTargets) : ''}
             ` : `
                 <div class="action-help-block hostile">
-                    敌方节点。先选择相邻己方节点，再点击这里可打开战斗预览。
+                    敌方省区。选中相邻己方省区，再右键这里或使用行军模式规划进攻。
                 </div>
             `}
 
             <div class="neighbor-list">
-                <span>相邻节点</span>
-                <div>${neighbors.map(neighbor => `<button onclick="window.app.handleNodeClick('${neighbor.id}')">${neighbor.abbr}</button>`).join('')}</div>
+                <span>接壤省区 · 点击查看</span>
+                <div>${neighbors.map(neighbor => `<button onclick="window.app.inspectProvince('${neighbor.id}')">${neighbor.name}</button>`).join('')}</div>
             </div>
+            ${this.renderSeaModeFactionCard(node.factionId)}
         `;
     },
 
@@ -674,20 +655,21 @@ const GamePageView = {
     },
 
     getMoveButtonLabel() {
-        if (!GameState.game.movementOrdersActive) return '移动士兵';
-        return GameState.game.currentAction === 'move' ? '收起移动' : '继续移动';
+        return GameState.game.currentAction === 'move' ? '退出行军' : '规划行军';
     },
 
-    renderActionButton(action, label) {
+    renderActionButton(action, label, hasTroops = true) {
         const availability = window.app.getActionAvailability(action);
-        const disabled = availability.enabled ? '' : 'disabled';
-        const title = availability.reason ? `title="${availability.reason}"` : '';
+        const enabled = availability.enabled && hasTroops;
+        const disabled = enabled ? '' : 'disabled';
+        const reason = hasTroops ? availability.reason : '本省区没有可调动的部队';
+        const title = reason ? `title="${reason}"` : '';
         const handler = action === 'move'
             ? 'window.app.activateMove()'
             : `window.app.openAction('${action}')`;
 
         return `
-            <button class="btn ${availability.enabled ? 'btn-primary' : 'btn-outline'} action-btn" ${disabled} ${title}
+            <button class="btn ${enabled ? 'btn-primary' : 'btn-outline'} action-btn" ${disabled} ${title}
                 onclick="${handler}">
                 <span>${label}</span>
                 <small>${availability.cost}</small>
@@ -698,10 +680,6 @@ const GamePageView = {
     renderMoveTargets(source, targets) {
         const maxAmount = GameState.getNodeMovableTroops(source);
         const amount = window.app.getSelectedMoveAmount(source);
-
-        if (!GameState.game.movementOrdersActive) {
-            return `<div class="action-help-block">先点击“移动士兵”发布移动令，本回合所有未移动士兵都可以各移动 1 次。</div>`;
-        }
 
         if (maxAmount < 1) {
             return `<div class="action-help-block">该节点没有可移动士兵。本回合新征召或已经移动过的士兵不能再移动。</div>`;
@@ -748,7 +726,7 @@ const GamePageView = {
             <div class="target-list attack-target-list">
                 <span>可进攻</span>
                 ${targets.map(target => `
-                    <button onclick="window.app.openBattleWithMoveOrder('${source.id}', '${target.id}')">
+                    <button onclick="window.app.openBattlePreview('${source.id}', '${target.id}')">
                         ${target.name}
                     </button>
                 `).join('')}
@@ -895,8 +873,8 @@ const GamePageView = {
                         ` : `
                             <div class="confirm-line"><span>效果</span><strong>${actionMeta.effect}</strong></div>
                         `}
-                        <div class="confirm-line"><span>消耗</span><strong data-action-cost>${isMove ? '已支付移动令' : actionMeta.costText}</strong></div>
-                        <div class="confirm-line"><span>行动次数</span><strong>${isMove ? GameState.game.actionCountThisTurn : GameState.game.actionCountThisTurn + 1}</strong></div>
+                        <div class="confirm-line"><span>消耗</span><strong data-action-cost>${isMove ? this.renderMovementCost() : actionMeta.costText}</strong></div>
+                        <div class="confirm-line"><span>行动次数</span><strong>${GameState.game.actionCountThisTurn + (isMove && GameState.game.movementOrdersActive ? 0 : 1)}</strong></div>
                     </div>
                     <footer class="modal-actions">
                         <button class="btn btn-outline" onclick="window.app.closeModals()">取消</button>
@@ -905,6 +883,12 @@ const GamePageView = {
                 </section>
             </div>
         `;
+    },
+
+    renderMovementCost() {
+        return GameState.game.movementOrdersActive
+            ? '已发布移动令 · 0 PP'
+            : `首次行军 · ${window.app.getActionAvailability('move').ppCost} PP`;
     },
 
     renderBattlePreviewModal(preview) {
@@ -965,11 +949,11 @@ const GamePageView = {
                     </div>
                     <div class="battle-result ${preview.attackerWins ? 'success' : 'danger'}" data-battle-result>
                         <span data-battle-result-text>${preview.resultText}</span>
-                        <div class="text-muted">本次进攻消耗：移动令内，不额外花费 PP</div>
+                        <div class="text-muted">本次消耗 · ${this.renderMovementCost()}</div>
                     </div>
                     <footer class="modal-actions">
                         <button class="btn btn-outline" onclick="window.app.closeModals()">取消</button>
-                        <button class="btn btn-danger" onclick="window.app.confirmBattle()">发动进攻</button>
+                        <button class="btn btn-danger" onclick="window.app.confirmBattle()">加入进攻计划</button>
                     </footer>
                 </section>
             </div>

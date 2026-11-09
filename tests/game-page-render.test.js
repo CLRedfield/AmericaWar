@@ -18,6 +18,7 @@ global.confirm = () => true;
 const root = path.resolve(__dirname, '..');
 [
     'js/state.js',
+    'js/province-geography.js',
     'js/map.js',
     'js/simultaneous-turns.js',
     'js/ai.js',
@@ -49,14 +50,14 @@ GameState.game.currentAction = 'move';
 
 const order = SimultaneousTurns.addOrder({
     sourceId: 'WAS',
-    targetId: 'PIT',
+    targetId: 'PHI',
     amount: 2,
     kind: 'attack'
 });
 assert.ok(order);
 const supportOrder = SimultaneousTurns.addOrder({
     sourceId: 'BAL',
-    targetId: 'PIT',
+    targetId: 'PHI',
     amount: 2,
     kind: 'attack'
 });
@@ -64,6 +65,12 @@ assert.ok(supportOrder);
 
 const html = GamePageView.render();
 assert.match(html, /同时规划/);
+assert.equal((html.match(/data-province-id=/g) || []).length, MapData.initialNodes.length);
+assert.equal(MapData.getNode('HOU').factionId, 'TEX');
+assert.equal(MapData.getNode('NYC').factionId, 'CSA');
+assert.equal(MapData.getNode('ALB').factionId, 'NEN');
+assert.equal(MapData.getNode('MSP').factionId, 'AUS');
+assert.equal(MapData.areAdjacent('NOL', 'SAV'), false, 'old cross-Gulf links are not land borders');
 assert.match(html, /准备完毕/);
 assert.match(html, /0\/2 已准备/);
 assert.match(html, /planned-order attack/);
@@ -73,7 +80,7 @@ assert.match(html, /coordinated/);
 assert.ok(html.indexOf('map-nodes-layer') < html.indexOf('planned-orders-layer'), 'planned routes should render above map nodes');
 assert.match(html, /2 路围攻 · 进攻 \+5%/);
 
-GameState.game.battlePreview = App.createBattlePreview('WAS', 'PIT', 1);
+GameState.game.battlePreview = App.createBattlePreview('WAS', 'PHI', 1);
 const battleHtml = GamePageView.renderBattlePreviewModal(GameState.game.battlePreview);
 assert.match(battleHtml, /2 路协同 · 进攻 \+5%/);
 assert.equal(GameState.game.battlePreview.existingPlannedTroops, 4);
@@ -89,11 +96,11 @@ App.resolutionAnimation = {
     staggerStep: 0.04,
     impactDuration: 0.92,
     movements: [
-        { id: 'route-a', factionId: 'USA', sourceId: 'WAS', targetId: 'PIT', amount: 2, kind: 'attack' },
-        { id: 'route-b', factionId: 'USA', sourceId: 'BAL', targetId: 'PIT', amount: 2, kind: 'attack' }
+        { id: 'route-a', factionId: 'USA', sourceId: 'WAS', targetId: 'PHI', amount: 2, kind: 'attack' },
+        { id: 'route-b', factionId: 'USA', sourceId: 'BAL', targetId: 'PHI', amount: 2, kind: 'attack' }
     ],
     engagements: [{
-        targetId: 'PIT',
+        targetId: 'PHI',
         type: 'battle',
         winnerFactionId: 'USA',
         previousOwnerId: 'CSA',

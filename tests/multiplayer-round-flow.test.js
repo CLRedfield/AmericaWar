@@ -18,6 +18,7 @@ global.confirm = () => true;
 const root = path.resolve(__dirname, '..');
 [
     'js/state.js',
+    'js/province-geography.js',
     'js/map.js',
     'js/simultaneous-turns.js',
     'js/ai.js',

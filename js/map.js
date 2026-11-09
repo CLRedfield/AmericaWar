@@ -1,76 +1,71 @@
 /**
- * SVG map data and helpers.
+ * Campaign provinces and SVG map.
  * Coordinates are normalized to a 1000 x 620 viewBox.
  */
 
 const MapData = {
     initialNodes: [
-        { id: 'SEA', abbr: 'SEA', name: '西雅图', factionId: 'PAC', x: 96, y: 86, row: 0, col: 0, industry: 2, troops: 4, terrain: '港口城市', tags: ['港口'] },
-        { id: 'POR', abbr: 'POR', name: '波特兰', factionId: 'PAC', x: 104, y: 154, row: 1, col: 0, industry: 1, troops: 3, terrain: '港口城市', tags: ['港口'] },
-        { id: 'SFO', abbr: 'SFO', name: '旧金山', factionId: 'PAC', x: 116, y: 278, row: 2, col: 0, industry: 3, troops: 5, terrain: '港口城市', tags: ['港口'] },
-        { id: 'SAC', abbr: 'SAC', name: '萨克拉门托', factionId: 'PAC', x: 154, y: 236, row: 2, col: 1, industry: 3, troops: 6, terrain: '太平洋国首府', tags: ['首都'], isCapital: true },
-        { id: 'LAX', abbr: 'LAX', name: '洛杉矶', factionId: 'PAC', x: 154, y: 390, row: 4, col: 0, industry: 3, troops: 4, terrain: '港口城市', tags: ['港口'] },
+        { id: 'SEA', abbr: 'SEA', name: '西雅图', industry: 2, troops: 4, terrain: '港口城市', tags: ['港口'] },
+        { id: 'POR', abbr: 'POR', name: '波特兰', industry: 1, troops: 3, terrain: '港口城市', tags: ['港口'] },
+        { id: 'SFO', abbr: 'SFO', name: '旧金山', industry: 3, troops: 5, terrain: '港口城市', tags: ['港口'] },
+        { id: 'SAC', abbr: 'SAC', name: '萨克拉门托', industry: 3, troops: 6, terrain: '太平洋国首府', tags: ['首都'], isCapital: true },
+        { id: 'LAX', abbr: 'LAX', name: '洛杉矶', industry: 3, troops: 4, terrain: '港口城市', tags: ['港口'] },
 
-        { id: 'BOI', abbr: 'BOI', name: '博伊西', factionId: 'WDC', x: 232, y: 150, row: 1, col: 1, industry: 1, troops: 2, terrain: '山地城市', tags: [] },
-        { id: 'BIL', abbr: 'BIL', name: '比林斯', factionId: 'WDC', x: 364, y: 112, row: 0, col: 2, industry: 1, troops: 2, terrain: '落基山前沿', tags: [] },
-        { id: 'RNO', abbr: 'RNO', name: '里诺', factionId: 'WDC', x: 226, y: 286, row: 2, col: 1, industry: 1, troops: 2, terrain: '山地荒漠', tags: [] },
-        { id: 'SLC', abbr: 'SLC', name: '盐湖城', factionId: 'WDC', x: 332, y: 286, row: 2, col: 2, industry: 1, troops: 2, terrain: '高原城市', tags: [] },
-        { id: 'DEN', abbr: 'DEN', name: '丹佛', factionId: 'WDC', x: 442, y: 330, row: 3, col: 3, industry: 2, troops: 5, terrain: '山地军区', tags: ['首都'], isCapital: true },
-        { id: 'PHX', abbr: 'PHX', name: '凤凰城', factionId: 'WDC', x: 304, y: 438, row: 4, col: 2, industry: 1, troops: 2, terrain: '荒漠城市', tags: [] },
-        { id: 'ABQ', abbr: 'ABQ', name: '阿尔伯克基', factionId: 'WDC', x: 392, y: 442, row: 4, col: 3, industry: 1, troops: 2, terrain: '高原荒漠', tags: [] },
+        { id: 'BOI', abbr: 'BOI', name: '博伊西', industry: 1, troops: 2, terrain: '山地城市', tags: [] },
+        { id: 'BIL', abbr: 'BIL', name: '比林斯', industry: 1, troops: 2, terrain: '落基山前沿', tags: [] },
+        { id: 'RNO', abbr: 'RNO', name: '里诺', industry: 1, troops: 2, terrain: '山地荒漠', tags: [] },
+        { id: 'SLC', abbr: 'SLC', name: '盐湖城', industry: 1, troops: 2, terrain: '高原城市', tags: [] },
+        { id: 'DEN', abbr: 'DEN', name: '丹佛', industry: 2, troops: 5, terrain: '山地军区', tags: ['首都'], isCapital: true },
+        { id: 'PHX', abbr: 'PHX', name: '凤凰城', industry: 1, troops: 2, terrain: '荒漠城市', tags: [] },
+        { id: 'ABQ', abbr: 'ABQ', name: '阿尔伯克基', industry: 1, troops: 2, terrain: '高原荒漠', tags: [] },
 
-        { id: 'FGO', abbr: 'FGO', name: '法戈', factionId: 'AUS', x: 522, y: 128, row: 0, col: 4, industry: 1, troops: 3, terrain: '北部平原', tags: [] },
-        { id: 'OMA', abbr: 'OMA', name: '奥马哈', factionId: 'AUS', x: 542, y: 262, row: 2, col: 4, industry: 1, troops: 3, terrain: '铁路枢纽', tags: [] },
-        { id: 'KAN', abbr: 'KAN', name: '堪萨斯城', factionId: 'AUS', x: 548, y: 362, row: 3, col: 4, industry: 2, troops: 3, terrain: '平原城市', tags: [] },
-        { id: 'OKC', abbr: 'OKC', name: '俄克拉荷马城', factionId: 'AUS', x: 526, y: 452, row: 4, col: 4, industry: 2, troops: 3, terrain: '平原油田', tags: ['油田'] },
-        { id: 'STL', abbr: 'STL', name: '圣路易斯', factionId: 'AUS', x: 640, y: 342, row: 3, col: 5, industry: 3, troops: 4, terrain: '河港城市', tags: [] },
-        { id: 'LRK', abbr: 'LRK', name: '小石城', factionId: 'AUS', x: 616, y: 438, row: 4, col: 5, industry: 1, troops: 3, terrain: '河谷城市', tags: [] },
-        { id: 'BAT', abbr: 'BAT', name: '巴吞鲁日', factionId: 'AUS', x: 642, y: 532, row: 5, col: 5, industry: 5, troops: 6, terrain: '联盟国首府', tags: ['首都', '油田'], isCapital: true },
-        { id: 'NOL', abbr: 'NOL', name: '新奥尔良', factionId: 'AUS', x: 688, y: 558, row: 5, col: 6, industry: 4, troops: 3, terrain: '港口城市', tags: ['港口'] },
-        { id: 'HOU', abbr: 'HOU', name: '休斯敦', factionId: 'AUS', x: 552, y: 580, row: 6, col: 4, industry: 2, troops: 4, terrain: '港口油田', tags: ['港口', '油田'] },
+        { id: 'FGO', abbr: 'FGO', name: '法戈', industry: 1, troops: 3, terrain: '北部平原', tags: [] },
+        { id: 'OMA', abbr: 'OMA', name: '奥马哈', industry: 1, troops: 3, terrain: '铁路枢纽', tags: [] },
+        { id: 'KAN', abbr: 'KAN', name: '堪萨斯城', industry: 2, troops: 3, terrain: '平原城市', tags: [] },
+        { id: 'OKC', abbr: 'OKC', name: '俄克拉荷马城', industry: 2, troops: 3, terrain: '平原油田', tags: ['油田'] },
+        { id: 'STL', abbr: 'STL', name: '圣路易斯', industry: 3, troops: 4, terrain: '河港城市', tags: [] },
+        { id: 'LRK', abbr: 'LRK', name: '小石城', industry: 1, troops: 3, terrain: '河谷城市', tags: [] },
+        { id: 'BAT', abbr: 'BAT', name: '巴吞鲁日', industry: 5, troops: 6, terrain: '联盟国首府', tags: ['首都', '油田'], isCapital: true },
+        { id: 'NOL', abbr: 'NOL', name: '新奥尔良', industry: 4, troops: 3, terrain: '港口城市', tags: ['港口'] },
+        { id: 'HOU', abbr: 'HOU', name: '休斯敦', industry: 2, troops: 4, terrain: '港口油田', tags: ['港口', '油田'] },
 
-        { id: 'MSP', abbr: 'MSP', name: '明尼阿波利斯', factionId: 'CSA', x: 600, y: 166, row: 0, col: 5, industry: 2, troops: 4, terrain: '湖区城市', tags: [] },
-        { id: 'MIL', abbr: 'MIL', name: '密尔沃基', factionId: 'CSA', x: 658, y: 174, row: 0, col: 6, industry: 2, troops: 4, terrain: '工业港口', tags: ['港口'] },
-        { id: 'CHI', abbr: 'CHI', name: '芝加哥', factionId: 'CSA', x: 676, y: 238, row: 1, col: 6, industry: 4, troops: 8, terrain: '工团首府', tags: ['首都'], isCapital: true },
-        { id: 'DET', abbr: 'DET', name: '底特律', factionId: 'CSA', x: 748, y: 212, row: 0, col: 7, industry: 3, troops: 6, terrain: '汽车工业城', tags: [] },
-        { id: 'CLE', abbr: 'CLE', name: '克利夫兰', factionId: 'CSA', x: 798, y: 250, row: 1, col: 8, industry: 2, troops: 5, terrain: '湖岸工业城', tags: [] },
-        { id: 'PIT', abbr: 'PIT', name: '匹兹堡', factionId: 'CSA', x: 808, y: 300, row: 2, col: 8, industry: 2, troops: 1, terrain: '钢铁城市', tags: [] },
+        { id: 'MSP', abbr: 'MSP', name: '明尼阿波利斯', industry: 2, troops: 4, terrain: '湖区城市', tags: [] },
+        { id: 'MIL', abbr: 'MIL', name: '密尔沃基', industry: 2, troops: 4, terrain: '工业港口', tags: ['港口'] },
+        { id: 'CHI', abbr: 'CHI', name: '芝加哥', industry: 4, troops: 8, terrain: '工团首府', tags: ['首都'], isCapital: true },
+        { id: 'DET', abbr: 'DET', name: '底特律', industry: 3, troops: 6, terrain: '汽车工业城', tags: [] },
+        { id: 'CLE', abbr: 'CLE', name: '克利夫兰', industry: 2, troops: 5, terrain: '湖岸工业城', tags: [] },
+        { id: 'PIT', abbr: 'PIT', name: '匹兹堡', industry: 2, troops: 1, terrain: '钢铁城市', tags: [] },
 
-        { id: 'WAS', abbr: 'WAS', name: '华盛顿', factionId: 'USA', x: 860, y: 326, row: 2, col: 9, industry: 3, troops: 6, terrain: '军政府首都', tags: ['首都'], isCapital: true },
-        { id: 'BAL', abbr: 'BAL', name: '巴尔的摩', factionId: 'USA', x: 842, y: 292, row: 2, col: 8, industry: 2, troops: 4, terrain: '港口城市', tags: ['港口'] },
-        { id: 'PHI', abbr: 'PHI', name: '费城', factionId: 'USA', x: 872, y: 258, row: 1, col: 9, industry: 2, troops: 4, terrain: '工业城市', tags: [] },
-        { id: 'NYC', abbr: 'NYC', name: '纽约', factionId: 'USA', x: 902, y: 220, row: 0, col: 9, industry: 3, troops: 4, terrain: '港口都会', tags: ['港口'] },
-        { id: 'RIC', abbr: 'RIC', name: '里士满', factionId: 'USA', x: 840, y: 372, row: 3, col: 9, industry: 2, troops: 3, terrain: '前线城市', tags: [] },
-        { id: 'NOR', abbr: 'NOR', name: '诺福克', factionId: 'USA', x: 878, y: 390, row: 3, col: 10, industry: 2, troops: 3, terrain: '军港', tags: ['港口'] },
+        { id: 'WAS', abbr: 'WAS', name: '华盛顿', industry: 3, troops: 6, terrain: '军政府首都', tags: ['首都'], isCapital: true },
+        { id: 'BAL', abbr: 'BAL', name: '巴尔的摩', industry: 2, troops: 4, terrain: '港口城市', tags: ['港口'] },
+        { id: 'PHI', abbr: 'PHI', name: '费城', industry: 2, troops: 4, terrain: '工业城市', tags: [] },
+        { id: 'NYC', abbr: 'NYC', name: '纽约', industry: 3, troops: 4, terrain: '港口都会', tags: ['港口'] },
+        { id: 'RIC', abbr: 'RIC', name: '里士满', industry: 2, troops: 3, terrain: '前线城市', tags: [] },
+        { id: 'NOR', abbr: 'NOR', name: '诺福克', industry: 2, troops: 3, terrain: '军港', tags: ['港口'] },
 
-        { id: 'ALB', abbr: 'ALB', name: '奥尔巴尼', factionId: 'NEN', x: 890, y: 176, row: 0, col: 8, industry: 1, troops: 3, terrain: '山麓城市', tags: [] },
-        { id: 'HFD', abbr: 'HFD', name: '哈特福德', factionId: 'NEN', x: 920, y: 194, row: 0, col: 10, industry: 2, troops: 3, terrain: '新英格兰工业城', tags: [] },
-        { id: 'BOS', abbr: 'BOS', name: '波士顿', factionId: 'NEN', x: 944, y: 162, row: 0, col: 11, industry: 2, troops: 5, terrain: '新英格兰首府', tags: ['首都', '港口'], isCapital: true },
-        { id: 'MNE', abbr: 'MNE', name: '缅因', factionId: 'NEN', x: 958, y: 104, row: 0, col: 12, industry: 1, troops: 2, terrain: '森林海岸', tags: [] },
+        { id: 'ALB', abbr: 'ALB', name: '奥尔巴尼', industry: 1, troops: 3, terrain: '山麓城市', tags: [] },
+        { id: 'HFD', abbr: 'HFD', name: '哈特福德', industry: 2, troops: 3, terrain: '新英格兰工业城', tags: [] },
+        { id: 'BOS', abbr: 'BOS', name: '波士顿', industry: 2, troops: 5, terrain: '新英格兰首府', tags: ['首都', '港口'], isCapital: true },
+        { id: 'MNE', abbr: 'MNE', name: '缅因', industry: 1, troops: 2, terrain: '森林海岸', tags: [] },
 
-        { id: 'ATL', abbr: 'ATL', name: '亚特兰大', factionId: 'CON', x: 760, y: 456, row: 4, col: 7, industry: 3, troops: 6, terrain: '宪政国首府', tags: ['首都'], isCapital: true },
-        { id: 'BHM', abbr: 'BHM', name: '伯明翰', factionId: 'CON', x: 704, y: 486, row: 4, col: 6, industry: 2, troops: 3, terrain: '钢铁工业区', tags: [] },
-        { id: 'CHA', abbr: 'CHA', name: '夏洛特', factionId: 'CON', x: 820, y: 424, row: 3, col: 8, industry: 2, troops: 3, terrain: '卡罗莱纳工业城', tags: [] },
-        { id: 'CLM', abbr: 'CLM', name: '哥伦比亚', factionId: 'CON', x: 816, y: 458, row: 4, col: 8, industry: 1, troops: 3, terrain: '内陆城市', tags: [] },
-        { id: 'SAV', abbr: 'SAV', name: '萨凡纳', factionId: 'CON', x: 820, y: 506, row: 5, col: 8, industry: 2, troops: 3, terrain: '港口城市', tags: ['港口'] },
-        { id: 'JAX', abbr: 'JAX', name: '杰克逊维尔', factionId: 'CON', x: 826, y: 564, row: 5, col: 9, industry: 1, troops: 3, terrain: '佛州港口', tags: ['港口'] },
+        { id: 'ATL', abbr: 'ATL', name: '亚特兰大', industry: 3, troops: 6, terrain: '宪政国首府', tags: ['首都'], isCapital: true },
+        { id: 'BHM', abbr: 'BHM', name: '伯明翰', industry: 2, troops: 3, terrain: '钢铁工业区', tags: [] },
+        { id: 'CHA', abbr: 'CHA', name: '夏洛特', industry: 2, troops: 3, terrain: '卡罗莱纳工业城', tags: [] },
+        { id: 'CLM', abbr: 'CLM', name: '哥伦比亚', industry: 1, troops: 3, terrain: '内陆城市', tags: [] },
+        { id: 'SAV', abbr: 'SAV', name: '萨凡纳', industry: 2, troops: 3, terrain: '港口城市', tags: ['港口'] },
+        { id: 'JAX', abbr: 'JAX', name: '杰克逊维尔', industry: 1, troops: 3, terrain: '佛州港口', tags: ['港口'] },
 
-        { id: 'ELP', abbr: 'ELP', name: '埃尔帕索', factionId: 'TEX', x: 408, y: 552, row: 5, col: 3, industry: 2, troops: 3, terrain: '边境城市', tags: [] },
-        { id: 'DAL', abbr: 'DAL', name: '达拉斯', factionId: 'TEX', x: 504, y: 520, row: 5, col: 4, industry: 3, troops: 7, terrain: '德克萨斯首府', tags: ['首都', '油田'], isCapital: true },
-        { id: 'SAT', abbr: 'SAT', name: '圣安东尼奥', factionId: 'TEX', x: 456, y: 584, row: 6, col: 3, industry: 2, troops: 3, terrain: '边境城市', tags: [] }
-    ],
+        { id: 'ELP', abbr: 'ELP', name: '埃尔帕索', industry: 2, troops: 3, terrain: '边境城市', tags: [] },
+        { id: 'DAL', abbr: 'DAL', name: '达拉斯', industry: 3, troops: 7, terrain: '德克萨斯首府', tags: ['首都', '油田'], isCapital: true },
+        { id: 'SAT', abbr: 'SAT', name: '圣安东尼奥', industry: 2, troops: 3, terrain: '边境城市', tags: [] },
+        { id: 'DLH', abbr: 'DLH', name: '德卢斯', industry: 1, troops: 2, terrain: '苏必利尔湖港口', tags: ['港口'] },
+        { id: 'CAM', abbr: 'CAM', name: '卡姆登', industry: 2, troops: 3, terrain: '特拉华河港', tags: ['港口'] }
+    ].map(node => {
+        const [x, y, , , factionId] = ProvinceGeography.provinces[node.id];
+        return { ...node, x, y, factionId };
+    }),
 
-    connections: [
-        ['SEA', 'POR'], ['POR', 'SFO'], ['POR', 'BOI'], ['SFO', 'SAC'], ['SAC', 'LAX'], ['SAC', 'RNO'], ['LAX', 'PHX'],
-        ['BOI', 'BIL'], ['BOI', 'RNO'], ['RNO', 'SLC'], ['RNO', 'PHX'], ['SLC', 'BIL'], ['SLC', 'DEN'], ['SLC', 'ABQ'],
-        ['BIL', 'DEN'], ['BIL', 'FGO'], ['DEN', 'OMA'], ['DEN', 'KAN'], ['DEN', 'ABQ'], ['PHX', 'ABQ'], ['PHX', 'ELP'],
-        ['FGO', 'MSP'], ['FGO', 'OMA'], ['OMA', 'MSP'], ['OMA', 'CHI'], ['OMA', 'KAN'], ['KAN', 'STL'], ['KAN', 'OKC'], ['OKC', 'ABQ'], ['OKC', 'DAL'], ['OKC', 'LRK'],
-        ['STL', 'CHI'], ['STL', 'PIT'], ['STL', 'LRK'], ['STL', 'BHM'], ['LRK', 'BAT'], ['LRK', 'BHM'], ['BAT', 'NOL'], ['BAT', 'HOU'], ['NOL', 'HOU'], ['NOL', 'SAV'],
-        ['MSP', 'MIL'], ['MIL', 'CHI'], ['CHI', 'DET'], ['CHI', 'CLE'], ['DET', 'CLE'], ['DET', 'ALB'], ['CLE', 'PIT'], ['PIT', 'CHA'], ['PIT', 'PHI'], ['PIT', 'BAL'], ['PIT', 'WAS'],
-        ['ALB', 'NYC'], ['ALB', 'HFD'], ['HFD', 'BOS'], ['BOS', 'MNE'], ['HFD', 'NYC'], ['NYC', 'PHI'], ['PHI', 'BAL'], ['BAL', 'WAS'], ['WAS', 'RIC'], ['RIC', 'NOR'],
-        ['RIC', 'CHA'], ['NOR', 'CLM'], ['ATL', 'BHM'], ['ATL', 'CHA'], ['ATL', 'CLM'], ['ATL', 'SAV'], ['BHM', 'LRK'], ['BHM', 'BAT'], ['CLM', 'CHA'], ['CLM', 'SAV'], ['SAV', 'JAX'],
-        ['ELP', 'ABQ'], ['ELP', 'SAT'], ['SAT', 'DAL'], ['SAT', 'HOU'], ['DAL', 'HOU'], ['DAL', 'OKC']
-    ],
+    connections: ProvinceGeography.borders.map(([a, b]) => [a, b]),
 
     nodes: [],
 
@@ -126,11 +121,13 @@ const MapData = {
     getAttackTargets(sourceId, factionId) {
         const source = this.getNode(sourceId);
         if (!source || source.factionId !== factionId || GameState.getNodeMovableTroops(source) < 1) return [];
-        return this.getNeighbors(sourceId).filter(node => node.factionId !== factionId);
+        return this.getNeighbors(sourceId).filter(node => (
+            node.factionId !== factionId && GameState.game.diplomacy[node.factionId]?.relation !== '停战'
+        ));
     },
 
-    calculateFactionStats(factionId) {
-        return this.getFactionNodes(factionId).reduce((totals, node) => {
+    calculateFactionStats(factionId, nodes = this.nodes) {
+        return nodes.filter(node => node.factionId === factionId).reduce((totals, node) => {
             totals.nodes += 1;
             totals.totalIndustry += node.industry;
             totals.totalTroops += node.troops;
@@ -162,111 +159,172 @@ window.MapData = MapData;
 
 const MapView = {
     render() {
-        return GameState.game.showGridView ? this.renderGridView() : this.renderStrategicView();
+        return GameState.game.mapMode === 'list' ? this.renderProvinceList() : this.renderStrategicView();
     },
 
     renderStrategicView() {
         const game = GameState.game;
         const playerFactionId = GameState.getPlayerFactionId();
-        const selectedNode = MapData.getNode(game.selectedNodeId);
-        const moveTargets = selectedNode ? MapData.getMoveTargets(selectedNode.id, playerFactionId).map(node => node.id) : [];
-        const attackTargets = selectedNode ? MapData.getAttackTargets(selectedNode.id, playerFactionId).map(node => node.id) : [];
+        const selected = MapData.getNode(game.selectedNodeId);
+        const canIssueOrders = selected?.factionId === playerFactionId
+            && GameState.getNodeMovableTroops(selected) > 0
+            && window.app.getActionAvailability('move', selected.id).enabled;
+        const ordering = canIssueOrders && game.currentAction === 'move';
+        const moveTargets = new Set(ordering ? MapData.getMoveTargets(selected.id, playerFactionId).map(node => node.id) : []);
+        const attackTargets = new Set(canIssueOrders ? MapData.getAttackTargets(selected.id, playerFactionId).map(node => node.id) : []);
+        const industry = game.mapMode === 'industry';
         const viewport = game.mapViewport;
-
-        const linkHtml = MapData.connections.map(([sourceId, targetId]) => {
-            const source = MapData.getNode(sourceId);
-            const target = MapData.getNode(targetId);
-            if (!source || !target) return '';
-
-            const isHot = selectedNode && (source.id === selectedNode.id || target.id === selectedNode.id);
-            return `
-                <line class="map-link ${isHot ? 'hot' : ''}"
-                    x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" />
-            `;
-        }).join('');
-
-        const nodeHtml = MapData.nodes.map(node => this.renderNode(node, {
-            selectedNodeId: game.selectedNodeId,
-            hoveredNodeId: game.hoveredNodeId,
-            moveTargets,
-            attackTargets,
-            playerFactionId
-        })).join('');
-
-        const plannedOrders = window.SimultaneousTurns && SimultaneousTurns.isEnabled()
-            ? SimultaneousTurns.getOrders(playerFactionId)
-            : [];
-        const plannedOrdersLocked = window.SimultaneousTurns && SimultaneousTurns.isEnabled()
-            ? !SimultaneousTurns.canLocalPlayerAct() : false;
-        // 缩放联动：viewport.width 420(拉近)↔1300(拉远)，默认 1000。
-        // 拉远/总览时融合色块+国名最突出、圆点淡出；拉近时圆点/驻军接管。
-        // 数值由 zoomVisuals 统一计算；缩放/平移时 app.updateSvgViewBox→applyTerritoryZoom 实时刷新，无需整页重渲。
-        const zv = this.zoomVisuals(viewport.width);
-        const nodesOpacity = zv.nodesOpacity;
-        const territory = this.renderTerritory(zv.labelScale, zv.territoryOpacity, zv.labelOpacity);
+        const simultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
+        const orders = simultaneous ? SimultaneousTurns.getOrders(playerFactionId) : [];
+        const locked = simultaneous && !SimultaneousTurns.canLocalPlayerAct();
+        const context = { selectedId: selected?.id, moveTargets, attackTargets, industry };
+        const provinces = MapData.nodes.map(node => this.renderProvince(node, context)).join('');
+        const markers = MapData.nodes.map(node => this.renderCity(node, context)).join('');
 
         return `
-            <div class="map-command-strip">
-                <button class="btn btn-outline" onclick="window.app.toggleGridView()">网格视图</button>
-                <button class="map-icon-btn" title="放大" onclick="window.app.zoomMap(0.85)">+</button>
-                <button class="map-icon-btn" title="缩小" onclick="window.app.zoomMap(1.15)">-</button>
-                <button class="btn btn-outline mobile-map-shortcut" onclick="window.app.centerCapital()">首都</button>
-                <button class="btn btn-outline mobile-map-shortcut" onclick="window.app.centerSelectedNode()">选中</button>
-                <button class="btn btn-outline" onclick="window.app.resetMapViewport()">重置视角</button>
-                ${window.SimultaneousTurns && SimultaneousTurns.isEnabled() ? `
-                    <span class="plan-order-count ${plannedOrders.length ? 'has-orders' : ''}">
-                        已规划 ${plannedOrders.length} 道行军令
-                    </span>
-                    <button class="btn btn-outline plan-clear-button" ${plannedOrders.length && !plannedOrdersLocked ? '' : 'disabled'}
-                        onclick="window.app.clearPlannedOrders()">清空计划</button>
-                ` : ''}
-            </div>
-            <svg id="svg-map" viewBox="${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}" aria-label="战略地图">
+            ${this.renderToolbar()}
+            <svg id="svg-map" class="strategy-atlas ${this.zoomClass(viewport.width)} ${industry ? 'atlas-industry' : ''}"
+                viewBox="${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}" aria-label="美国本土战略地图">
                 <defs>
-                    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-                        <feMerge>
-                            <feMergeNode in="coloredBlur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                    <!-- 把同阵营节点圆融合成一块有机色块（HOI4 政治地图风） -->
-                    <filter id="goo" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="11" result="blur" />
-                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -8" result="goo" />
-                        <feBlend in="SourceGraphic" in2="goo" />
-                    </filter>
-                    <marker id="planArrowMove" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"></path>
+                    <marker id="planArrowMove" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0 0 0 6 8 3Z" fill="#79dcff"></path>
                     </marker>
-                    <marker id="planArrowAttack" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path d="M0,0 L0,6 L8,3 z" fill="#f87171"></path>
+                    <marker id="planArrowAttack" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path d="M0 0 0 6 8 3Z" fill="#ff9b86"></path>
                     </marker>
                 </defs>
-
-                <g class="background-map-shape">
-                    <path d="M78 100 C160 42 284 52 382 84 C484 34 602 72 696 116 C812 122 902 150 952 214 C918 258 936 336 884 384 C828 438 758 496 660 548 C568 590 448 578 356 542 C270 510 182 476 132 408 C84 342 52 224 78 100 Z" />
-                    <path class="background-map-coast" d="M116 92 C104 172 112 250 152 328 C188 408 248 478 344 526" />
-                    <path class="background-map-coast" d="M904 180 C856 246 844 320 870 392" />
+                <g class="atlas-context" aria-hidden="true">
+                    <text x="510" y="31">加拿大</text>
+                    <text x="290" y="560">墨西哥</text>
+                    <text x="66" y="481">太平洋</text>
+                    <text x="929" y="376">大西洋</text>
+                    <text x="656" y="568">墨西哥湾</text>
                 </g>
-
-                <g class="region-blocks">
-                    <path class="region-block pacific" d="M72 80 L260 104 L296 450 L150 430 L92 314 Z" />
-                    <path class="region-block plains" d="M266 92 L584 110 L596 472 L346 460 Z" />
-                    <path class="region-block lakes" d="M560 110 L824 154 L814 318 L612 326 Z" />
-                    <path class="region-block atlantic" d="M792 154 L956 158 L926 356 L814 334 Z" />
-                    <path class="region-block south" d="M500 392 L804 380 L742 578 L446 584 Z" />
-                </g>
-
-                ${territory.blobs}
-                <g class="map-links-layer">${linkHtml}</g>
-                <g class="map-nodes-layer" style="opacity:${nodesOpacity}">${nodeHtml}</g>
-                ${territory.labels}
-                <g class="planned-orders-layer ${plannedOrdersLocked ? 'is-locked' : ''}">${this.renderPlannedOrders(plannedOrders, plannedOrdersLocked)}</g>
+                <g class="province-layer">${provinces}</g>
+                <g class="frontier-layer" aria-hidden="true">${this.renderFrontiers()}</g>
+                <g class="territory-labels" aria-hidden="true">${industry ? '' : this.renderFactionLabels()}</g>
+                <g class="map-nodes-layer" aria-hidden="true">${markers}</g>
+                <g class="planned-orders-layer ${locked ? 'is-locked' : ''}">${this.renderPlannedOrders(orders, locked)}</g>
                 <g class="resolution-movement-layer">${this.renderResolutionMovements()}</g>
             </svg>
+            <div class="atlas-caption">
+                <span class="atlas-coordinate">北美 · 美国本土</span>
+                ${industry ? `<span class="atlas-industry-key">工业低 <i></i> 高</span>` : `
+                    <span><i class="atlas-front-key"></i> 势力边界</span>
+                    <span><i class="atlas-capital-key">★</i> 当前首都</span>
+                `}
+                ${ordering ? '<span class="atlas-order-hint">行军模式 · 点击高亮目标</span>'
+                    : '<span class="atlas-desktop-hint">拖拽平移 · 滚轮缩放 · 右键下令</span>'}
+            </div>
             ${this.renderTooltip()}
         `;
+    },
+
+    renderToolbar() {
+        const game = GameState.game;
+        const list = game.mapMode === 'list';
+        const industry = game.mapMode === 'industry';
+        const simultaneous = window.SimultaneousTurns && SimultaneousTurns.isEnabled();
+        const count = simultaneous ? SimultaneousTurns.getOrders().length : 0;
+        const canClear = count && SimultaneousTurns.canLocalPlayerAct();
+        return `
+            <div class="map-command-strip atlas-toolbar">
+                <div class="atlas-tabs" role="group" aria-label="地图图层">
+                    <button aria-pressed="${!list && !industry}" onclick="window.app.setMapMode('political')">政区</button>
+                    <button aria-pressed="${!list && industry}" onclick="window.app.setMapMode('industry')">工业</button>
+                    <button aria-pressed="${list}" onclick="window.app.setMapMode('list')">列表</button>
+                </div>
+                ${list ? '' : `
+                    <div class="atlas-tools" role="group" aria-label="地图视角">
+                        <button title="缩小地图" aria-label="缩小地图" onclick="window.app.zoomMap(1.25)">−</button>
+                        <button title="放大地图" aria-label="放大地图" onclick="window.app.zoomMap(0.8)">+</button>
+                        <button title="定位并放大到己方首都" onclick="window.app.centerCapital()">首都</button>
+                        <button title="恢复全图视角" onclick="window.app.resetMapViewport()">全图</button>
+                    </div>
+                `}
+                ${simultaneous ? `
+                    <div class="atlas-plan-summary">
+                        <span>行军令 <strong>${count}</strong></span>
+                        <button ${canClear ? '' : 'disabled'} onclick="window.app.clearPlannedOrders()">清空</button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    },
+
+    renderProvince(node, context) {
+        const selected = node.id === context.selectedId;
+        const move = context.moveTargets.has(node.id);
+        const attack = context.attackTargets.has(node.id);
+        const color = context.industry
+            ? this.mixHex('#334a52', '#e3b254', Math.min(1, Math.max(0, node.industry / 8)))
+            : this.factionTerritoryColor(node.factionId);
+        const faction = GameState.getFaction(node.factionId);
+        const label = escapeHtml(`${node.name}省区，${faction.shortName}，驻军 ${node.troops}，工业 ${node.industry}`);
+        return `
+            <path class="map-province ${selected ? 'selected' : ''} ${move ? 'move-target' : ''} ${attack ? 'attack-target' : ''}"
+                d="${ProvinceGeography.provinces[node.id][3]}" style="--province-color:${color}"
+                data-province-id="${node.id}" tabindex="0" role="button" aria-pressed="${selected}" aria-label="${label}"></path>
+        `;
+    },
+
+    renderFrontiers() {
+        return ProvinceGeography.borders.map(([a, b, path]) => {
+            const left = MapData.getNode(a);
+            const right = MapData.getNode(b);
+            if (left.factionId === right.factionId) return '';
+            return `<path d="${path}"></path>`;
+        }).join('');
+    },
+
+    renderFactionLabels() {
+        return GameState.factions.map(faction => {
+            const nodes = MapData.getFactionNodes(faction.id);
+            if (!nodes.length) return '';
+            const area = nodes.reduce((sum, node) => sum + ProvinceGeography.provinces[node.id][2], 0);
+            const x = nodes.reduce((sum, node) => sum + node.x * ProvinceGeography.provinces[node.id][2], 0) / area;
+            const y = nodes.reduce((sum, node) => sum + node.y * ProvinceGeography.provinces[node.id][2], 0) / area;
+            const anchor = nodes.reduce((closest, node) => (
+                Math.hypot(node.x - x, node.y - y) < Math.hypot(closest.x - x, closest.y - y) ? node : closest
+            ));
+            const name = escapeHtml(GameState.getFaction(faction.id).shortName);
+            return `<text class="territory-label" x="${anchor.x}" y="${anchor.y - 18}">${name}</text>`;
+        }).join('');
+    },
+
+    renderCity(node, context) {
+        const currentCapital = Boolean(GameState.getCapitalOwner(node.id));
+        const important = node.id === context.selectedId || context.moveTargets.has(node.id) || context.attackTargets.has(node.id);
+        const crowded = MapData.nodes.some(other => node.id !== other.id && Math.hypot(node.x - other.x, node.y - other.y) < 19);
+        const classes = ['map-city', important ? 'emphasis' : '', crowded ? 'crowded' : '',
+            node.id === context.selectedId ? 'selected' : ''].join(' ');
+        const value = context.industry ? node.industry : node.troops;
+        const secondary = node.factionId === GameState.getPlayerFactionId() && !context.industry
+            ? GameState.getNodeMovableTroops(node) : '';
+        const counter = secondary === '' ? value : `${value}·${secondary}`;
+        return `
+            <g class="${classes}" transform="translate(${node.x} ${node.y})">
+                ${currentCapital ? '<text class="city-capital" y="4">★</text>' : '<circle class="city-dot" r="2.7"></circle>'}
+                <g class="city-detail">
+                    <rect class="city-counter" x="-${counter.toString().length * 2.7 + 4}" y="-16"
+                        width="${counter.toString().length * 5.4 + 8}" height="12" rx="2"></rect>
+                    <text class="city-count" y="-7">${counter}</text>
+                    <text class="city-name" y="13">${node.abbr}</text>
+                </g>
+            </g>
+        `;
+    },
+
+    zoomClass(width) {
+        if (width <= 300) return 'atlas-detail';
+        if (width <= 530) return 'atlas-close';
+        return width <= 790 ? 'atlas-mid' : 'atlas-overview';
+    },
+
+    applyTerritoryZoom(svg) {
+        const level = this.zoomClass(GameState.game.mapViewport.width);
+        svg.classList.remove('atlas-detail', 'atlas-close', 'atlas-mid', 'atlas-overview');
+        svg.classList.add(level);
     },
 
     renderPlannedOrders(orders = [], locked = false) {
@@ -279,10 +337,10 @@ const MapView = {
             const length = Math.max(1, Math.hypot(dx, dy));
             const ux = dx / length;
             const uy = dy / length;
-            const startX = source.x + ux * 22;
-            const startY = source.y + uy * 22;
-            const endX = target.x - ux * 28;
-            const endY = target.y - uy * 28;
+            const startX = source.x + ux * Math.min(10, length * 0.22);
+            const startY = source.y + uy * Math.min(10, length * 0.22);
+            const endX = target.x - ux * Math.min(13, length * 0.26);
+            const endY = target.y - uy * Math.min(13, length * 0.26);
             const bend = (index % 2 === 0 ? 1 : -1) * Math.min(18, length * 0.12);
             const controlX = (startX + endX) / 2 - uy * bend;
             const controlY = (startY + endY) / 2 + ux * bend;
@@ -329,10 +387,10 @@ const MapView = {
             const length = Math.max(1, Math.hypot(dx, dy));
             const ux = dx / length;
             const uy = dy / length;
-            const startX = source.x + ux * 18;
-            const startY = source.y + uy * 18;
-            const endX = target.x - ux * 12;
-            const endY = target.y - uy * 12;
+            const startX = source.x + ux * Math.min(9, length * 0.22);
+            const startY = source.y + uy * Math.min(9, length * 0.22);
+            const endX = target.x - ux * Math.min(10, length * 0.26);
+            const endY = target.y - uy * Math.min(10, length * 0.26);
             const bend = (index % 2 === 0 ? 1 : -1) * Math.min(18, length * 0.12);
             const controlX = (startX + endX) / 2 - uy * bend;
             const controlY = (startY + endY) / 2 + ux * bend;
@@ -399,44 +457,6 @@ const MapView = {
         return routeHtml + engagementHtml;
     },
 
-    // 每阵营：把所辖节点融成一块大色块（goo 滤镜）+ 质心大号国名。
-    // 颜色＝阵营基色与「当前意识形态」色混合（玩家国随选国策切换，AI 用基线）。
-    renderTerritory(labelScale, territoryOpacity, labelOpacity) {
-        const factions = GameState.factions || [];
-        let blobs = '';
-        let labels = '';
-        const fontSize = (26 * labelScale).toFixed(1);
-        factions.forEach(faction => {
-            const nodes = MapData.getFactionNodes(faction.id);
-            if (!nodes.length) return;
-            const color = this.factionTerritoryColor(faction.id);
-            const ownIds = new Set(nodes.map(node => node.id));
-            // 连线：同阵营两节点间的通路也并进色块，让远隔的节点连成一片领土。
-            const links = MapData.connections
-                .filter(([a, b]) => ownIds.has(a) && ownIds.has(b))
-                .map(([a, b]) => {
-                    const s = MapData.getNode(a);
-                    const t = MapData.getNode(b);
-                    return `<line x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="${color}" stroke-width="38" stroke-linecap="round"></line>`;
-                })
-                .join('');
-            const circles = nodes
-                .map(node => `<circle cx="${node.x}" cy="${node.y}" r="44"></circle>`)
-                .join('');
-            blobs += `<g class="territory-blob" fill="${color}" stroke="${color}" filter="url(#goo)">${links}${circles}</g>`;
-            const cx = (nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length).toFixed(1);
-            const cy = (nodes.reduce((sum, node) => sum + node.y, 0) / nodes.length).toFixed(1);
-            // 用 getFaction 取本局显示名（国策更名后由 game.factionNames 覆盖），不要直接用静态 faction.name。
-            const displayName = GameState.getFaction(faction.id).name;
-            labels += `<text class="territory-label" x="${cx}" y="${cy}" fill="${color}"`
-                + ` style="font-size:${fontSize}px" text-anchor="middle" dominant-baseline="middle">${displayName}</text>`;
-        });
-        return {
-            blobs: `<g class="faction-territory" style="opacity:${territoryOpacity}">${blobs}</g>`,
-            labels: `<g class="territory-labels" style="opacity:${labelOpacity}">${labels}</g>`
-        };
-    },
-
     factionTerritoryColor(factionId) {
         const faction = GameState.getFaction(factionId);
         const baseHex = (faction && faction.color) || '#888888';
@@ -460,152 +480,37 @@ const MapView = {
         return '#' + mix.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
     },
 
-    zoomVisuals(width) {
-        const t = Math.max(0, Math.min(1, (width - 520) / 430));
-        return {
-            zoomT: t,
-            territoryOpacity: (0.55 * t).toFixed(3),
-            labelOpacity: (0.95 * t).toFixed(3),
-            nodesOpacity: (0.5 + 0.5 * (1 - t)).toFixed(3),
-            labelScale: width / 1000
-        };
-    },
-
-    // 缩放/平移时由 app.updateSvgViewBox 调用：实时更新融合色块/国名/圆点的强弱，
-    // 不必整页重渲（避免“点一下节点才刷新一次”）。
-    applyTerritoryZoom(svg) {
-        if (!svg || !GameState.game || !GameState.game.mapViewport) return;
-        const zv = this.zoomVisuals(GameState.game.mapViewport.width);
-        const territory = svg.querySelector('.faction-territory');
-        const labels = svg.querySelector('.territory-labels');
-        const nodes = svg.querySelector('.map-nodes-layer');
-        if (territory) territory.style.opacity = zv.territoryOpacity;
-        if (labels) labels.style.opacity = zv.labelOpacity;
-        if (nodes) nodes.style.opacity = zv.nodesOpacity;
-        const fontSize = (26 * zv.labelScale).toFixed(1) + 'px';
-        svg.querySelectorAll('.territory-label').forEach(label => { label.style.fontSize = fontSize; });
-    },
-
-    renderNode(node, context) {
-        const faction = GameState.getFaction(node.factionId);
-        const color = faction.color;
-        const isSelected = node.id === context.selectedNodeId;
-        const isHovered = node.id === context.hoveredNodeId;
-        const isFriendly = node.factionId === context.playerFactionId;
-        const canMove = context.moveTargets.includes(node.id);
-        const canAttack = context.attackTargets.includes(node.id);
-        const movableTroops = GameState.getNodeMovableTroops(node);
-        const hasMoveReady = isFriendly && movableTroops > 0;
-        const isMoveTarget = GameState.game.currentAction === 'move' && canMove;
-        const isActionTarget = isMoveTarget || canAttack;
-        const currentCapitalOwner = GameState.getCapitalOwner(node.id);
-        const isCapitalMarker = node.isCapital || currentCapitalOwner;
-        const isEncircled = MapData.isNodeEncircled(node);
-        const classNames = [
-            'map-node',
-            isSelected ? 'selected' : '',
-            isHovered ? 'hovered' : '',
-            isFriendly ? 'friendly' : 'hostile',
-            hasMoveReady ? 'has-move-ready' : '',
-            canMove ? 'can-move' : '',
-            canAttack ? 'can-attack' : '',
-            isActionTarget ? 'action-target' : '',
-            isEncircled ? 'is-encircled' : ''
-        ].filter(Boolean).join(' ');
-
-        return `
-            <g class="${classNames}" transform="translate(${node.x} ${node.y})"
-                onmouseenter="window.app.hoverNode('${node.id}')"
-                onmouseleave="window.app.hoverNode(null)"
-                onclick="event.stopPropagation(); window.app.handleNodeClick('${node.id}')"
-                ondblclick="event.stopPropagation(); window.app.centerNode('${node.id}')">
-                <circle class="node-hit-area" r="30"></circle>
-                ${isMoveTarget ? '<circle class="target-pulse move" r="31"></circle>' : ''}
-                ${canAttack ? '<circle class="target-pulse attack" r="31"></circle>' : ''}
-                ${isEncircled ? '<circle class="encircled-ring" r="27"></circle>' : ''}
-                <circle class="control-ring" r="23" stroke="${color}"></circle>
-                <circle class="node-base" r="17" fill="rgba(15, 23, 42, 0.96)" stroke="${color}"></circle>
-                <text class="node-troops" text-anchor="middle" y="5">${node.troops}</text>
-                ${hasMoveReady ? `
-                    <g class="move-ready-badge" transform="translate(-19 17)">
-                        <rect x="-9" y="-8" width="18" height="14" rx="3"></rect>
-                        <text text-anchor="middle" y="3">${movableTroops}</text>
-                    </g>
-                ` : ''}
-                <text class="node-abbr" text-anchor="middle" y="38">${node.abbr}</text>
-                <g class="industry-badge" transform="translate(12 -24)">
-                    <rect x="-10" y="-10" width="20" height="16" rx="3"></rect>
-                    <text text-anchor="middle" y="2">${node.industry}</text>
-                </g>
-                ${isCapitalMarker ? '<text class="capital-marker" text-anchor="middle" x="-20" y="-20">★</text>' : ''}
-                ${node.tags.includes('港口') ? '<text class="node-tag" text-anchor="middle" x="24" y="-17">P</text>' : ''}
-                ${node.tags.includes('油田') ? '<text class="node-tag oil" text-anchor="middle" x="24" y="-2">O</text>' : ''}
-            </g>
-        `;
-    },
-
-    renderGridView() {
-        const maxCol = Math.max(...MapData.nodes.map(node => node.col));
-        const rows = [...new Set(MapData.nodes.map(node => node.row))].sort((a, b) => a - b);
-        const selectedNodeId = GameState.game.selectedNodeId;
-
-        const rowsHtml = rows.map(row => {
-            const cells = MapData.nodes
-                .filter(node => node.row === row)
-                .sort((a, b) => a.col - b.col)
-                .map(node => {
-                    const faction = GameState.getFaction(node.factionId);
-                    const isSelected = selectedNodeId === node.id;
-                    return `
-                        <button class="grid-cell ${isSelected ? 'selected' : ''}" style="--faction-color: ${faction.color}; grid-column: ${node.col + 1};"
-                            onclick="window.app.handleNodeClick('${node.id}')"
-                            onmouseenter="window.app.hoverNode('${node.id}')"
-                            onmouseleave="window.app.hoverNode(null)">
-                            <strong>${node.abbr}</strong>
-                            <span>${node.factionId} / 工业 ${node.industry}${GameState.getCapitalOwner(node.id) ? ' / 当前首都' : node.isCapital ? ' / 原始首都' : ''}</span>
-                            <b>驻军 ${node.troops} / 可动 ${GameState.getNodeMovableTroops(node)}</b>
+    renderProvinceList() {
+        const selectedId = GameState.game.selectedNodeId;
+        const groups = GameState.factions.map(faction => {
+            const nodes = MapData.getFactionNodes(faction.id);
+            if (!nodes.length) return '';
+            const label = escapeHtml(GameState.getFaction(faction.id).shortName);
+            return `
+                <section class="atlas-province-group" style="--faction-color:${faction.color}">
+                    <h3>${label} <small>${nodes.length} 省区</small></h3>
+                    <div>${nodes.map(node => `
+                        <button class="grid-cell ${selectedId === node.id ? 'selected' : ''}"
+                            aria-pressed="${selectedId === node.id}" onclick="window.app.inspectProvince('${node.id}')">
+                            <strong>${node.name} <small>${node.abbr}</small></strong>
+                            <span>驻军 ${node.troops} · 工业 ${node.industry}${GameState.getCapitalOwner(node.id) ? ' · ★' : ''}</span>
                         </button>
-                    `;
-                }).join('');
-
-            return `<div class="map-grid-row">${cells}</div>`;
+                    `).join('')}</div>
+                </section>
+            `;
         }).join('');
-
-        return `
-            <div class="map-command-strip">
-                <button class="btn btn-primary" onclick="window.app.toggleGridView()">战略地图</button>
-                <button class="btn btn-outline" onclick="window.app.resetMapViewport()">重置视角</button>
-            </div>
-            <div class="map-grid-view" style="--grid-columns: ${maxCol + 1}">
-                ${rowsHtml}
-            </div>
-            ${this.renderTooltip()}
-        `;
+        return `${this.renderToolbar()}<div class="map-grid-view atlas-province-list">${groups}</div>`;
     },
 
     renderTooltip() {
         const node = MapData.getNode(GameState.game.hoveredNodeId);
         if (!node) return '';
 
-        const neighbors = MapData.getNeighbors(node.id).map(neighbor => neighbor.name).join('、');
         const faction = GameState.getFaction(node.factionId);
-        const currentCapitalOwner = GameState.getCapitalOwner(node.id);
-        const originalCapitalOwner = GameState.getOriginalCapitalOwner(node.id);
-        const encircled = MapData.isNodeEncircled(node);
-
         return `
-            <div class="map-tooltip" style="--faction-color: ${faction.color}">
-                <div class="tooltip-title">${node.name}</div>
-                <div>控制：${faction.name}</div>
-                ${currentCapitalOwner ? `<div>当前首都：${GameState.getFactionName(currentCapitalOwner)}</div>` : ''}
-                ${originalCapitalOwner && originalCapitalOwner !== currentCapitalOwner ? `<div>原始首都：${GameState.getFactionName(originalCapitalOwner)}</div>` : ''}
-                <div>地形：${node.terrain}</div>
-                <div>工业：${node.industry}</div>
-                <div>驻军：${node.troops}</div>
-                <div>可动士兵：${GameState.getNodeMovableTroops(node)}</div>
-                <div>本回合新兵：${GameState.getNodeFreshTroops(node)}</div>
-                ${encircled ? `<div class="danger-text">⚠ 被包围：进攻 -35% / 防守 -35%</div>` : ''}
-                <div>相邻：${neighbors}</div>
+            <div class="map-tooltip atlas-tooltip" style="--faction-color:${faction.color}">
+                <strong>${node.name}</strong> · ${escapeHtml(faction.shortName)}
+                <span>驻军 ${node.troops} · 工业 ${node.industry}${MapData.isNodeEncircled(node) ? ' · 被包围' : ''}</span>
             </div>
         `;
     }

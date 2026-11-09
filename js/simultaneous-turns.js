@@ -75,9 +75,7 @@ const SimultaneousTurns = {
                     : {
                         money: faction.startingStats.money,
                         pp: Math.min(GameState.ppCap, faction.startingStats.pp),
-                        nodes: faction.startingStats.nodes || 0,
-                        totalIndustry: faction.startingStats.industry || 0,
-                        totalTroops: faction.startingStats.troops || 0
+                        ...MapData.calculateFactionStats(faction.id, MapData.initialNodes)
                     },
                 currentIdeology: isLocal
                     ? GameState.game.currentIdeology

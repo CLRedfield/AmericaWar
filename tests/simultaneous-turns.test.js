@@ -6,7 +6,7 @@ const vm = require('node:vm');
 global.window = global;
 
 const root = path.resolve(__dirname, '..');
-['js/state.js', 'js/map.js', 'js/simultaneous-turns.js'].forEach(file => {
+['js/state.js', 'js/province-geography.js', 'js/map.js', 'js/simultaneous-turns.js'].forEach(file => {
     vm.runInThisContext(fs.readFileSync(path.join(root, file), 'utf8'), { filename: file });
 });
 
@@ -84,7 +84,7 @@ assert.equal(usaSource.troops, 3);
 assert.equal(csaSource.troops, 4);
 
 createSession();
-const siegeTarget = MapData.getNode('PIT');
+const siegeTarget = MapData.getNode('PHI');
 const siegeWest = MapData.getNode('WAS');
 const siegeEast = MapData.getNode('BAL');
 siegeTarget.factionId = 'CON';

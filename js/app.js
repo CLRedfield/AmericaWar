@@ -35,19 +35,12 @@ const App = {
     rankingMetric: 'nodes',
     mobilePanel: null,
     mobileLobbyPanel: 'slots',
-    mobilePendingAttack: null,
-    mobilePendingMove: null,
     focusMobileFilter: 'all',
     resolutionAnimation: null,
     resolutionAnimationTimer: null,
     lastPresentedResolutionKey: null,
     simultaneousResolveTimer: null,
     timerId: null,
-    mapDrag: null,
-    mapPointers: new Map(),
-    mapTouchGesture: null,
-    lastMapTapAt: 0,
-    lastMapTapPoint: null,
     focusTreeDrag: null,
     focusTreePointers: new Map(),
     focusTreeTouchGesture: null,
@@ -97,10 +90,14 @@ const App = {
         // 全量重渲染会重建 DOM、把滚动容器的 scrollTop 清零；先快照、替换后再还原，
         // 避免点击按钮后视图“跳回顶部”。焦点树滚动由 alignFocusTree 单独处理，这里不碰。
         const scrollState = this.capturePreservedScroll();
+        const focusedProvince = document.activeElement?.dataset?.provinceId;
         this.root.innerHTML = view.render();
         this.restorePreservedScroll(scrollState);
         this.modalRoot.innerHTML = typeof view.renderModals === 'function' ? view.renderModals() : '';
         this.attachMapInteraction();
+        if (focusedProvince && !this.modalRoot.firstElementChild) {
+            this.root.querySelector(`[data-province-id="${focusedProvince}"]`)?.focus({ preventScroll: true });
+        }
         this.attachFocusTreeInteraction();
         this.alignFocusTree();
     },
@@ -225,43 +222,11 @@ const App = {
         GameState.notify();
     },
 
-    openMobilePendingAttack() {
-        const pending = this.mobilePendingAttack;
-        if (!pending) return;
-        this.mobilePanel = null;
-        this.mobilePendingAttack = null;
-        this.openBattleWithMoveOrder(pending.attackerId, pending.defenderId);
-    },
-
-    openMobilePendingMove() {
-        const pending = this.mobilePendingMove;
-        if (!pending) return;
-        const source = MapData.getNode(pending.sourceId);
-        const target = MapData.getNode(pending.targetId);
-        this.mobilePendingMove = null;
-
-        if (!source || !target) return;
-        if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
-            GameState.addLog('请先使用“移动士兵”发布移动令。', 'system');
-            return;
-        }
-
-        GameState.game.selectedNodeId = source.id;
-        this.mobilePanel = null;
-        this.openMoveConfirm(target.id);
-    },
-
-    openMobileActionPanel() {
-        this.setMobilePanel('actions');
-    },
-
-    centerSelectedNode() {
-        if (GameState.game.selectedNodeId) this.centerNode(GameState.game.selectedNodeId);
-    },
-
     centerCapital() {
         const capitalId = GameState.getCapitalNodeId(GameState.getPlayerFactionId());
-        if (capitalId) this.centerNode(capitalId);
+        if (!capitalId) return;
+        this.inspectProvince(capitalId);
+        this.centerNode(capitalId);
     },
 
     setPlayerName(rawName) {
@@ -821,80 +786,36 @@ const App = {
     },
 
     activateMove() {
-        const availability = this.getActionAvailability('move');
+        if (GameState.game.currentAction === 'move') {
+            GameState.setCurrentAction(null);
+            return;
+        }
+
+        const source = MapData.getNode(GameState.game.selectedNodeId);
+        if (!source || source.factionId !== GameState.getPlayerFactionId() || GameState.getNodeMovableTroops(source) < 1) return;
+        const availability = this.getActionAvailability('move', source.id);
         if (!availability.enabled) {
             GameState.addLog(availability.reason, 'system');
             return;
         }
-
-        if (!GameState.game.movementOrdersActive) {
-            GameState.game.playerResources.pp -= availability.ppCost;
-            GameState.game.actionCountThisTurn += 1;
-            GameState.game.movementOrdersActive = true;
-            GameState.game.currentAction = 'move';
-            GameState.game.battlePreview = null;
-            GameState.game.actionConfirm = null;
-            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：发布移动令，本回合未移动士兵各可移动 1 次。`, 'system');
-            return;
-        }
-
-        const nextAction = GameState.game.currentAction === 'move' ? null : 'move';
-        GameState.setCurrentAction(nextAction);
+        this.mobilePanel = null;
+        GameState.setCurrentAction('move');
     },
 
-    ensureMovementOrdersForAttack() {
-        if (GameState.game.movementOrdersActive) {
-            GameState.game.currentAction = 'move';
-            GameState.game.actionConfirm = null;
-            return true;
-        }
-
+    ensureMovementOrders() {
         const availability = this.getActionAvailability('move');
         if (!availability.enabled) {
             GameState.addLog(availability.reason, 'system');
             return false;
         }
-
-        GameState.game.playerResources.pp -= availability.ppCost;
-        GameState.game.actionCountThisTurn += 1;
-        GameState.game.movementOrdersActive = true;
+        if (!GameState.game.movementOrdersActive) {
+            GameState.game.playerResources.pp -= availability.ppCost;
+            GameState.game.actionCountThisTurn += 1;
+            GameState.game.movementOrdersActive = true;
+            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：发布移动令，本回合未移动士兵各可移动或进攻 1 次。`, 'system', false);
+        }
         GameState.game.currentAction = 'move';
-        GameState.game.battlePreview = null;
-        GameState.game.actionConfirm = null;
-        GameState.addLog(`第 ${GameState.game.currentTurn} 回合：发布移动令，本回合未移动士兵各可移动或进攻 1 次。`, 'system', false);
         return true;
-    },
-
-    openBattleWithMoveOrder(attackerId, defenderId) {
-        const attacker = MapData.getNode(attackerId);
-        const defender = MapData.getNode(defenderId);
-        const playerFactionId = GameState.getPlayerFactionId();
-        const relation = defender ? GameState.game.diplomacy[defender.factionId] : null;
-
-        if (!attacker || !defender) return;
-        if (attacker.factionId !== playerFactionId) {
-            GameState.addLog('你未选中己方可用节点。', 'system');
-            return;
-        }
-        if (defender.factionId === playerFactionId) {
-            GameState.addLog('无法进攻：目标不是敌方节点。', 'system');
-            return;
-        }
-        if (!MapData.areAdjacent(attacker.id, defender.id)) {
-            GameState.addLog('无法进攻：目标不相邻。', 'system');
-            return;
-        }
-        if (GameState.getNodeMovableTroops(attacker) < 1) {
-            GameState.addLog('该节点没有可用于进攻的未移动士兵。', 'system');
-            return;
-        }
-        if (relation && relation.relation === '停战') {
-            GameState.addLog('无法进攻：当前外交协议处于停战。', 'system');
-            return;
-        }
-
-        if (!this.ensureMovementOrdersForAttack()) return;
-        this.openBattlePreview(attackerId, defenderId);
     },
 
     confirmAction() {
@@ -908,6 +829,8 @@ const App = {
 
         if (confirm.action === 'move') {
             const source = MapData.getNode(confirm.nodeId);
+            const targets = MapData.getMoveTargets(confirm.nodeId, GameState.getPlayerFactionId());
+            if (!targets.some(target => target.id === confirm.targetId) || !this.ensureMovementOrders()) return;
             const movingTroops = this.getSelectedMoveAmount(source);
             GameState.game.selectedNodeId = confirm.nodeId;
             GameState.game.actionConfirm = null;
@@ -1245,11 +1168,6 @@ const App = {
         const target = MapData.getNode(targetId);
         const playerFactionId = GameState.getPlayerFactionId();
 
-        if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
-            GameState.addLog('请先激活“移动士兵”行动。', 'system');
-            return;
-        }
-
         if (!source || !target || source.factionId !== playerFactionId || target.factionId !== playerFactionId || !MapData.areAdjacent(source.id, target.id)) {
             GameState.addLog('移动条件不满足。', 'system');
             return;
@@ -1261,6 +1179,12 @@ const App = {
             return;
         }
 
+        const availability = this.getActionAvailability('move', source.id);
+        if (!availability.enabled) {
+            GameState.addLog(availability.reason, 'system');
+            return;
+        }
+        this.mobilePanel = null;
         GameState.game.moveDraftAmount = Math.min(maxAmount, Math.max(1, Number(GameState.game.moveDraftAmount) || maxAmount));
         GameState.game.actionConfirm = { action: 'move', nodeId: source.id, targetId: target.id };
         GameState.game.battlePreview = null;
@@ -1325,75 +1249,32 @@ const App = {
         GameState.addLog(`第 ${GameState.game.currentTurn} 回合：${source.name} 向 ${target.name} 调动 ${movingTroops} 支部队。`, 'system');
     },
 
-    handleNodeClick(nodeId) {
+    inspectProvince(nodeId) {
         const node = MapData.getNode(nodeId);
-        const selectedNode = MapData.getNode(GameState.game.selectedNodeId);
-        const playerFactionId = GameState.getPlayerFactionId();
         if (!node) return;
-
-        const isAdjacentEnemy = selectedNode &&
-            selectedNode.id !== node.id &&
-            selectedNode.factionId === playerFactionId &&
-            node.factionId !== playerFactionId &&
-            MapData.areAdjacent(selectedNode.id, node.id);
-        const isAdjacentFriendly = selectedNode &&
-            selectedNode.id !== node.id &&
-            selectedNode.factionId === playerFactionId &&
-            node.factionId === playerFactionId &&
-            MapData.areAdjacent(selectedNode.id, node.id);
-        const selectedOwnAdjacentNode = selectedNode &&
-            selectedNode.id !== node.id &&
-            selectedNode.factionId === playerFactionId &&
-            MapData.areAdjacent(selectedNode.id, node.id);
-
-        if (selectedOwnAdjacentNode && GameState.getNodeMovableTroops(selectedNode) < 1) {
-            this.mobilePendingAttack = null;
-            this.mobilePendingMove = null;
-            GameState.setSelectedNode(nodeId);
-            return;
-        }
-
-        if (this.isMobileLayout()) {
-            this.mobilePendingAttack = null;
-            this.mobilePendingMove = null;
-
-            if (isAdjacentEnemy && GameState.getNodeMovableTroops(selectedNode) > 0) {
-                this.mobilePendingAttack = { attackerId: selectedNode.id, defenderId: node.id };
-            } else if (
-                isAdjacentFriendly &&
-                GameState.game.movementOrdersActive &&
-                GameState.game.currentAction === 'move' &&
-                GameState.getNodeMovableTroops(selectedNode) > 0
-            ) {
-                this.mobilePendingMove = { sourceId: selectedNode.id, targetId: node.id };
-            }
-
-            GameState.setSelectedNode(nodeId);
-            return;
-        }
-
-        if (GameState.game.currentAction === 'move' && selectedNode && selectedNode.factionId === playerFactionId) {
-            if (MapData.areAdjacent(selectedNode.id, node.id) && node.factionId === playerFactionId) {
-                this.openMoveConfirm(node.id);
-                return;
-            }
-
-            if (isAdjacentEnemy) {
-                if (GameState.getNodeMovableTroops(selectedNode) < 1) {
-                    GameState.addLog('该节点没有可用于进攻的未移动士兵。', 'system');
-                    return;
-                }
-                this.openBattleWithMoveOrder(selectedNode.id, node.id);
-                return;
-            }
-        }
-
-        if (isAdjacentEnemy) {
-            this.openBattleWithMoveOrder(selectedNode.id, node.id);
-            return;
-        }
-
+        GameState.game.currentAction = null;
         GameState.setSelectedNode(nodeId);
+    },
+
+    handleNodeClick(nodeId) {
+        if (GameState.game.currentAction === 'move' && this.openProvinceOrder(nodeId)) return;
+        this.inspectProvince(nodeId);
+    },
+
+    openProvinceOrder(nodeId) {
+        const source = MapData.getNode(GameState.game.selectedNodeId);
+        const factionId = GameState.getPlayerFactionId();
+        if (!source || !this.getActionAvailability('move', source.id).enabled) return false;
+
+        if (MapData.getMoveTargets(source.id, factionId).some(node => node.id === nodeId)) {
+            this.openMoveConfirm(nodeId);
+            return true;
+        }
+        if (MapData.getAttackTargets(source.id, factionId).some(node => node.id === nodeId)) {
+            this.openBattlePreview(source.id, nodeId);
+            return true;
+        }
+        return false;
     },
 
     hoverNode(nodeId) {
@@ -1493,7 +1374,7 @@ const App = {
             encirclementPenalty,
             attackerWins,
             remainingTroops,
-            ppCost: 0,
+
             resultText: attackerWins
                 ? `预计结果：攻方胜利，预计 ${remainingTroops} 支联合部队进入目标。`
                 : isSimultaneous
@@ -1502,55 +1383,19 @@ const App = {
         };
     },
 
-    getBattleAvailability(attackerId) {
-        const attacker = MapData.getNode(attackerId);
-        const moveMeta = this.getActionMeta('move');
-        const meta = { ...moveMeta, cost: '移动令内', costText: '移动令内', ppCost: 0, costMoney: 0 };
-        const playerFactionId = GameState.getPlayerFactionId();
-
-        if (!attacker) return { enabled: false, reason: '未选择进攻节点', ...meta };
-        if (GameState.game.gameOver) return { enabled: false, reason: '游戏已经结束', ...meta };
-        if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', ...meta };
-        if (attacker.factionId !== playerFactionId) return { enabled: false, reason: '你未选中己方可用节点', ...meta };
-        if (!GameState.game.movementOrdersActive) return { enabled: false, reason: '请先使用“移动士兵”发布移动令，进攻会作为普通移动执行，不再额外花费 PP。', ...meta };
-        if (GameState.game.currentAction !== 'move') return { enabled: false, reason: '请点击“继续移动”后再选择进攻目标。', ...meta };
-        if (GameState.getNodeMovableTroops(attacker) < 1) return { enabled: false, reason: '该节点没有可用于进攻的未移动士兵', ...meta };
-
-        return { enabled: true, reason: '', ...meta };
-    },
-
     openBattlePreview(attackerId, defenderId) {
-        const attacker = MapData.getNode(attackerId);
-        const defender = MapData.getNode(defenderId);
-        const playerFactionId = GameState.getPlayerFactionId();
-        const relation = defender ? GameState.game.diplomacy[defender.factionId] : null;
-        const availability = this.getBattleAvailability(attackerId);
-
-        if (!attacker || !defender) return;
+        const availability = this.getActionAvailability('move', attackerId);
         if (!availability.enabled) {
             GameState.addLog(availability.reason, 'system');
             return;
         }
-        if (attacker.factionId !== playerFactionId) {
-            GameState.addLog('你未选中己方可用节点。', 'system');
-            return;
-        }
-        if (defender.factionId === playerFactionId) {
-            GameState.addLog('无法进攻：目标不是敌方节点。', 'system');
-            return;
-        }
-        if (!MapData.areAdjacent(attacker.id, defender.id)) {
-            GameState.addLog('无法进攻：目标不相邻。', 'system');
-            return;
-        }
-        if (relation && relation.relation === '停战') {
-            GameState.addLog('无法进攻：当前外交协议处于停战。', 'system');
-            return;
-        }
+        const targets = MapData.getAttackTargets(attackerId, GameState.getPlayerFactionId());
+        if (!targets.some(node => node.id === defenderId)) return;
 
-        const maxAttackers = GameState.getNodeMovableTroops(attacker);
+        this.mobilePanel = null;
+        const maxAttackers = GameState.getNodeMovableTroops(MapData.getNode(attackerId));
         GameState.game.battleDraftAmount = maxAttackers;
-        GameState.setBattlePreview(this.createBattlePreview(attacker.id, defender.id, GameState.game.battleDraftAmount));
+        GameState.setBattlePreview(this.createBattlePreview(attackerId, defenderId, maxAttackers));
     },
 
     confirmBattle() {
@@ -1565,6 +1410,8 @@ const App = {
         const attacker = MapData.getNode(preview.attackerId);
         const defender = MapData.getNode(preview.defenderId);
         if (!attacker || !defender) return;
+        const targets = MapData.getAttackTargets(attacker.id, GameState.getPlayerFactionId());
+        if (!targets.some(node => node.id === defender.id) || !this.ensureMovementOrders()) return;
 
         if (window.SimultaneousTurns && SimultaneousTurns.isEnabled()) {
             const participatingTroops = this.getSelectedBattleAmount(attacker);
@@ -1586,13 +1433,6 @@ const App = {
                 `第 ${GameState.game.currentTurn} 回合规划：${attacker.name} → ${defender.name}，投入 ${order.amount} 支；战斗将在回合末统一结算。`,
                 'battle'
             );
-            return;
-        }
-
-        if (!GameState.game.movementOrdersActive || GameState.game.currentAction !== 'move') {
-            GameState.addLog('请先使用“移动士兵”发布移动令后再进攻。', 'system');
-            GameState.game.battlePreview = null;
-            GameState.notify();
             return;
         }
 
@@ -1810,9 +1650,7 @@ const App = {
             GameState.game.actionConfirm = null;
             GameState.game.battlePreview = null;
             GameState.game.currentAction = null;
-            this.mobilePendingAttack = null;
-            this.mobilePendingMove = null;
-            GameState.addLog(
+                    GameState.addLog(
                 `${auto ? '计时结束，自动' : ''}准备完成第 ${GameState.game.currentTurn} 回合计划（${orderCount} 道行军令）；取消准备后可继续修改。`,
                 'system',
                 false
@@ -2366,8 +2204,11 @@ const App = {
         GameState.notify();
     },
 
-    toggleGridView() {
-        GameState.toggleGridView();
+    setMapMode(mode) {
+        GameState.game.hoveredNodeId = null;
+        GameState.game.mapMode = mode;
+        if (mode === 'list') GameState.game.currentAction = null;
+        GameState.notify();
     },
 
     getFocusTreeScale() {
@@ -2670,188 +2511,131 @@ const App = {
         };
     },
 
-    getMapTouchPair() {
-        const points = Array.from(this.mapPointers.values());
-        return points.length >= 2 ? [points[0], points[1]] : null;
+    mapPoint(svg, clientX, clientY) {
+        return new DOMPoint(clientX, clientY).matrixTransform(svg.getScreenCTM().inverse());
     },
 
-    startMapTouchGesture(svg) {
-        const pair = this.getMapTouchPair();
-        if (!pair) return;
-
-        const [first, second] = pair;
-        const rect = svg.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-
-        const center = this.getPointerMidpoint(first, second);
-        const viewport = { ...GameState.game.mapViewport };
-        this.mapTouchGesture = {
-            distance: Math.max(12, this.getPointerDistance(first, second)),
-            viewport,
-            anchorMapX: viewport.x + ((center.clientX - rect.left) / rect.width) * viewport.width,
-            anchorMapY: viewport.y + ((center.clientY - rect.top) / rect.height) * viewport.height
-        };
-        this.mapDrag = null;
-    },
-
-    updateMapTouchGesture(svg) {
-        const pair = this.getMapTouchPair();
-        if (!pair) return;
-        if (!this.mapTouchGesture) this.startMapTouchGesture(svg);
-        if (!this.mapTouchGesture) return;
-
-        const [first, second] = pair;
-        const rect = svg.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-
-        const center = this.getPointerMidpoint(first, second);
-        const currentDistance = Math.max(12, this.getPointerDistance(first, second));
-        const factor = this.mapTouchGesture.distance / currentDistance;
-        const sourceViewport = this.mapTouchGesture.viewport;
-        const newWidth = Math.min(1300, Math.max(420, sourceViewport.width * factor));
-        const newHeight = Math.min(806, Math.max(260, sourceViewport.height * factor));
+    resizeMap(width, anchor, position = anchor) {
         const viewport = GameState.game.mapViewport;
-
-        viewport.x = this.mapTouchGesture.anchorMapX - ((center.clientX - rect.left) / rect.width) * newWidth;
-        viewport.y = this.mapTouchGesture.anchorMapY - ((center.clientY - rect.top) / rect.height) * newHeight;
-        viewport.width = newWidth;
-        viewport.height = newHeight;
-        this.updateSvgViewBox(svg);
-    },
-
-    handleMapDoubleTap(event) {
-        const now = Date.now();
-        const point = { clientX: event.clientX, clientY: event.clientY };
-        const previous = this.lastMapTapPoint;
-        const closeEnough = previous && Math.hypot(previous.clientX - point.clientX, previous.clientY - point.clientY) < 42;
-
-        if (now - this.lastMapTapAt < 300 && closeEnough) {
-            this.lastMapTapAt = 0;
-            this.lastMapTapPoint = null;
-            this.zoomMap(0.72, point);
-            return;
-        }
-
-        this.lastMapTapAt = now;
-        this.lastMapTapPoint = point;
+        const nextWidth = Math.min(1300, Math.max(220, width));
+        const scale = nextWidth / viewport.width;
+        viewport.x = anchor.x - (position.x - viewport.x) * scale;
+        viewport.y = anchor.y - (position.y - viewport.y) * scale;
+        viewport.width = nextWidth;
+        viewport.height = nextWidth * 0.62;
     },
 
     attachMapInteraction() {
         const svg = document.getElementById('svg-map');
         if (!svg) return;
 
-        this.mapPointers = new Map();
-        this.mapTouchGesture = null;
+        const pointers = new Map();
+        let drag = null;
+        let pinch = null;
+        let suppressClick = false;
+        const provinceId = target => target.closest('[data-province-id]')?.dataset.provinceId;
+        const pinchGeometry = () => {
+            const [a, b] = pointers.values();
+            return { center: this.getPointerMidpoint(a, b), distance: Math.max(12, this.getPointerDistance(a, b)) };
+        };
 
         svg.addEventListener('wheel', event => {
             event.preventDefault();
-            const factor = event.deltaY > 0 ? 1.1 : 0.9;
-            this.zoomMap(factor, { clientX: event.clientX, clientY: event.clientY });
+            this.zoomMap(event.deltaY > 0 ? 1.12 : 0.89, event);
         }, { passive: false });
 
         svg.addEventListener('pointerdown', event => {
+            if (event.button !== 0) return;
+            suppressClick = false;
             if (event.pointerType === 'touch') {
-                this.mapPointers.set(event.pointerId, {
-                    pointerId: event.pointerId,
-                    clientX: event.clientX,
-                    clientY: event.clientY
-                });
-                svg.setPointerCapture(event.pointerId);
-
-                if (this.mapPointers.size >= 2) {
-                    this.startMapTouchGesture(svg);
-                    event.preventDefault();
+                pointers.set(event.pointerId, event);
+                if (pointers.size >= 2) {
+                    const { center, distance } = pinchGeometry();
+                    pinch = {
+                        anchor: this.mapPoint(svg, center.clientX, center.clientY),
+                        distance,
+                        width: GameState.game.mapViewport.width
+                    };
+                    drag = null;
+                    suppressClick = true;
+                    for (const id of pointers.keys()) svg.setPointerCapture(id);
                     return;
                 }
             }
-
-            if (event.target.closest('.map-node')) return;
-
-            this.mapDrag = {
-                pointerId: event.pointerId,
-                pointerType: event.pointerType,
-                startX: event.clientX,
-                startY: event.clientY,
-                lastX: event.clientX,
-                lastY: event.clientY,
-                moved: false
-            };
-            svg.setPointerCapture(event.pointerId);
+            drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
         });
 
         svg.addEventListener('pointermove', event => {
-            if (event.pointerType === 'touch' && this.mapPointers.has(event.pointerId)) {
-                this.mapPointers.set(event.pointerId, {
-                    pointerId: event.pointerId,
-                    clientX: event.clientX,
-                    clientY: event.clientY
-                });
-
-                if (this.mapPointers.size >= 2) {
-                    this.updateMapTouchGesture(svg);
-                    event.preventDefault();
-                    return;
-                }
+            if (pointers.has(event.pointerId)) pointers.set(event.pointerId, event);
+            if (pinch && pointers.size >= 2) {
+                const { center, distance } = pinchGeometry();
+                this.resizeMap(pinch.width * pinch.distance / distance, pinch.anchor,
+                    this.mapPoint(svg, center.clientX, center.clientY));
+                this.updateSvgViewBox(svg);
+                return;
             }
-
-            if (!this.mapDrag || this.mapDrag.pointerId !== event.pointerId) return;
-
+            if (drag?.id !== event.pointerId) return;
+            if (!suppressClick) {
+                if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 6) return;
+                suppressClick = true;
+                svg.setPointerCapture(event.pointerId);
+                this.hoverNode(null);
+            }
+            const previous = this.mapPoint(svg, drag.x, drag.y);
+            const current = this.mapPoint(svg, event.clientX, event.clientY);
             const viewport = GameState.game.mapViewport;
-            const rect = svg.getBoundingClientRect();
-            const dx = event.clientX - this.mapDrag.lastX;
-            const dy = event.clientY - this.mapDrag.lastY;
-            if (Math.abs(event.clientX - this.mapDrag.startX) + Math.abs(event.clientY - this.mapDrag.startY) > 8) {
-                this.mapDrag.moved = true;
-            }
-            viewport.x -= dx * (viewport.width / rect.width);
-            viewport.y -= dy * (viewport.height / rect.height);
-            this.mapDrag.lastX = event.clientX;
-            this.mapDrag.lastY = event.clientY;
+            viewport.x += previous.x - current.x;
+            viewport.y += previous.y - current.y;
+            drag.x = event.clientX;
+            drag.y = event.clientY;
             this.updateSvgViewBox(svg);
-            if (event.pointerType === 'touch') event.preventDefault();
         });
 
-        const stopDrag = event => {
-            if (event.pointerType === 'touch') {
-                this.mapPointers.delete(event.pointerId);
-                this.mapTouchGesture = null;
-            }
-
-            if (!this.mapDrag || this.mapDrag.pointerId !== event.pointerId) return;
-            if (event.pointerType === 'touch' && !this.mapDrag.moved) {
-                this.handleMapDoubleTap(event);
-            }
-            this.mapDrag = null;
+        const stop = event => {
+            pointers.delete(event.pointerId);
+            if (pointers.size < 2) pinch = null;
+            if (drag?.id === event.pointerId) drag = null;
         };
-
-        svg.addEventListener('pointerup', stopDrag);
-        svg.addEventListener('pointercancel', stopDrag);
-        svg.addEventListener('lostpointercapture', stopDrag);
+        svg.addEventListener('pointerup', stop);
+        svg.addEventListener('pointercancel', stop);
+        svg.addEventListener('lostpointercapture', event => {
+            if (!svg.hasPointerCapture(event.pointerId) && event.target === svg) stop(event);
+        });
+        svg.addEventListener('pointerover', event => {
+            if (event.pointerType === 'mouse' && !suppressClick) this.hoverNode(provinceId(event.target) || null);
+        });
+        svg.addEventListener('pointerleave', () => {
+            if (!suppressClick) drag = null;
+            this.hoverNode(null);
+        });
+        svg.addEventListener('click', event => {
+            const id = provinceId(event.target);
+            if (!suppressClick && id) this.handleNodeClick(id);
+            suppressClick = false;
+        });
+        svg.addEventListener('contextmenu', event => {
+            const id = provinceId(event.target);
+            if (!id) return;
+            event.preventDefault();
+            this.openProvinceOrder(id);
+        });
+        svg.addEventListener('keydown', event => {
+            const id = provinceId(event.target);
+            if (!id || (event.key !== 'Enter' && event.key !== ' ')) return;
+            event.preventDefault();
+            this.handleNodeClick(id);
+        });
     },
 
     zoomMap(factor, pointer = null) {
         const svg = document.getElementById('svg-map');
+        if (!svg) return;
         const viewport = GameState.game.mapViewport;
-        const oldWidth = viewport.width;
-        const oldHeight = viewport.height;
-        const newWidth = Math.min(1300, Math.max(420, oldWidth * factor));
-        const newHeight = Math.min(806, Math.max(260, oldHeight * factor));
-
-        let anchorX = viewport.x + oldWidth / 2;
-        let anchorY = viewport.y + oldHeight / 2;
-
-        if (pointer && svg) {
-            const rect = svg.getBoundingClientRect();
-            anchorX = viewport.x + ((pointer.clientX - rect.left) / rect.width) * oldWidth;
-            anchorY = viewport.y + ((pointer.clientY - rect.top) / rect.height) * oldHeight;
-        }
-
-        viewport.x = anchorX - ((anchorX - viewport.x) / oldWidth) * newWidth;
-        viewport.y = anchorY - ((anchorY - viewport.y) / oldHeight) * newHeight;
-        viewport.width = newWidth;
-        viewport.height = newHeight;
-
-        if (svg) this.updateSvgViewBox(svg);
+        const anchor = pointer
+            ? this.mapPoint(svg, pointer.clientX, pointer.clientY)
+            : { x: viewport.x + viewport.width / 2, y: viewport.y + viewport.height / 2 };
+        this.resizeMap(viewport.width * factor, anchor);
+        this.updateSvgViewBox(svg);
     },
 
     resetMapViewport() {
@@ -2864,6 +2648,8 @@ const App = {
         if (!node) return;
 
         const viewport = GameState.game.mapViewport;
+        viewport.width = Math.min(viewport.width, 410);
+        viewport.height = viewport.width * 0.62;
         viewport.x = node.x - viewport.width / 2;
         viewport.y = node.y - viewport.height / 2;
         this.updateSvgViewBox(document.getElementById('svg-map'));

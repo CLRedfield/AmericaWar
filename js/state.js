@@ -689,7 +689,7 @@ const GameState = {
             playstyleTags: ['防守反击', '正统政府'],
             description: '作为合众国正统，你需要死守华盛顿并向四周出击，平息所有叛乱。',
             ideology: 'military_junta',
-            startingStats: { nodes: 6, industry: 14, troops: 24, money: 20, pp: 10 }
+            startingStats: { money: 20, pp: 10 }
         },
         {
             id: 'CSA',
@@ -701,7 +701,7 @@ const GameState = {
             playstyleTags: ['工业爆兵', '五大湖防线'],
             description: '控制着五大湖工业区，拥有极高的工业潜力，可以用持续征兵压垮敌人。',
             ideology: 'syndicalism',
-            startingStats: { nodes: 6, industry: 15, troops: 31, money: 35, pp: 13 }
+            startingStats: { money: 35, pp: 13 }
         },
         {
             id: 'AUS',
@@ -713,7 +713,7 @@ const GameState = {
             playstyleTags: ['中部走廊', '纵深机动'],
             description: '从北部平原一路压到密西西比河下游，能同时威胁五大湖、落基山和深南方。',
             ideology: 'populism',
-            startingStats: { nodes: 8, industry: 14, troops: 27, money: 28, pp: 10 }
+            startingStats: { money: 28, pp: 10 }
         },
         {
             id: 'CON',
@@ -725,7 +725,7 @@ const GameState = {
             playstyleTags: ['深南方堡垒', '亚特兰大核心'],
             description: '以亚特兰大和卡罗莱纳为核心，夹在联邦军、联盟国和德州之间，扩张窗口很窄。',
             ideology: 'security_state',
-            startingStats: { nodes: 6, industry: 14, troops: 23, money: 20, pp: 10 }
+            startingStats: { money: 20, pp: 10 }
         },
         {
             id: 'NEN',
@@ -737,7 +737,7 @@ const GameState = {
             playstyleTags: ['偏安一隅', '外援窗口'],
             description: '在东北角自保，依赖外部势力的援助和精密防守。',
             ideology: 'mercantile',
-            startingStats: { nodes: 4, industry: 8, troops: 13, money: 10, pp: 5 }
+            startingStats: { money: 10, pp: 5 }
         },
         {
             id: 'PAC',
@@ -749,7 +749,7 @@ const GameState = {
             playstyleTags: ['民主堡垒', '落基山防线'],
             description: '退守西海岸，利用地理优势积蓄力量。',
             ideology: 'wartime_democracy',
-            startingStats: { nodes: 5, industry: 12, troops: 22, money: 20, pp: 4 }
+            startingStats: { money: 20, pp: 4 }
         },
         {
             id: 'WDC',
@@ -761,7 +761,7 @@ const GameState = {
             playstyleTags: ['荒漠游击', '纵深防御'],
             description: '在大平原和沙漠中与各方周旋，节点多但工业薄弱。',
             ideology: 'military_junta',
-            startingStats: { nodes: 7, industry: 8, troops: 17, money: 18, pp: 10 }
+            startingStats: { money: 18, pp: 10 }
         },
         {
             id: 'TEX',
@@ -773,7 +773,7 @@ const GameState = {
             playstyleTags: ['石油经济', '孤星防线'],
             description: '拥有丰富的油田资源，可以把金钱转化为持续战争潜力。',
             ideology: 'frontier_republic',
-            startingStats: { nodes: 4, industry: 10, troops: 16, money: 12, pp: 6 }
+            startingStats: { money: 12, pp: 6 }
         }
     ],
 
@@ -828,7 +828,7 @@ const GameState = {
         showFocusModal: false,
         showDiplomacyModal: false,
         showModifiersModal: false,
-        showGridView: false,
+        mapMode: 'political',
         activeLogTab: 'battle',
         completedFocuses: [],
         focusProgress: {},
@@ -1763,7 +1763,7 @@ const GameState = {
             showFocusModal: false,
             showDiplomacyModal: false,
             showModifiersModal: false,
-            showGridView: false,
+            mapMode: 'political',
             activeLogTab: 'battle',
             completedFocuses: [],
             focusProgress: {},
@@ -1911,12 +1911,6 @@ const GameState = {
         this.game.showModifiersModal = typeof forceValue === 'boolean' ? forceValue : !this.game.showModifiersModal;
         this.game.actionConfirm = null;
         this.game.battlePreview = null;
-        this.notify();
-    },
-
-    toggleGridView() {
-        this.game.showGridView = !this.game.showGridView;
-        this.game.currentAction = null;
         this.notify();
     },
 

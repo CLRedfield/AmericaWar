@@ -17,6 +17,8 @@ const FactionSelectView = {
 
         let difficultyStars = '★'.repeat(selectedFaction.difficulty) + '☆'.repeat(5 - selectedFaction.difficulty);
 
+        const opening = MapData.calculateFactionStats(selectedFaction.id, MapData.initialNodes);
+
         return `
             <div class="view-faction-select animate-fade-in">
                 <div class="faction-select-header">
@@ -60,11 +62,11 @@ const FactionSelectView = {
                                 </div>
                                 <div class="stat-box">
                                     <div class="text-muted text-sm">初始兵力</div>
-                                    <div class="stat-value">${selectedFaction.startingStats.troops}</div>
+                                    <div class="stat-value">${opening.totalTroops}</div>
                                 </div>
                                 <div class="stat-box">
                                     <div class="text-muted text-sm">初始工业</div>
-                                    <div class="stat-value">${selectedFaction.startingStats.industry}</div>
+                                    <div class="stat-value">${opening.totalIndustry}</div>
                                 </div>
                             </div>
                         </div>

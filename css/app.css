@@ -34,19 +34,10 @@
     opacity: 0.5;
 }
 
-.menu-map-shape {
-    fill: rgba(30, 41, 59, 0.45);
-    stroke: rgba(148, 163, 184, 0.18);
-    stroke-width: 1.5;
-}
-
-.menu-map-links line {
-    stroke: rgba(148, 163, 184, 0.12);
-    stroke-width: 1;
-}
-
-.menu-map-nodes circle {
-    opacity: 0.55;
+.menu-map-provinces path {
+    fill-rule: evenodd;
+    stroke: #d5c7a7;
+    stroke-width: 0.9;
 }
 
 .main-menu-vignette {
@@ -222,8 +213,8 @@
    ========================================================================== */
 .view-game-page {
     display: grid;
-    grid-template-columns: 280px 1fr 320px;
-    grid-template-rows: 56px 1fr 180px;
+    grid-template-columns: 214px minmax(0, 1fr) 278px;
+    grid-template-rows: 56px minmax(0, 1fr) 138px;
     grid-template-areas: 
         "top top top"
         "left center right"
@@ -294,28 +285,6 @@
 
 #svg-map:active {
     cursor: grabbing;
-}
-
-.map-node {
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.map-node:hover circle.node-base {
-    stroke-width: 3;
-    stroke: #fff;
-}
-
-.map-node.selected circle.node-base {
-    stroke-width: 4;
-    stroke: var(--color-text-accent);
-    filter: drop-shadow(0 0 8px var(--color-text-accent));
-}
-
-.map-link {
-    stroke: rgba(148, 163, 184, 0.3);
-    stroke-width: 2;
-    stroke-dasharray: 4;
 }
 
 /* Bottom Log Panel */
@@ -1553,21 +1522,6 @@ button:disabled {
     backdrop-filter: var(--backdrop-blur);
 }
 
-.plan-order-count {
-    display: inline-flex;
-    align-items: center;
-    min-height: 32px;
-    padding: 0 var(--spacing-2);
-    border-left: 1px solid rgba(148, 163, 184, 0.24);
-    color: var(--color-text-muted);
-    font-size: 0.75rem;
-    white-space: nowrap;
-}
-
-.plan-order-count.has-orders {
-    color: #bfdbfe;
-}
-
 .planned-orders-layer {
     pointer-events: none;
     filter: drop-shadow(0 6px 12px rgba(2, 6, 23, 0.62));
@@ -1758,53 +1712,6 @@ button:disabled {
     cursor: pointer;
 }
 
-.mobile-map-shortcut {
-    display: none;
-}
-
-.background-map-shape path:first-child {
-    fill: rgba(30, 41, 59, 0.5);
-    stroke: rgba(148, 163, 184, 0.22);
-    stroke-width: 2;
-}
-
-.background-map-coast {
-    fill: none;
-    stroke: rgba(251, 191, 36, 0.14);
-    stroke-width: 2;
-    stroke-dasharray: 8 12;
-}
-
-.region-block {
-    opacity: 0.12;
-    stroke: rgba(255, 255, 255, 0.08);
-    stroke-width: 1;
-}
-
-.region-block.pacific { fill: #d97706; }
-.region-block.plains { fill: #64748b; }
-.region-block.lakes { fill: #dc2626; }
-.region-block.atlantic { fill: #0284c7; }
-.region-block.south { fill: #92400e; }
-
-/* 阵营领土：goo 融合大色块 + 大号国名（HOI4 政治地图风）。
-   不透明度由 map.js 按缩放档位写在内联 style 上：拉远总览最突出。 */
-.faction-territory,
-.territory-labels {
-    pointer-events: none;
-    transition: opacity 0.25s ease;
-}
-
-.territory-label {
-    font-family: 'Playfair Display', 'Inter', serif;
-    font-weight: 800;
-    letter-spacing: 3px;
-    stroke: rgba(8, 12, 20, 0.85);
-    stroke-width: 4px;
-    paint-order: stroke;
-    stroke-linejoin: round;
-}
-
 /* 国家修正弹窗 */
 .modifiers-modal {
     max-width: 540px;
@@ -1858,133 +1765,6 @@ button:disabled {
     box-shadow: 0 0 8px color-mix(in srgb, var(--ideology-color, #334155) 50%, transparent);
 }
 
-.map-link.hot {
-    stroke: rgba(251, 191, 36, 0.6);
-    stroke-width: 3;
-}
-
-.control-ring {
-    fill: none;
-    stroke-width: 4;
-    opacity: 0.95;
-}
-
-.node-base {
-    stroke-width: 2;
-}
-
-.node-hit-area {
-    fill: transparent;
-    pointer-events: none;
-}
-
-.map-node {
-    cursor: pointer;
-}
-
-.map-node:hover .node-base,
-.map-node.hovered .node-base {
-    stroke: #fff;
-    stroke-width: 4;
-}
-
-.map-node.selected .node-base {
-    stroke: var(--color-text-accent);
-    stroke-width: 4;
-    filter: url(#softGlow);
-}
-
-.node-troops,
-.node-abbr,
-.capital-marker,
-.node-tag {
-    paint-order: stroke;
-    stroke: rgba(2, 6, 23, 0.92);
-    stroke-width: 2px;
-    stroke-linejoin: round;
-}
-
-.node-troops {
-    fill: var(--color-text-main);
-    font-size: 15px;
-    font-weight: 800;
-    pointer-events: none;
-}
-
-.node-abbr {
-    fill: var(--color-text-muted);
-    font-size: 11px;
-    font-weight: 700;
-    pointer-events: none;
-}
-
-.move-ready-badge rect {
-    fill: rgba(37, 99, 235, 0.9);
-    stroke: rgba(191, 219, 254, 0.8);
-    stroke-width: 1;
-}
-
-.move-ready-badge text {
-    fill: #eff6ff;
-    font-size: 8px;
-    font-weight: 900;
-    pointer-events: none;
-}
-
-.industry-badge rect {
-    fill: rgba(15, 23, 42, 0.94);
-    stroke: rgba(251, 191, 36, 0.72);
-}
-
-.industry-badge text,
-.node-tag,
-.capital-marker {
-    fill: var(--color-text-accent);
-    font-size: 10px;
-    font-weight: 800;
-    pointer-events: none;
-}
-
-.capital-marker {
-    font-size: 16px;
-}
-
-.node-tag.oil {
-    fill: #f59e0b;
-}
-
-.target-pulse {
-    fill: none;
-    stroke-width: 3;
-    opacity: 0.72;
-}
-
-.target-pulse.move {
-    stroke: var(--color-primary);
-}
-
-.target-pulse.attack {
-    stroke: var(--color-danger);
-}
-
-.encircled-ring {
-    fill: none;
-    stroke: #f87171;
-    stroke-width: 2;
-    stroke-dasharray: 4 3;
-    opacity: 0.85;
-    animation: encircled-march 1.4s linear infinite;
-}
-
-.map-node.is-encircled .control-ring {
-    stroke-dasharray: 5 3;
-}
-
-@keyframes encircled-march {
-    from { stroke-dashoffset: 0; }
-    to { stroke-dashoffset: 14; }
-}
-
 .map-tooltip {
     position: absolute;
     right: var(--spacing-4);
@@ -2016,13 +1796,6 @@ button:disabled {
     gap: var(--spacing-2);
     overflow: auto;
     padding: var(--spacing-2);
-}
-
-.map-grid-row {
-    display: grid;
-    grid-template-columns: repeat(var(--grid-columns), minmax(88px, 1fr));
-    gap: var(--spacing-2);
-    min-width: 980px;
 }
 
 .grid-cell {
@@ -2711,8 +2484,8 @@ button:disabled {
    ========================================================================== */
 @media (max-width: 1120px) {
     .view-game-page {
-        grid-template-columns: 240px 1fr;
-        grid-template-rows: 64px minmax(0, 1fr) 260px;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 29vw);
+        grid-template-rows: 64px minmax(0, 1fr) 154px;
         grid-template-areas:
             "top top"
             "center right"
@@ -2969,11 +2742,6 @@ button:disabled {
         background: rgba(15, 23, 42, 0.82);
     }
 
-    .plan-order-count,
-    .plan-clear-button {
-        display: none;
-    }
-
     .planned-order path {
         stroke-width: 5;
     }
@@ -2983,18 +2751,9 @@ button:disabled {
         padding: 0 var(--spacing-3);
     }
 
-    .map-command-strip .mobile-map-shortcut {
-        display: inline-flex;
-        align-items: center;
-    }
-
     .map-icon-btn {
         width: 40px;
         height: 40px;
-    }
-
-    .node-hit-area {
-        pointer-events: all;
     }
 
     .game-left-panel,
@@ -3575,7 +3334,7 @@ button:disabled {
     opacity: 0.45;
 }
 
-/* 手机端触摸目标与可读性收尾（#2 按钮、#3 节点热区、#4 控件、#5 小字） */
+/* 手机端触摸目标与可读性 */
 @media (max-width: 760px) {
     /* #2 主操作按钮 ≥44px（底部面板与国策树底部按钮空间充足） */
     .panel-actions .btn,
@@ -3593,8 +3352,373 @@ button:disabled {
         font-size: 0.75rem;
     }
 
-    /* #3 适度放大地图节点的触摸热区（可见环 r=23，热区默认 r=30 → 手机 r=34） */
-    .map-node .node-hit-area {
-        r: 34px;
+}
+
+/* Campaign atlas */
+.game-map-container {
+    background-color: #15242e;
+    background-image:
+        radial-gradient(ellipse at 48% 42%, rgba(86, 113, 112, .28), transparent 74%),
+        linear-gradient(rgba(164, 193, 189, .06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(164, 193, 189, .06) 1px, transparent 1px);
+    background-size: auto, 30px 30px, 30px 30px;
+}
+
+#svg-map {
+    display: block;
+}
+
+.map-province {
+    fill: color-mix(in srgb, var(--province-color) 68%, #6e7764);
+    fill-rule: evenodd;
+    stroke: #202c30;
+    stroke-width: 1;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    cursor: pointer;
+    outline: none;
+}
+
+.map-province.attack-target {
+    fill: color-mix(in srgb, var(--province-color) 54%, #ea9678);
+}
+
+.map-province.move-target {
+    fill: color-mix(in srgb, var(--province-color) 40%, #78cce0);
+}
+
+.map-province.selected,
+.map-province:hover,
+.map-province:focus-visible {
+    fill: color-mix(in srgb, var(--province-color) 48%, #f6da9a);
+    stroke: #fff0c3;
+    stroke-width: 2.2;
+    paint-order: fill stroke;
+}
+
+.atlas-industry .map-province {
+    fill: var(--province-color);
+}
+
+.atlas-industry .map-province:is(.selected, .attack-target, .move-target, :hover, :focus-visible) {
+    stroke: #f7e6a7;
+    stroke-width: 2;
+}
+
+.frontier-layer,
+.atlas-context,
+.territory-labels,
+.map-nodes-layer {
+    pointer-events: none;
+}
+
+.frontier-layer path {
+    fill: none;
+    stroke: #f3e5bd;
+    stroke-opacity: .68;
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.atlas-context text {
+    fill: #a4b9b7;
+    opacity: .7;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 15px;
+    text-anchor: middle;
+    letter-spacing: .27em;
+}
+
+.territory-label,
+.city-capital,
+.city-name,
+.city-count {
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke-linejoin: round;
+}
+
+.territory-label {
+    fill: #fff0cd;
+    stroke: #1b2528;
+    stroke-width: 3.6;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .08em;
+}
+
+.atlas-detail .territory-labels,
+.atlas-close .territory-labels {
+    display: none;
+}
+
+.atlas-mid .territory-labels {
+    opacity: .74;
+}
+
+.city-capital {
+    fill: #ffe8a6;
+    stroke: #20252a;
+    stroke-width: 2.6;
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.city-dot {
+    fill: #eddfb8;
+    stroke: #19272d;
+    stroke-width: 1.2;
+}
+
+.city-detail {
+    display: none;
+}
+
+.atlas-detail .city-detail,
+.atlas-close .map-city:not(.crowded) .city-detail,
+.atlas-close .map-city.selected .city-detail,
+.atlas-mid .map-city.emphasis .city-detail,
+.atlas-overview .map-city.selected .city-detail {
+    display: inline;
+}
+
+.city-counter {
+    fill: #17252c;
+    stroke: #f0dbad;
+    stroke-width: .65;
+}
+
+.map-city.selected .city-counter {
+    stroke-width: 1.2;
+}
+
+.city-name,
+.city-count {
+    fill: #fff2cc;
+    font-family: var(--font-sans);
+    font-size: 8px;
+    font-weight: 800;
+}
+
+.city-name {
+    stroke: #17252c;
+    stroke-width: 2;
+    letter-spacing: .04em;
+}
+
+.atlas-toolbar {
+    inset: 12px auto auto 12px;
+    max-width: calc(100% - 24px);
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 5px;
+    background: #17272f;
+    border-color: #7f897b;
+    box-shadow: 0 6px 20px #0b161c70;
+}
+
+.atlas-tabs,
+.atlas-tools,
+.atlas-plan-summary {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.atlas-tools,
+.atlas-plan-summary {
+    padding-left: 5px;
+    border-left: 1px solid #78857960;
+}
+
+.atlas-toolbar button {
+    min-height: 32px;
+    min-width: 30px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: #2b3a42;
+    color: #e8e2d2;
+    font: inherit;
+    font-size: .8rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.atlas-toolbar button[aria-pressed="true"],
+.atlas-toolbar button:hover:not(:disabled) {
+    border-color: #d3bd8b;
+    background: #6d6048;
+    color: #fff4db;
+}
+
+.atlas-toolbar button:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+.atlas-plan-summary {
+    color: #d7d9ce;
+    font-size: .76rem;
+    white-space: nowrap;
+}
+
+.atlas-plan-summary strong {
+    color: #ffe8ad;
+}
+
+.atlas-caption {
+    position: absolute;
+    inset: auto 12px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 13px;
+    padding: 7px 10px;
+    border-top: 1px solid #929a8266;
+    color: #d9ded6;
+    background: #15242eea;
+    font-size: .76rem;
+    pointer-events: none;
+}
+
+.atlas-coordinate {
+    color: #ecd4a2;
+    font-weight: 800;
+}
+
+.atlas-caption i {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 2px;
+}
+
+.atlas-front-key {
+    width: 15px;
+    border-top: 2px solid #e6d4a9;
+}
+
+.atlas-capital-key {
+    color: #ffe8a6;
+    font-style: normal;
+}
+
+.atlas-desktop-hint,
+.atlas-order-hint {
+    margin-left: auto;
+}
+
+.atlas-order-hint {
+    color: #a3e6f2;
+}
+
+.game-left-panel .summary-grid > div,
+.province-stats > div {
+    padding: 7px 8px;
+}
+
+.province-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.game-right-panel .action-button-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game-left-panel .panel-actions {
+    flex-wrap: wrap;
+}
+
+.game-left-panel .panel-actions .btn {
+    padding-inline: 9px;
+    white-space: nowrap;
+}
+
+.province-meta {
+    margin-top: 7px;
+    font-size: .75rem;
+    color: var(--color-text-muted);
+}
+
+.atlas-industry-key i {
+    width: 45px;
+    height: 7px;
+    background: linear-gradient(90deg, #334a52, #e3b254);
+}
+
+.atlas-tooltip {
+    inset: auto 12px 53px auto;
+    width: auto;
+    padding: 8px 12px;
+    pointer-events: none;
+}
+
+.atlas-tooltip strong {
+    color: #fff2d2;
+}
+
+.atlas-tooltip span {
+    display: block;
+}
+
+.atlas-province-list {
+    inset: 65px 12px 12px;
+}
+
+.atlas-province-group h3 {
+    margin: 5px 0;
+    color: #f6e1af;
+    font-size: .9rem;
+}
+
+.atlas-province-group h3 small,
+.atlas-province-group button small {
+    margin-left: 4px;
+    color: #aab9ba;
+    font-size: .72rem;
+}
+
+.atlas-province-group > div {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+    gap: 6px;
+}
+
+.atlas-province-group .grid-cell {
+    min-height: 56px;
+}
+
+@media (max-width: 760px) {
+    .atlas-toolbar {
+        max-width: calc(100% - 16px);
+        inset: 8px auto auto 8px;
+    }
+
+    .atlas-toolbar button {
+        min-height: 40px;
+    }
+
+    .atlas-caption {
+        inset: auto 8px 66px;
+    }
+
+    .mobile-panel-none:has(.mobile-node-chip) .atlas-caption {
+        bottom: 130px;
+    }
+
+    .atlas-desktop-hint {
+        display: none;
+    }
+
+    .atlas-province-list {
+        bottom: 130px;
+    }
+
+    .atlas-plan-summary {
+        gap: 2px;
     }
 }
