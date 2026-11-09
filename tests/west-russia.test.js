@@ -1,0 +1,296 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+const vm = require('node:vm');
+
+const root = path.resolve(__dirname, '..');
+const scripts = [...fs.readFileSync(path.join(root, 'index.html'), 'utf8').matchAll(/src="(js\/[^"?]+)\?v=/g)]
+    .map(([, filename]) => filename);
+
+function gameClient() {
+    const context = vm.createContext({
+        console,
+        document: {
+            addEventListener() {},
+            querySelector() { return null; },
+            querySelectorAll() { return []; },
+            getElementById() { return null; },
+            body: { classList: { toggle() {} } }
+        },
+        location: { hash: '', origin: 'http://localhost', pathname: '/' },
+        matchMedia: () => ({ matches: false }),
+        setTimeout,
+        clearTimeout
+    });
+    context.window = context;
+    for (const filename of scripts) {
+        vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), context, { filename });
+    }
+    return Object.assign(context, vm.runInContext("({ GameState })", context));
+}
+
+test('West Russia provides a connected province map and complete, distinct faction trees', () => {
+    const { GameState, MapData } = gameClient();
+    GameState.initLocalLobby('west-russia');
+
+    assert.equal(GameState.lobby.slots.length, 11);
+    assert.equal(MapData.nodes.length, 94);
+    const reachable = new Set([MapData.nodes[0].id]);
+    for (const nodeId of reachable) {
+        for (const neighbor of MapData.getNeighbors(nodeId)) reachable.add(neighbor.id);
+    }
+    assert.equal(reachable.size, MapData.nodes.length);
+    assert.ok(MapData.geography.borders.every(([a, b, d]) => a !== b && d.startsWith('M')));
+    assert.ok(MapData.nodes.every(node => MapData.geography.provinces[node.id][3].startsWith('M')));
+    assert.equal(MapData.getNode('WR_UKH').factionId, 'WRF');
+    assert.equal(MapData.getNode('WR_VYT').factionId, 'VYA');
+
+    const campaignFocusIds = new Set();
+    const campaignIdeologies = new Set();
+    const provincesPerFaction = { WRF: 10, KOM: 8, VYA: 10, SAM: 8, PRM: 10, ONE: 8, GOR: 8, VOL: 8, GEO: 6, TAT: 10, BSH: 8 };
+    for (const faction of GameState.factions) {
+        assert.equal(MapData.getNode(faction.capitalNodeId).factionId, faction.id);
+        const owned = MapData.getFactionNodes(faction.id);
+        assert.equal(owned.length, provincesPerFaction[faction.id]);
+        assert.ok(owned.some(node => node.troops <= 1));
+        campaignIdeologies.add(faction.ideology);
+        const localNeighbors = new Set([faction.capitalNodeId]);
+        for (const id of localNeighbors) {
+            for (const next of MapData.getNeighbors(id)) {
+                if (next.factionId === faction.id) localNeighbors.add(next.id);
+            }
+        }
+        assert.equal(localNeighbors.size, owned.length, faction.id + ' has a contiguous starting position');
+
+        const focuses = GameState.getFocusTree(faction.id);
+        const byId = new Map(focuses.map(focus => [focus.id, focus]));
+        assert.equal(focuses.length, 150);
+        assert.equal(byId.size, 150);
+        assert.equal(new Set(focuses.map(focus => focus.branch)).size, 11);
+        assert.equal(focuses.filter(focus => focus.id.endsWith('_commit')).length, 4);
+        assert.ok(focuses.filter(focus => focus.story).length >= 12);
+        assert.ok(focuses.some(focus => focus.wartime));
+        assert.ok(focuses.some(focus => !focus.wartime));
+
+        for (const focus of focuses) {
+            assert.ok(!campaignFocusIds.has(focus.id));
+            campaignFocusIds.add(focus.id);
+            assert.ok(focus.effects.length && focus.description);
+            const parents = [...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()];
+            for (const parent of parents) {
+                assert.ok(byId.has(parent), parent + ' exists');
+                assert.ok(byId.get(parent).y < focus.y, focus.id + ' keeps its dependencies acyclic');
+            }
+            for (const other of focus.mutuallyExclusive || []) {
+                assert.ok(byId.get(other).mutuallyExclusive.includes(focus.id), focus.id + ' has a symmetric exclusion');
+            }
+            for (const effect of focus.effects) {
+                if (effect.type === 'ideology') {
+                    assert.ok(GameState.ideologies[effect.id].bonuses.length);
+                    campaignIdeologies.add(effect.id);
+                }
+                if (effect.tag) assert.ok(owned.some(node => node.tags.includes(effect.tag)), faction.id + ' can use ' + effect.tag);
+            }
+        }
+    }
+    assert.equal(campaignFocusIds.size, 1650);
+    assert.equal(campaignIdeologies.size, 20);
+    const openingFrontiers = new Set(MapData.connections.map(([a, b]) => (
+        [MapData.getNode(a).factionId, MapData.getNode(b).factionId].sort().join('-')
+    )));
+    for (const border of ['KOM-VOL', 'BSH-SAM', 'GOR-SAM', 'SAM-VYA', 'ONE-WRF']) {
+        assert.ok(openingFrontiers.has(border), border + ' has a shared land frontier');
+    }
+
+    GameState.initLocalLobby('america');
+    assert.equal(GameState.lobby.slots.length, 8);
+    assert.equal(MapData.nodes.length, 48);
+    assert.equal(GameState.getFocusTree('USA').length, 150);
+    assert.equal(GameState.isWarOpen(), true);
+});
+
+test('preparation permits friendly movement and blocks cross-border orders through the host resolver', () => {
+    const { GameState, MapData, SimultaneousTurns, GameAI, app } = gameClient();
+    GameState.initLocalLobby('west-russia');
+    GameState.addAiToSlot('KOM', 'very_easy');
+    GameState.startGameSession();
+
+    const friendly = { sourceId: 'WR_UKH', targetId: 'WR_KTL', amount: 1, kind: 'move' };
+    const attack = { sourceId: 'WR_UKH', targetId: 'WR_KNY', amount: 4, kind: 'attack' };
+    assert.equal(MapData.getAttackTargets(attack.sourceId, 'WRF').length, 0);
+    assert.equal(SimultaneousTurns.addOrder(attack), null);
+    assert.ok(SimultaneousTurns.addOrder(friendly));
+    assert.equal(SimultaneousTurns.buildAiPlan('KOM').orders.some(order => order.kind === 'attack'), false);
+
+    const wartime = GameState.getFocusById('wr_wrf_zhukov_wartime');
+    assert.equal(GameState.getFocusStatus(wartime), 'phase-blocked');
+    assert.equal(app.getFocusAdvanceAvailability(wartime.id).reason, '战斗期开放');
+    assert.equal(GameAI.aiAdvanceFocus('WRF', wartime, null, { free: true }), false);
+
+    const localPlan = SimultaneousTurns.snapshotLocalPlan(true);
+    // The host must check the target owner even when an incoming packet claims a friendly move.
+    localPlan.orders.push({ ...attack, kind: 'move' });
+    const foreignWartimeId = 'wr_kom_centre_wartime';
+    localPlan.completedFocuses.push(wartime.id, foreignWartimeId);
+    localPlan.focusProgress[wartime.id] = 2;
+    localPlan.focusProgress[foreignWartimeId] = 2;
+    const hostileProvince = MapData.getNode(attack.targetId);
+    const ownerBefore = hostileProvince.factionId;
+    assert.equal(SimultaneousTurns.resolveTurn(app), true);
+    assert.equal(GameState.game.lastResolutionReport.movements.some(move => move.targetId === attack.targetId), false);
+    assert.equal(GameState.game.lastResolutionReport.movements.some(move => move.targetId === friendly.targetId), true);
+    assert.equal(hostileProvince.factionId, ownerBefore);
+    assert.equal(GameState.game.completedFocuses.includes(wartime.id), false);
+    assert.equal(GameState.getFocusProgress(wartime.id), 0);
+    assert.equal(GameState.game.completedFocuses.includes(foreignWartimeId), false);
+    assert.equal(GameState.getFocusProgress(foreignWartimeId), 0);
+    assert.equal(GameState.isWarOpen(), false);
+    for (let turn = 2; turn <= 3; turn++) {
+        app.resolutionAnimation = null;
+        SimultaneousTurns.snapshotLocalPlan(true);
+        assert.equal(SimultaneousTurns.resolveTurn(app), true);
+    }
+    app.resolutionAnimation = null;
+    assert.equal(GameState.game.currentTurn, 4);
+    assert.equal(GameState.getCampaignStage().label, '战斗期 · 大动乱');
+    assert.ok(MapData.getAttackTargets(attack.sourceId, 'WRF').some(node => node.id === attack.targetId));
+    assert.ok(SimultaneousTurns.addOrder(attack));
+    assert.equal(GameState.isFocusStageOpen(wartime), true);
+});
+
+test('narrative setting is opt-in, stays with the session and unlocks local faction dispatches', () => {
+    const { GameState, MapData, app } = gameClient();
+    GameState.initLocalLobby('west-russia');
+    GameState.setView('lobby');
+    assert.equal(GameState.lobby.settings.story, false);
+    assert.equal(GameState.updateLobbySetting('story', true), true);
+    GameState.takeSlot('KOM');
+    GameState.startGameSession();
+    assert.equal(GameState.updateLobbySetting('story', false), false, 'room settings freeze during a match');
+    assert.equal(GameState.getCampaignStories().length, 2);
+    assert.ok(GameState.getCampaignStories().some(entry => entry.id === 'wr_intro_KOM'));
+    for (const id of ['report', 'repair', 'assembly', 'centre_commit']) app.advanceFocus('wr_kom_' + id);
+    assert.ok(GameState.getCampaignStories().some(entry => entry.id === 'wr_kom_centre_commit'));
+    assert.equal(GameState.getFocusStatus(GameState.getFocusById('wr_kom_left_commit')), 'mutually-blocked');
+    assert.ok(!GameState.getCampaignStories().some(entry => entry.id === 'wr_smuta'));
+    assert.ok(MapData.getNode('WR_SYK').industry > 3);
+    app.openCampaignStory('wr_kom_centre_commit');
+    assert.equal(GameState.game.selectedStoryId, 'wr_kom_centre_commit');
+    assert.ok(GameState.game.readStoryIds.includes('wr_kom_centre_commit'));
+    app.closeModals();
+    assert.equal(GameState.game.showStoryModal, false);
+
+    GameState.initLocalLobby('west-russia');
+    GameState.setView('lobby');
+    GameState.updateLobbySetting('story', false);
+    GameState.startGameSession();
+    assert.equal(GameState.getCampaignStories().length, 0);
+    assert.equal(GameState.isWarOpen(), false);
+});
+
+test('completing a political route changes the ideology, country name and ongoing bonuses', () => {
+    const { GameState, app } = gameClient();
+    GameState.initLocalLobby('west-russia');
+    GameState.takeSlot('KOM');
+    GameState.addAiToSlot('WRF', 'very_easy');
+    GameState.startGameSession();
+    assert.equal(GameState.getIdeology().id, 'wr_parliament');
+    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0.5);
+    GameState.game.currentTurn = 4;
+    const research = [
+        'report', 'repair', 'assembly', 'centre_commit', 'centre_hearing', 'centre_congress', 'centre_wartime',
+        'centre_0_choice', 'centre_0_measure', 'centre_0_project', 'centre_0_charter', 'centre_0_settlement'
+    ];
+    for (const key of research) {
+        const focus = GameState.getFocusById('wr_kom_' + key);
+        for (let i = 0; i < GameState.getFocusRequiredProgress(focus); i++) {
+            GameState.game.playerResources.pp = GameState.getEffectivePPCap();
+            app.advanceFocus(focus.id);
+        }
+        assert.ok(GameState.game.completedFocuses.includes(focus.id), focus.id);
+    }
+    assert.equal(GameState.getIdeology().id, 'wr_public_republic');
+    assert.equal(GameState.getIdeologyBonus('ppIncome'), 0.85);
+    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0);
+    assert.equal(GameState.getIdeologyBonus('globalDefense'), -0.015);
+    assert.equal(GameState.getFaction('KOM').name, '西俄罗斯共和国');
+    assert.equal(GameState.getFactionName('KOM'), '科米共和政府');
+    assert.equal(GameState.getFocusStatus(GameState.getFocusById('wr_kom_centre_1_choice')), 'mutually-blocked');
+});
+
+test('West Russia room codes, settings and authoritative snapshots select the same campaign on both clients', async () => {
+    const host = gameClient();
+    const guest = gameClient();
+    const rooms = new Map();
+    function connect(client, id) {
+        client.Multiplayer.connect = async function () {
+            this.transport = {
+                openRoom(key) {
+                    if (!rooms.has(key)) rooms.set(key, {});
+                    const store = rooms.get(key);
+                    const clone = value => JSON.parse(JSON.stringify(value));
+                    return {
+                        canCheckExistence: false,
+                        readAll: async () => clone(store),
+                        writeRoot: async value => Object.assign(store, clone(value)),
+                        writeLobby: async value => { store.lobby = clone(value); },
+                        writeState: async value => { store.state = clone(value); },
+                        onLobby() {},
+                        onState() {},
+                        onPlan() {},
+                        detach() {}
+                    };
+                }
+            };
+            return id;
+        };
+    }
+    connect(host, 'host');
+    connect(guest, 'guest');
+
+    const code = await host.Multiplayer.createRoom('房主', { scenarioId: 'west-russia' });
+    assert.match(code, /^WR-[A-Z0-9]{6}$/);
+    host.GameState.setView('lobby');
+    host.GameState.updateLobbySetting('story', true);
+    host.Multiplayer.pushLobby();
+    const roomKey = 'campaign-v1-' + code;
+    assert.equal(rooms.get(roomKey).lobby.scenarioId, 'west-russia');
+    assert.equal(rooms.get(roomKey).lobby.settings.story, true);
+
+    await guest.Multiplayer.joinRoom(code.toLowerCase(), '客人');
+    assert.equal(guest.GameState.getScenario().id, 'west-russia');
+    assert.equal(guest.GameState.getPlayerFactionId(), 'KOM');
+    assert.equal(guest.MapData.nodes.length, 94);
+    assert.equal(guest.GameState.lobby.settings.story, true);
+    guest.GameState.setView('lobby');
+    assert.equal(guest.GameState.updateLobbySetting('story', false), false);
+
+    host.Multiplayer.applyLobbyFromRemote(rooms.get(roomKey).lobby);
+    host.app.startMatch();
+    await new Promise(resolve => setTimeout(resolve, 110));
+    const state = rooms.get(roomKey).state;
+    assert.equal(state.scenarioId, 'west-russia');
+    assert.equal(state.storyEnabled, true);
+    assert.equal(guest.Multiplayer.applyStateFromRemote(state), true);
+    assert.equal(guest.GameState.game.sessionId, state.sessionId);
+    assert.equal(guest.GameState.game.storyEnabled, true);
+    assert.equal(guest.GameState.getCampaignStage().label, '发育期 1/3');
+    assert.ok(guest.GameState.getCampaignStories().some(entry => entry.id === 'wr_intro_KOM'));
+    assert.equal(guest.Multiplayer.applyStateFromRemote({ ...state, scenarioId: 'america' }), false);
+
+    host.GameState.game.currentTurn = 4;
+    guest.GameState.game.currentTurn = 4;
+    guest.GameState.setCurrentIdeology('wr_public_republic');
+    const plan = guest.SimultaneousTurns.snapshotLocalPlan(false);
+    assert.equal(host.SimultaneousTurns.applyRemotePlan(plan), true);
+    assert.equal(host.GameState.getIdeology('KOM').id, 'wr_public_republic');
+    host.SimultaneousTurns.mergePlanningSnapshots([plan]);
+    host.GameState.game.turnPlans = {};
+    assert.equal(host.GameState.getIdeology('KOM').id, 'wr_public_republic');
+
+    const oldCode = await guest.Multiplayer.createRoom('另开一局', { scenarioId: 'america' });
+    assert.match(oldCode, /^[A-Z0-9]{6}$/);
+    assert.ok(rooms.has('provinces-v1-' + oldCode));
+    assert.equal(guest.MapData.nodes.length, 48);
+});

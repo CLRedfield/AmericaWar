@@ -234,6 +234,7 @@ const SimultaneousTurns = {
         const source = MapData.getNode(sourceId);
         const target = MapData.getNode(targetId);
         if (!source || !target || source.factionId !== factionId || !MapData.areAdjacent(sourceId, targetId)) return null;
+        if (!GameState.isWarOpen() && target.factionId !== factionId) return null;
 
         const rawReady = Math.max(0, Math.min(GameState.getNodeMoveReady(source), source.troops));
         const remaining = Math.max(0, rawReady - this.getReservedTroops(sourceId, factionId));
@@ -447,8 +448,9 @@ const SimultaneousTurns = {
             Math.min(GameState.getNodeMoveReady(node), node.troops) - (reserved[node.id] || 0)
         );
 
+        const warOpen = GameState.isWarOpen();
         factionNodes.some(source => {
-            if (orders.length >= maxOrders) return true;
+            if (!warOpen || orders.length >= maxOrders) return true;
             const available = availableAt(source);
             if (available < 1) return false;
             const enemies = MapData.getNeighbors(source.id)
@@ -567,6 +569,9 @@ const SimultaneousTurns = {
         const completedTurn = game.currentTurn;
 
         game.currentTurn += 1;
+        if (!GameState.isWarOpen(completedTurn) && GameState.isWarOpen()) {
+            GameState.addLog('发育期结束。大动乱开始，跨境行军与战时国策现已开放。', 'system', false);
+        }
         this.settleAllFactions(app);
         GameState.resetMovementReadiness();
         this.resetLocalTurnControls();
@@ -630,6 +635,7 @@ const SimultaneousTurns = {
     mergePlanningSnapshots(plans) {
         const game = GameState.game;
         const startOwners = game.turnStartOwners || {};
+        const warOpen = GameState.isWarOpen();
         const completed = new Set(game.completedFocuses || []);
         const progress = { ...(game.focusProgress || {}) };
         game.humanStates = game.humanStates || {};
@@ -641,9 +647,16 @@ const SimultaneousTurns = {
             if (plan.playerState && GameState.getSlot(factionId)?.kind === 'human') {
                 game.humanStates[factionId] = this.clone(plan.playerState);
             }
-            (plan.completedFocuses || []).forEach(focusId => completed.add(focusId));
+            const peacetimeFocusIds = warOpen ? null : new Set(
+                GameState.getFocusTree(factionId).filter(focus => !focus.wartime).map(focus => focus.id)
+            );
+            (plan.completedFocuses || []).forEach(focusId => {
+                if (!peacetimeFocusIds || peacetimeFocusIds.has(focusId)) completed.add(focusId);
+            });
             Object.entries(plan.focusProgress || {}).forEach(([focusId, value]) => {
-                progress[focusId] = Math.max(progress[focusId] || 0, Number(value) || 0);
+                if (!peacetimeFocusIds || peacetimeFocusIds.has(focusId)) {
+                    progress[focusId] = Math.max(progress[focusId] || 0, Number(value) || 0);
+                }
             });
             if (plan.factionName) game.factionNames[factionId] = this.clone(plan.factionName);
             Object.entries(plan.nodeIndustryCaps || {}).forEach(([nodeId, cap]) => {
@@ -665,6 +678,7 @@ const SimultaneousTurns = {
         game.completedFocuses = [...completed];
         game.focusProgress = progress;
 
+        if (!warOpen) return;
         const appliedEffects = new Set();
         plans.forEach(plan => {
             (plan.worldEffects || []).forEach(effect => {
@@ -685,6 +699,7 @@ const SimultaneousTurns = {
 
     resolveMovementOrders(plans) {
         const startOwners = GameState.game.turnStartOwners || {};
+        const warOpen = GameState.isWarOpen();
         const accepted = [];
         const outgoingBySource = {};
 
@@ -697,6 +712,7 @@ const SimultaneousTurns = {
                     const target = MapData.getNode(order.targetId);
                     if (!source || !target || !MapData.areAdjacent(source.id, target.id)) return;
                     if (startOwners[source.id] !== plan.factionId) return;
+                    if (!warOpen && startOwners[target.id] !== plan.factionId) return;
                     const alreadyOutgoing = outgoingBySource[source.id] || 0;
                     const rawReady = Math.max(0, Math.min(GameState.getNodeMoveReady(source), source.troops));
                     const available = Math.max(0, rawReady - alreadyOutgoing);

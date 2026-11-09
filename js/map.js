@@ -4,7 +4,7 @@
  */
 
 const MapData = {
-    initialNodes: [
+    americanNodes: [
         { id: 'SEA', abbr: 'SEA', name: '西雅图', industry: 2, troops: 4, terrain: '港口城市', tags: ['港口'] },
         { id: 'POR', abbr: 'POR', name: '波特兰', industry: 1, troops: 3, terrain: '港口城市', tags: ['港口'] },
         { id: 'SFO', abbr: 'SFO', name: '旧金山', industry: 3, troops: 5, terrain: '港口城市', tags: ['港口'] },
@@ -65,7 +65,19 @@ const MapData = {
         return { ...node, x, y, factionId };
     }),
 
-    connections: ProvinceGeography.borders.map(([a, b]) => [a, b]),
+    americanGeography: { ...ProvinceGeography, connections: ProvinceGeography.borders.map(([a, b]) => [a, b]) },
+
+    get initialNodes() {
+        return GameState.getScenario().map?.nodes || this.americanNodes;
+    },
+
+    get geography() {
+        return GameState.getScenario().map || this.americanGeography;
+    },
+
+    get connections() {
+        return this.geography.connections;
+    },
 
     nodes: [],
 
@@ -119,6 +131,7 @@ const MapData = {
     },
 
     getAttackTargets(sourceId, factionId) {
+        if (!GameState.isWarOpen()) return [];
         const source = this.getNode(sourceId);
         if (!source || source.factionId !== factionId || GameState.getNodeMovableTroops(source) < 1) return [];
         return this.getNeighbors(sourceId).filter(node => (
@@ -164,6 +177,7 @@ const MapView = {
 
     renderStrategicView() {
         const game = GameState.game;
+        const scenario = GameState.getScenario();
         const playerFactionId = GameState.getPlayerFactionId();
         const selected = MapData.getNode(game.selectedNodeId);
         const canIssueOrders = selected?.factionId === playerFactionId
@@ -184,7 +198,7 @@ const MapView = {
         return `
             ${this.renderToolbar()}
             <svg id="svg-map" class="strategy-atlas ${this.zoomClass(viewport.width)} ${industry ? 'atlas-industry' : ''}"
-                viewBox="${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}" aria-label="美国本土战略地图">
+                viewBox="${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}" aria-label="${scenario.name}战略地图">
                 <defs>
                     <marker id="planArrowMove" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
                         <path d="M0 0 0 6 8 3Z" fill="#79dcff"></path>
@@ -193,14 +207,10 @@ const MapView = {
                         <path d="M0 0 0 6 8 3Z" fill="#ff9b86"></path>
                     </marker>
                 </defs>
-                <g class="atlas-context" aria-hidden="true">
-                    <text x="510" y="31">加拿大</text>
-                    <text x="290" y="560">墨西哥</text>
-                    <text x="66" y="481">太平洋</text>
-                    <text x="929" y="376">大西洋</text>
-                    <text x="656" y="568">墨西哥湾</text>
-                </g>
+                ${MapData.geography.surroundings ? `<path class="atlas-surroundings" d="${MapData.geography.surroundings}"></path>` : ''}
                 <g class="province-layer">${provinces}</g>
+                ${MapData.geography.rivers ? `<path class="atlas-rivers" d="${MapData.geography.rivers}"></path>` : ''}
+                <g class="atlas-context" aria-hidden="true">${this.renderMapContext(scenario)}</g>
                 <g class="frontier-layer" aria-hidden="true">${this.renderFrontiers()}</g>
                 <g class="territory-labels" aria-hidden="true">${industry ? '' : this.renderFactionLabels()}</g>
                 <g class="map-nodes-layer" aria-hidden="true">${markers}</g>
@@ -208,7 +218,7 @@ const MapView = {
                 <g class="resolution-movement-layer">${this.renderResolutionMovements()}</g>
             </svg>
             <div class="atlas-caption">
-                <span class="atlas-coordinate">北美 · 美国本土</span>
+                <span class="atlas-coordinate">${scenario.mapLabel}</span>
                 ${industry ? `<span class="atlas-industry-key">工业低 <i></i> 高</span>` : `
                     <span><i class="atlas-front-key"></i> 势力边界</span>
                     <span><i class="atlas-capital-key">★</i> 当前首都</span>
@@ -218,6 +228,14 @@ const MapView = {
             </div>
             ${this.renderTooltip()}
         `;
+    },
+
+    renderMapContext(scenario) {
+        const labels = scenario.mapLabels || [
+            ['加拿大', 510, 31], ['墨西哥', 290, 560], ['太平洋', 66, 481],
+            ['大西洋', 929, 376], ['墨西哥湾', 656, 568]
+        ];
+        return labels.map(([label, x, y]) => `<text x="${x}" y="${y}">${label}</text>`).join('');
     },
 
     renderToolbar() {
@@ -263,13 +281,13 @@ const MapView = {
         const label = escapeHtml(`${node.name}省区，${faction.shortName}，驻军 ${node.troops}，工业 ${node.industry}`);
         return `
             <path class="map-province ${selected ? 'selected' : ''} ${move ? 'move-target' : ''} ${attack ? 'attack-target' : ''}"
-                d="${ProvinceGeography.provinces[node.id][3]}" style="--province-color:${color}"
+                d="${MapData.geography.provinces[node.id][3]}" style="--province-color:${color}"
                 data-province-id="${node.id}" tabindex="0" role="button" aria-pressed="${selected}" aria-label="${label}"></path>
         `;
     },
 
     renderFrontiers() {
-        return ProvinceGeography.borders.map(([a, b, path]) => {
+        return MapData.geography.borders.map(([a, b, path]) => {
             const left = MapData.getNode(a);
             const right = MapData.getNode(b);
             if (left.factionId === right.factionId) return '';
@@ -278,12 +296,13 @@ const MapView = {
     },
 
     renderFactionLabels() {
+        const provinces = MapData.geography.provinces;
         return GameState.factions.map(faction => {
             const nodes = MapData.getFactionNodes(faction.id);
             if (!nodes.length) return '';
-            const area = nodes.reduce((sum, node) => sum + ProvinceGeography.provinces[node.id][2], 0);
-            const x = nodes.reduce((sum, node) => sum + node.x * ProvinceGeography.provinces[node.id][2], 0) / area;
-            const y = nodes.reduce((sum, node) => sum + node.y * ProvinceGeography.provinces[node.id][2], 0) / area;
+            const area = nodes.reduce((sum, node) => sum + provinces[node.id][2], 0);
+            const x = nodes.reduce((sum, node) => sum + node.x * provinces[node.id][2], 0) / area;
+            const y = nodes.reduce((sum, node) => sum + node.y * provinces[node.id][2], 0) / area;
             const anchor = nodes.reduce((closest, node) => (
                 Math.hypot(node.x - x, node.y - y) < Math.hypot(closest.x - x, closest.y - y) ? node : closest
             ));
@@ -316,9 +335,10 @@ const MapView = {
     },
 
     zoomClass(width) {
-        if (width <= 300) return 'atlas-detail';
-        if (width <= 530) return 'atlas-close';
-        return width <= 790 ? 'atlas-mid' : 'atlas-overview';
+        const fraction = width / GameState.getMapOverview().width;
+        if (fraction <= 0.3) return 'atlas-detail';
+        if (fraction <= 0.53) return 'atlas-close';
+        return fraction <= 0.79 ? 'atlas-mid' : 'atlas-overview';
     },
 
     applyTerritoryZoom(svg) {

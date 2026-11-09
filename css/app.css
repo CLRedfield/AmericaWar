@@ -3722,3 +3722,353 @@ button:disabled {
         gap: 2px;
     }
 }
+
+/* Campaign selection, phase and story dossier */
+.main-menu-content {
+    max-width: 490px;
+}
+
+.menu-scenarios {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    text-align: left;
+}
+
+.menu-scenario {
+    min-height: 62px;
+    padding: 9px 12px;
+    border: 1px solid #8394aa54;
+    border-radius: var(--radius-sm);
+    background: #101a28e8;
+    color: #ebeff4;
+    cursor: pointer;
+    text-align: left;
+}
+
+.menu-scenario:hover,
+.menu-scenario[aria-pressed="true"] {
+    border-color: #e2bc7f;
+    background: #2e2a27;
+}
+
+.menu-scenario small,
+.menu-scenario strong {
+    display: block;
+}
+
+.menu-scenario small {
+    margin-bottom: 3px;
+    font-size: .72rem;
+    color: #aebcc9;
+}
+
+.menu-scenario strong {
+    font-size: .95rem;
+}
+
+.menu-scenario-description {
+    min-height: 2.5em;
+    margin: 8px 0 15px;
+    color: var(--color-text-muted);
+    font-size: .82rem;
+    text-align: left;
+}
+
+.lobby-campaign-brief {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #c1ab7b4f;
+    border-left: 2px solid #d9b97a;
+    border-radius: var(--radius-sm);
+    background: #17222c;
+}
+
+.lobby-campaign-brief > strong {
+    color: #f0d7a2;
+    font-size: .93rem;
+}
+
+.lobby-campaign-brief small {
+    color: var(--color-text-muted);
+    font-size: .76rem;
+}
+
+.lobby-story-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    border-top: 1px solid #aebdcd29;
+    cursor: pointer;
+}
+
+.lobby-story-toggle input {
+    width: 18px;
+    height: 18px;
+    accent-color: #d9b97a;
+}
+
+.lobby-story-toggle small {
+    display: block;
+}
+
+.scenario-west-russia .game-map-container {
+    background-color: #172631;
+    background-image:
+        radial-gradient(ellipse at 50% 48%, #43616b50, transparent 72%),
+        linear-gradient(#c3d6de10 1px, transparent 1px),
+        linear-gradient(90deg, #c3d6de10 1px, transparent 1px);
+}
+
+.atlas-surroundings {
+    fill: #2f4248;
+    fill-rule: evenodd;
+    stroke: #8ca3a83f;
+    stroke-width: 1;
+    pointer-events: none;
+}
+
+.atlas-rivers {
+    fill: none;
+    stroke: #b2d9e7;
+    stroke-width: .85;
+    opacity: .64;
+    pointer-events: none;
+}
+
+.scenario-west-russia .territory-label {
+    font-size: 15px;
+    letter-spacing: .04em;
+}
+
+.scenario-west-russia .atlas-context text {
+    fill: #bbc8c4;
+    font-size: 14px;
+}
+
+.campaign-briefing {
+    position: absolute;
+    z-index: 4;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 7px 9px;
+    border: 1px solid #82969c80;
+    border-left: 3px solid #aecacb;
+    border-radius: 4px;
+    background: #17252fec;
+    box-shadow: 0 6px 18px #0d17227a;
+}
+
+.campaign-briefing strong,
+.campaign-briefing small {
+    display: block;
+}
+
+.campaign-briefing strong {
+    color: #d5e6e3;
+    font-size: .82rem;
+}
+
+.campaign-briefing small {
+    color: #adbbc0;
+    font-size: .68rem;
+}
+
+.campaign-wartime {
+    border-left-color: #e2a17b;
+}
+
+.campaign-wartime strong {
+    color: #ffd0a8;
+}
+
+.campaign-story-button {
+    min-height: 31px;
+    padding: 0 7px;
+    border: 1px solid #9b895d;
+    border-radius: 4px;
+    background: #39372f;
+    color: #f5e3b6;
+    font-size: .77rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.campaign-story-button:hover {
+    background: #514637;
+}
+
+.campaign-story-button b {
+    display: inline-grid;
+    min-width: 16px;
+    min-height: 16px;
+    place-items: center;
+    margin-left: 2px;
+    border-radius: 2px;
+    background: #ddba80;
+    color: #26241e;
+}
+
+.campaign-story-modal {
+    width: min(840px, 94vw);
+    max-width: none;
+    min-height: min(350px, 78svh);
+    overflow: hidden;
+}
+
+.campaign-story-layout {
+    display: grid;
+    grid-template-columns: minmax(175px, 30%) minmax(0, 1fr);
+    flex: 1;
+    max-height: min(66svh, 570px);
+    min-height: 0;
+}
+
+.campaign-story-index {
+    overflow: auto;
+    padding: 10px;
+    border-right: 1px solid var(--color-border);
+    background: #101b27;
+}
+
+.campaign-story-index button {
+    display: block;
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: #dce4e5;
+    text-align: left;
+    cursor: pointer;
+}
+
+.campaign-story-index button[aria-pressed="true"],
+.campaign-story-index button:hover {
+    border-color: #c6ab746f;
+    background: #6b594138;
+}
+
+.campaign-story-index button span {
+    display: block;
+    color: #b5a887;
+    font-size: .72rem;
+}
+
+.campaign-story-index button strong {
+    font-size: .9rem;
+}
+
+.campaign-story-page {
+    min-width: 0;
+    overflow: auto;
+    padding: clamp(18px, 4vw, 40px);
+    background: linear-gradient(135deg, #1d2a35, #17232f);
+}
+
+.campaign-story-page small {
+    color: #c9b183;
+    letter-spacing: .06em;
+}
+
+.campaign-story-page h4 {
+    margin: 8px 0 18px;
+    color: #f6e8cb;
+    font-size: clamp(1.25rem, 2.5vw, 1.7rem);
+}
+
+.campaign-story-page p {
+    color: #e5e5df;
+    font-size: 1rem;
+    line-height: 1.9;
+}
+
+.campaign-branch-jump {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #dfc692;
+    font-size: .78rem;
+}
+
+.campaign-branch-jump select {
+    max-width: 195px;
+    padding: 6px 8px;
+    border: 1px solid #8998a36d;
+    border-radius: 4px;
+    background: #172530;
+    color: #e1e9ec;
+}
+
+.focus-war-requirement {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 7px;
+    border-left: 2px solid #da9a68;
+    background: #b3673336;
+    color: #f4ca9e;
+}
+
+@media (max-width: 1120px) {
+    .campaign-briefing { top: 63px; }
+}
+
+@media (max-width: 760px) {
+    .view-main-menu {
+        justify-content: safe center;
+        overflow: auto;
+    }
+
+    .main-menu-content {
+        padding: 20px;
+    }
+
+    .campaign-briefing {
+        top: 104px;
+        right: 8px;
+        gap: 7px;
+        padding: 5px 7px;
+    }
+
+    .campaign-story-button {
+        min-height: 40px;
+    }
+
+    .campaign-story-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        max-height: 68svh;
+    }
+
+    .campaign-story-index {
+        display: flex;
+        gap: 6px;
+        padding: 6px 8px;
+        border-right: 0;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .campaign-story-index button {
+        flex: 0 0 158px;
+    }
+
+    .campaign-branch-jump select {
+        min-height: 36px;
+    }
+}
+
+.scenario-west-russia .game-map-container:has(.atlas-province-list) .campaign-briefing {
+    inset: auto 12px 12px auto;
+}
+
+@media (max-width: 760px) {
+    .scenario-west-russia .game-map-container:has(.atlas-province-list) .campaign-briefing {
+        bottom: 126px;
+    }
+}

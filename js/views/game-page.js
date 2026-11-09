@@ -1,19 +1,76 @@
 const GamePageView = {
     render() {
         const mobilePanel = window.app.mobilePanel || 'none';
+        const scenario = GameState.getScenario();
         const isPlanLocked = window.SimultaneousTurns
             && SimultaneousTurns.isEnabled()
             && SimultaneousTurns.isFactionSubmitted(GameState.getPlayerFactionId());
         const isResolutionLocked = Boolean(window.app && window.app.resolutionAnimation);
         return `
-            <div class="view-game-page mobile-panel-${mobilePanel} ${isPlanLocked ? 'is-plan-locked' : ''} ${isResolutionLocked ? 'is-resolution-locked' : ''}">
+            <div class="view-game-page scenario-${scenario.id} mobile-panel-${mobilePanel} ${isPlanLocked ? 'is-plan-locked' : ''} ${isResolutionLocked ? 'is-resolution-locked' : ''}">
                 ${this.renderTopStatusBar()}
                 ${this.renderLeftFactionPanel()}
-                <main class="game-map-container">${MapView.render()}</main>
+                <main class="game-map-container">
+                    ${MapView.render()}
+                    ${this.renderCampaignBriefing()}
+                </main>
                 ${this.renderRightActionPanel()}
                 ${this.renderBottomLogPanel()}
                 ${this.renderMobileSelectedNodeChip()}
                 ${this.renderMobilePanelDock()}
+            </div>
+        `;
+    },
+
+    renderCampaignBriefing() {
+        const stage = GameState.getCampaignStage();
+        if (!stage) return '';
+        const game = GameState.game;
+        const stories = GameState.getCampaignStories();
+        const unread = stories.filter(item => !game.readStoryIds.includes(item.id)).length;
+        return `
+            <aside class="campaign-briefing ${stage.wartime ? 'campaign-wartime' : ''}" aria-label="战役阶段">
+                <div>
+                    <strong>${stage.label}</strong>
+                    <small>${stage.detail}</small>
+                </div>
+                ${stories.length ? `
+                    <button class="campaign-story-button" onclick="window.app.openCampaignStory()">
+                        剧情档案 ${unread ? `<b aria-label="${unread} 条未读">${unread}</b>` : ''}
+                    </button>
+                ` : ''}
+            </aside>
+        `;
+    },
+
+    renderCampaignStory() {
+        const entries = GameState.getCampaignStories();
+        if (!entries.length) return '';
+        const game = GameState.game;
+        const selected = entries.find(item => item.id === game.selectedStoryId) || entries[0];
+        return `
+            <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
+                <section class="modal-panel campaign-story-modal" role="dialog" aria-modal="true" aria-label="西俄罗斯剧情档案">
+                    <header class="modal-header">
+                        <h3>西俄罗斯 · 剧情档案</h3>
+                        <button class="modal-close" onclick="window.app.closeModals()" aria-label="关闭剧情">×</button>
+                    </header>
+                    <div class="campaign-story-layout">
+                        <nav class="campaign-story-index" aria-label="已解锁档案">
+                            ${entries.map((item, index) => `
+                                <button aria-pressed="${item.id === selected.id}" onclick="window.app.openCampaignStory('${item.id}')">
+                                    <span>${String(index + 1).padStart(2, '0')} · ${escapeHtml(item.category)}</span>
+                                    <strong>${escapeHtml(item.title)}${game.readStoryIds.includes(item.id) ? '' : ' •'}</strong>
+                                </button>
+                            `).join('')}
+                        </nav>
+                        <article class="campaign-story-page">
+                            <small>${escapeHtml(selected.category)}</small>
+                            <h4>${escapeHtml(selected.title)}</h4>
+                            <p>${escapeHtml(selected.text)}</p>
+                        </article>
+                    </div>
+                </section>
             </div>
         `;
     },
@@ -28,7 +85,7 @@ const GamePageView = {
         const canOrder = isFriendly && movable > 0 && window.app.getActionAvailability('move', node.id).enabled;
         const isOrdering = canOrder && GameState.game.currentAction === 'move';
         const contextText = isOrdering
-            ? '点相邻高亮省区，预览调兵或进攻'
+            ? (GameState.isWarOpen() ? '点相邻高亮省区，预览调兵或进攻' : '发育期 · 点击高亮省区调兵')
             : `${faction.shortName} · 驻军 ${node.troops} · 可动 ${movable} · 工业 ${node.industry}`;
         const primaryAction = canOrder
             ? `<button class="btn btn-primary btn-sm" onclick="window.app.activateMove()">${isOrdering ? '退出行军' : '行军'}</button>`
@@ -82,6 +139,7 @@ const GamePageView = {
             game.showFocusModal ? this.renderFocusTreeModal() : '',
             game.showDiplomacyModal ? this.renderDiplomacyModal() : '',
             game.showModifiersModal ? this.renderModifiersModal() : '',
+            game.showStoryModal ? this.renderCampaignStory() : '',
             game.winner && game.showEndGameModal !== false ? this.renderEndGameModal(game.winner) : ''
         ].join('');
     },
@@ -131,8 +189,8 @@ const GamePageView = {
         return `
             <header class="game-top-bar ${isPlayerTurn ? 'is-player-turn' : 'is-waiting'}">
                 <div class="top-brand-block">
-                    <strong>裂旗战争</strong>
-                    <span>房间 ${GameState.lobby.roomCode}${GameState.lobby.mode === 'online' ? ' · 联机' : ' · 本地'}</span>
+                    <strong>${GameState.getCampaignStage() ? '西俄罗斯' : '裂旗战争'}</strong>
+                    <span>房间 ${escapeHtml(GameState.lobby.roomCode)}${GameState.lobby.mode === 'online' ? ' · 联机' : ' · 本地'}</span>
                 </div>
 
                 <div class="top-bar-stats">
@@ -221,6 +279,8 @@ const GamePageView = {
         const isOriginalCapitalHeld = originalCapital && originalCapital.factionId === playerFaction.id;
         const ideology = GameState.getIdeology();
         const debtPenalty = GameState.getDebtPenalty(resources.money);
+        const tree = GameState.getFocusTree();
+        const completed = tree.filter(focus => this.isFocusCompleted(focus)).length;
 
         return `
             <aside class="game-left-panel">
@@ -245,7 +305,7 @@ const GamePageView = {
                         </div>
                         <div>
                             <span>国策</span>
-                            <strong>${GameState.game.completedFocuses.length}/${GameState.getFocusTree().length}</strong>
+                            <strong>${completed}/${tree.length}</strong>
                         </div>
                         <div>
                             <span>胜利进度</span>
@@ -339,7 +399,7 @@ const GamePageView = {
     formatIdeologyBonus(bonus) {
         if (!bonus) return '';
         const sign = (n) => (n > 0 ? `+${n}` : `${n}`);
-        const pct = (n) => `${(n * 100).toFixed(0)}%`;
+        const pct = (n) => `${formatMoney(n * 100)}%`;
         const signedPct = (n) => (n > 0 ? `+${pct(n)}` : `-${pct(-n)}`);
         switch (bonus.type) {
             case 'ppCapBonus': return `PP 上限 ${sign(bonus.amount)}`;
@@ -974,6 +1034,12 @@ const GamePageView = {
         const scale = window.app.getFocusTreeScale();
         const faction = GameState.getFaction(viewFactionId);
         const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
+        const campaignBranches = new Map();
+        if (GameState.getScenario().preparationTurns) {
+            tree.forEach(focus => {
+                if (!campaignBranches.has(focus.branch)) campaignBranches.set(focus.branch, focus.id);
+            });
+        }
 
         return `
             <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
@@ -995,6 +1061,16 @@ const GamePageView = {
                             <button class="map-icon-btn" title="放大国策树" onclick="window.app.zoomFocusTree(1)">+</button>
                             <button class="btn btn-outline" onclick="window.app.resetFocusTreeView()">居中</button>
                         </div>
+                        ${campaignBranches.size ? `
+                            <label class="campaign-branch-jump">
+                                <span>国策支线</span>
+                                <select onchange="window.app.jumpToCampaignFocus(this.value)" aria-label="跳转国策支线">
+                                    ${[...campaignBranches].map(([branch, id]) => `
+                                        <option value="${id}" ${selectedFocus?.branch === branch ? 'selected' : ''}>${escapeHtml(branch)}</option>
+                                    `).join('')}
+                                </select>
+                            </label>
+                        ` : ''}
                         <div class="focus-mobile-filter">
                             ${[
                                 { id: 'all', label: '全部' },
@@ -1229,6 +1305,7 @@ const GamePageView = {
         const completed = GameState.game.completedFocuses;
         if (completed.includes(focus.id)) return 'done';
         if (GameState.isFocusBlockedByMutual(focus, completed)) return 'mutually-blocked';
+        if (!GameState.isFocusStageOpen(focus)) return 'phase-blocked';
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return 'locked';
         return 'available';
     },
@@ -1256,17 +1333,13 @@ const GamePageView = {
             (filter === 'available' && status === 'available') ||
             (filter === 'locked' && status !== 'done' && status !== 'available')
         );
-        const statusText = status === 'done'
-            ? '已完成'
-            : status === 'mutually-blocked'
-                ? '互斥'
-                : status === 'locked'
-                    ? '锁定'
-                    : status === 'pp-blocked'
-                        ? 'PP不足'
-                        : progress.current > 0
-                            ? '推进中'
-                            : '可推进';
+        const statusText = ({
+            done: '已完成',
+            'mutually-blocked': '互斥',
+            'phase-blocked': '战斗期开放',
+            locked: '锁定',
+            'pp-blocked': 'PP不足'
+        })[status] || (progress.current > 0 ? '推进中' : '可推进');
         const position = layout.positions[focus.id];
         const progressPercent = Math.round(progress.ratio * 100);
 
@@ -1325,6 +1398,7 @@ const GamePageView = {
                     <span>${focus.branch}</span>
                     <h3>${focus.name}</h3>
                     <p>${focus.description}</p>
+                    ${focus.wartime ? '<small class="focus-war-requirement">战斗期国策</small>' : ''}
                 </div>
 
                 <div class="focus-detail-progress">
@@ -1522,7 +1596,9 @@ const GamePageView = {
         if (effect.type === 'ideology') {
             const ideology = GameState.ideologies[effect.id];
             const base = ideology ? `意识形态切换为「${ideology.name}」（替换上一意识形态的所有加成）` : `意识形态切换：${effect.id}`;
-            return effect.name ? `${base}；国号更名为「${effect.name}」` : base;
+            const rename = effect.name ? `，国号改为「${effect.name}」` : '';
+            const bonuses = ideology?.bonuses.map(bonus => this.formatIdeologyBonus(bonus)).filter(Boolean).join(' · ');
+            return `${base}${rename}${bonuses ? `<br><small class="text-muted">${escapeHtml(bonuses)}</small>` : ''}`;
         }
 
         return `${effect.type} ${signed}`;
@@ -1675,6 +1751,9 @@ const GamePageView = {
                         <p class="text-muted">${winner.text}</p>
                     </div>
                     <footer class="modal-actions">
+                        ${GameState.getCampaignStories().some(item => item.id === 'wr_ending') ? `
+                            <button class="btn btn-outline" onclick="window.app.openCampaignStory('wr_ending')">阅读终章</button>
+                        ` : ''}
                         <button class="btn btn-primary" onclick="window.app.dismissEndGame()">继续查看地图</button>
                     </footer>
                 </section>

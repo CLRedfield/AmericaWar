@@ -1,12 +1,14 @@
 const LobbyView = {
     render() {
         const { lobby } = GameState;
+        const scenario = GameState.getScenario();
+        const canAutoFill = GameState.canAutoFillSoloCampaign();
         const isHost = GameState.isHost();
         const isOnline = lobby.mode === 'online';
         const mySlot = GameState.getMySlot();
         const activeCount = (lobby.slots || []).filter(s => s.kind !== 'open').length;
         const humanCount = (lobby.slots || []).filter(s => s.kind === 'human').length;
-        const canStart = isHost && humanCount >= 1 && activeCount >= 2;
+        const canStart = isHost && humanCount >= 1 && (activeCount >= 2 || canAutoFill);
         const mobilePanel = window.app.mobileLobbyPanel || 'slots';
 
         const slotsHtml = (lobby.slots || []).map(slot => this.renderSlotRow(slot, isHost, isOnline, lobby)).join('');
@@ -26,8 +28,8 @@ const LobbyView = {
             <div class="view-lobby mobile-lobby-panel-${mobilePanel}">
                 <header class="lobby-header">
                     <div>
-                        <div class="eyebrow">${isOnline ? '联机房间' : '本地沙盒房间'}</div>
-                        <h2>房间 ${escapeHtml(lobby.roomCode)}</h2>
+                        <div class="eyebrow">${isOnline ? '联机房间' : '本地沙盒'} · ${escapeHtml(lobby.roomCode)}</div>
+                        <h2>${scenario.name}</h2>
                         <div class="text-muted">
                             身份：${escapeHtml(lobby.myName)}（${isHost ? '房主' : '玩家'}）
                             ${mySlot ? ` · 当前坐席 <strong style="color:${this.colorOf(mySlot.factionId)}">${this.nameOf(mySlot.factionId)}</strong>` : ' · 未入座'}
@@ -55,22 +57,39 @@ const LobbyView = {
                         </div>
                         <div class="slot-list">${slotsHtml}</div>
                         <div class="slot-help text-muted">
-                            空席国家在游戏中保持待机（不行动、不响应外交，但可被进攻）。
+                            ${canAutoFill ? '直接开始将自动填充普通 AI。也可先手动配置对手。'
+                                : '空席国家在游戏中保持待机（不行动、不响应外交，但可被进攻）。'}
                         </div>
                     </section>
 
                     <section class="lobby-panel lobby-settings-panel">
                         <h3>房主设置 ${isHost ? '' : '<span class="text-muted">（仅房主可改）</span>'}</h3>
                         <div class="settings-grid">
-                            ${this.renderSelect('maxPlayers', '最大玩家数', ['4', '6', '8'], !isHost)}
-                            ${this.renderSelect('mapScale', '地图规模', ['小型', '标准', '最大'], !isHost)}
-                            ${this.renderSelect('turnLimit', '回合限时', ['60', '90', '120', '180', '无限'], !isHost)}
+                            ${scenario.preparationTurns ? '' : `
+                                ${this.renderSelect('maxPlayers', '最大玩家数', ['4', '6', '8'], !isHost)}
+                                ${this.renderSelect('mapScale', '地图规模', ['小型', '标准', '最大'], !isHost)}
+                            `}
+                            ${this.renderSelect('turnLimit', '回合限时', scenario.preparationTurns
+                                ? ['60', '90', '120', '180'] : ['60', '90', '120', '180', '无限'], !isHost)}
                             ${this.renderSelect('victory', '胜利条件', ['统一', '霸权'], !isHost)}
                             ${this.renderSwitch('diplomacy', '启用外交', !isHost)}
                             ${this.renderSwitch('ai', '允许 AI', !isHost)}
-                            ${this.renderSwitch('restoreHistory', '还原历史', !isHost)}
-                            ${this.renderSwitch('randomness', '增大随机性', !isHost)}
+                            ${scenario.preparationTurns ? '' : `
+                                ${this.renderSwitch('restoreHistory', '还原历史', !isHost)}
+                                ${this.renderSwitch('randomness', '增大随机性', !isHost)}
+                            `}
                         </div>
+                        ${scenario.preparationTurns ? `
+                            <div class="lobby-campaign-brief">
+                                <strong>发育 ${scenario.preparationTurns} 回合 → 大动乱</strong>
+                                <small>准备阶段可建设、征兵、发展国策与境内调兵。第 ${scenario.preparationTurns + 1} 回合开放跨境行军。</small>
+                                <label class="lobby-story-toggle">
+                                    <input type="checkbox" ${lobby.settings.story ? 'checked' : ''} ${isHost ? '' : 'disabled'}
+                                        onchange="window.app.updateLobbySetting('story', this.checked)">
+                                    <span>启用剧情 <small>阅读开局、战地与国策事件</small></span>
+                                </label>
+                            </div>
+                        ` : ''}
                         ${isHost ? this.renderAiFillControls() : ''}
                     </section>
 

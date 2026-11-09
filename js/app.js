@@ -50,6 +50,7 @@ const App = {
     tutorialTab: 'intro',
     lastFocusDragEndedAt: 0,
     roomDialog: null,
+    menuScenarioId: 'america',
 
     init() {
         this.root = document.getElementById('app');
@@ -92,8 +93,8 @@ const App = {
         const scrollState = this.capturePreservedScroll();
         const focusedProvince = document.activeElement?.dataset?.provinceId;
         this.root.innerHTML = view.render();
-        this.restorePreservedScroll(scrollState);
         this.modalRoot.innerHTML = typeof view.renderModals === 'function' ? view.renderModals() : '';
+        this.restorePreservedScroll(scrollState);
         this.attachMapInteraction();
         if (focusedProvince && !this.modalRoot.firstElementChild) {
             this.root.querySelector(`[data-province-id="${focusedProvince}"]`)?.focus({ preventScroll: true });
@@ -176,7 +177,7 @@ const App = {
 
     // 跨重渲染保留滚动位置的容器（按稳定选择器记录）。切换视图时旧容器消失、新容器没有
     // 旧位置，querySelector 取不到即自动跳过，不会误还原。
-    PRESERVED_SCROLL_SELECTORS: ['.view-lobby', '.slot-list', '.lobby-chat-log'],
+    PRESERVED_SCROLL_SELECTORS: ['.view-lobby', '.slot-list', '.lobby-chat-log', '.campaign-story-index', '.campaign-story-page'],
 
     capturePreservedScroll() {
         const state = {};
@@ -237,8 +238,13 @@ const App = {
         GameState.notify();
     },
 
+    selectScenario(id) {
+        this.menuScenarioId = GameState.getScenario(id).id;
+        GameState.notify();
+    },
+
     startLocalLobby() {
-        GameState.initLocalLobby();
+        GameState.initLocalLobby(this.menuScenarioId);
         GameState.setView('lobby');
     },
 
@@ -248,6 +254,7 @@ const App = {
         if (!window.Multiplayer) return alert('多人模块未加载');
         this.roomDialog = {
             mode: 'create',
+            scenarioId: this.menuScenarioId,
             transport: 'firebase',
             code: '',
             server: Multiplayer.emqxDefaultServer(),
@@ -328,7 +335,7 @@ const App = {
 
         try {
             if (dialog.mode === 'create') {
-                const code = await Multiplayer.createRoom(GameState.lobby.myName, { transport, config });
+                const code = await Multiplayer.createRoom(GameState.lobby.myName, { transport, config, scenarioId: dialog.scenarioId });
                 this.roomDialog = null;
                 GameState.lobby.statusMessage = `房间 ${code} 已创建（${this._transportLabel(transport)}）。把房间码告诉朋友以邀请他们。`;
                 GameState.setView('lobby');
@@ -336,7 +343,7 @@ const App = {
                 const code = await Multiplayer.joinRoom(dialog.code, GameState.lobby.myName, { transport, config });
                 this.roomDialog = null;
                 GameState.lobby.statusMessage = `已加入房间 ${code}（${this._transportLabel(transport)}）。`;
-                GameState.setView('lobby');
+                if (GameState.currentView !== 'game-page') GameState.setView('lobby');
             }
         } catch (err) {
             if (this.roomDialog) {
@@ -405,13 +412,15 @@ const App = {
     },
 
     updateLobbySetting(key, value) {
-        GameState.updateLobbySetting(key, value);
-        if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushLobby();
+        if (GameState.updateLobbySetting(key, value) && window.Multiplayer && Multiplayer.isOnline) {
+            Multiplayer.pushLobby();
+        }
     },
 
     toggleLobbySwitch(key) {
-        GameState.toggleLobbySwitch(key);
-        if (window.Multiplayer && Multiplayer.isOnline) Multiplayer.pushLobby();
+        if (GameState.toggleLobbySwitch(key) && window.Multiplayer && Multiplayer.isOnline) {
+            Multiplayer.pushLobby();
+        }
     },
 
     handleLobbyChatKey(event) {
@@ -492,6 +501,7 @@ const App = {
             GameState.notify();
             return;
         }
+        if (GameState.canAutoFillSoloCampaign()) GameState.fillOpenSlotsWithAi();
         const active = GameState.getActiveSlots();
         if (active.length < 2) return alert('至少需要 2 个非空席位才能开始（玩家或 AI）');
         const humans = active.filter(s => s.kind === 'human');
@@ -1815,6 +1825,7 @@ const App = {
         if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', ...actionMeta };
         if (completed.includes(focus.id)) return { enabled: false, reason: '国策已完成', ...actionMeta };
         if (GameState.isFocusBlockedByMutual(focus, completed)) return { enabled: false, reason: '互斥国策已完成', ...actionMeta };
+        if (!GameState.isFocusStageOpen(focus)) return { enabled: false, reason: '战斗期开放', ...actionMeta };
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return { enabled: false, reason: '前置国策未满足', ...actionMeta };
         if (resources.pp < actionMeta.ppCost) return { enabled: false, reason: `缺少 ${actionMeta.ppCost - resources.pp} PP`, ...actionMeta };
 
@@ -1832,6 +1843,22 @@ const App = {
             GameState.game.focusViewSelectedId = focusId;
             GameState.notify();
         }
+    },
+
+    jumpToCampaignFocus(focusId) {
+        const game = GameState.game;
+        const viewFaction = game.focusViewFactionId || GameState.getPlayerFactionId();
+        if (!GameState.getFocusById(focusId, viewFaction)) return;
+        if (viewFaction === GameState.getPlayerFactionId()) {
+            GameState.setSelectedFocus(focusId, false);
+        } else {
+            game.focusViewSelectedId = focusId;
+        }
+        this.focusMobileFilter = 'all';
+        this.focusTreeCentered = false;
+        this.pendingFocusTreeScroll = null;
+        this.focusTreeScroll = null;
+        GameState.notify();
     },
 
     advanceFocus(focusId = GameState.game.selectedFocusId) {
@@ -2104,7 +2131,7 @@ const App = {
             const newId = effect.id;
             const next = GameState.ideologies[newId];
             if (!next) return;
-            // 更名为显示用，玩家/AI 都生效（其他势力的意识形态加成仍按 baseline）
+            // AI 的意识形态切换由 GameAI 处理。
             if (effect.name) GameState.setFactionName(factionId, effect.name, effect.shortName);
             const playerFactionId = GameState.getPlayerFactionId();
             // 意识形态加成只对玩家自己持续生效
@@ -2169,6 +2196,22 @@ const App = {
 
     openModifiersModal() {
         GameState.toggleModifiersModal(true);
+    },
+
+    openCampaignStory(entryId = null) {
+        const entries = GameState.getCampaignStories();
+        if (!entries.length) return;
+        const game = GameState.game;
+        const entry = entries.find(item => item.id === entryId)
+            || entries.find(item => !game.readStoryIds.includes(item.id))
+            || entries.find(item => item.id === game.selectedStoryId)
+            || entries[0];
+        GameState.closeModals(false);
+        game.showStoryModal = true;
+        if (game.winner) game.showEndGameModal = false;
+        game.selectedStoryId = entry.id;
+        if (!game.readStoryIds.includes(entry.id)) game.readStoryIds.push(entry.id);
+        GameState.notify();
     },
 
     closeModals() {
@@ -2307,14 +2350,13 @@ const App = {
             return;
         }
 
-        const selectedFocusId = GameState.game.selectedFocusId;
-        const selectedCard = selectedFocusId ? document.querySelector(`[data-focus-id="${selectedFocusId}"]`) : null;
-        const rootCard = selectedCard || document.querySelector('[data-focus-id="usa_secure_command"], [data-focus-id="generic_mobilize"], .focus-card');
+        const rootCard = scroller.querySelector('.focus-card.selected') || scroller.querySelector('.focus-card');
         if (!rootCard) return;
 
         const scale = this.getFocusTreeScale();
         scroller.scrollLeft = Math.max(0, rootCard.offsetLeft * scale - scroller.clientWidth / 2 + (rootCard.offsetWidth * scale) / 2);
-        scroller.scrollTop = 0;
+        scroller.scrollTop = GameState.getScenario().preparationTurns
+            ? Math.max(0, (rootCard.offsetTop + rootCard.offsetHeight / 2) * scale - scroller.clientHeight / 2) : 0;
         this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };
         this.focusTreeCentered = true;
     },
@@ -2517,12 +2559,13 @@ const App = {
 
     resizeMap(width, anchor, position = anchor) {
         const viewport = GameState.game.mapViewport;
-        const nextWidth = Math.min(1300, Math.max(220, width));
+        const overviewWidth = GameState.getMapOverview().width;
+        const nextWidth = Math.min(overviewWidth * 1.3, Math.max(overviewWidth * 0.22, width));
         const scale = nextWidth / viewport.width;
         viewport.x = anchor.x - (position.x - viewport.x) * scale;
         viewport.y = anchor.y - (position.y - viewport.y) * scale;
         viewport.width = nextWidth;
-        viewport.height = nextWidth * 0.62;
+        viewport.height *= scale;
     },
 
     attachMapInteraction() {
@@ -2639,7 +2682,7 @@ const App = {
     },
 
     resetMapViewport() {
-        GameState.game.mapViewport = { x: 0, y: 0, width: 1000, height: 620 };
+        GameState.game.mapViewport = GameState.getMapOverview();
         GameState.notify();
     },
 
@@ -2648,8 +2691,9 @@ const App = {
         if (!node) return;
 
         const viewport = GameState.game.mapViewport;
-        viewport.width = Math.min(viewport.width, 410);
-        viewport.height = viewport.width * 0.62;
+        const scale = Math.min(1, GameState.getMapOverview().width * 0.41 / viewport.width);
+        viewport.width *= scale;
+        viewport.height *= scale;
         viewport.x = node.x - viewport.width / 2;
         viewport.y = node.y - viewport.height / 2;
         this.updateSvgViewBox(document.getElementById('svg-map'));

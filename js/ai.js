@@ -348,6 +348,7 @@ const GameAI = {
         const completed = GameState.game.completedFocuses || [];
         let available = tree.filter(focus => (
             !completed.includes(focus.id)
+            && GameState.isFocusStageOpen(focus)
             && GameState.areFocusPrerequisitesMet(focus, completed)
             && !GameState.isFocusBlockedByMutual(focus, completed)
         ));
@@ -552,6 +553,7 @@ const GameAI = {
     },
 
     aiAdvanceFocus(factionId, focus, capitalNode, options = {}) {
+        if (!GameState.isFocusStageOpen(focus)) return false;
         const resources = this.computeFactionResources(factionId);
         const isFree = Boolean(options.free);
         const ppCost = isFree ? 0 : this.getActionPPCost(1, factionId, 'focus');
@@ -1070,6 +1072,7 @@ const GameAI = {
     },
 
     pickAttackPlan(factionId, profile) {
+        if (!GameState.isWarOpen()) return null;
         const plans = [];
         MapData.getFactionNodes(factionId).forEach(attacker => {
             if (GameState.getNodeMovableTroops(attacker) < 1) return;

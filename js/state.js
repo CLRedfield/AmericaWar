@@ -678,7 +678,66 @@ const GameState = {
         }
     },
 
-    factions: [
+    scenarios: {
+        america: {
+            id: 'america',
+            name: '美国内战',
+            subtitle: '八方逐鹿 · 北美',
+            mapLabel: '北美 · 美国本土',
+            description: '八个政权沿美国本土的工业带、海岸与平原争夺统一。'
+        }
+    },
+
+    getScenario(id = this.lobby.scenarioId) {
+        return Object.hasOwn(this.scenarios, id) ? this.scenarios[id] : this.scenarios.america;
+    },
+
+    get factions() {
+        return this.getScenario().factions || this.americanFactions;
+    },
+
+    getMapOverview() {
+        return { x: 0, y: 0, width: 1000, height: 620, ...this.getScenario().mapOverview };
+    },
+
+    isWarOpen(turn = this.game.currentTurn) {
+        return turn > (this.getScenario().preparationTurns || 0);
+    },
+
+    isFocusStageOpen(focus) {
+        return !focus.wartime || this.isWarOpen();
+    },
+
+    getCampaignStage() {
+        const preparationTurns = this.getScenario().preparationTurns;
+        if (!preparationTurns) return null;
+        const turn = this.game.currentTurn;
+        return this.isWarOpen()
+            ? { label: '战斗期 · 大动乱', detail: '跨境行军已开放', wartime: true }
+            : { label: `发育期 ${turn}/${preparationTurns}`, detail: '可建设、征兵和境内调动', wartime: false };
+    },
+
+    getCampaignStories() {
+        const game = this.game;
+        const scenario = this.getScenario();
+        if (!game.storyEnabled || !scenario.story) return [];
+        const factionId = this.getPlayerFactionId();
+        const dispatches = scenario.story;
+        const entries = [dispatches.opening, dispatches.factions[factionId]];
+        if (game.currentTurn >= 2) entries.push(dispatches.raid);
+        const storyFocuses = new Map(this.getFocusTree(factionId).filter(focus => focus.story).map(focus => [focus.id, focus]));
+        const events = game.completedFocuses.map(id => storyFocuses.get(id)).filter(Boolean).map(focus => ({
+            id: focus.id, category: focus.branch, ...focus.story, wartime: focus.wartime
+        }));
+        entries.push(...events.filter(event => !event.wartime));
+        if (this.isWarOpen()) entries.push(dispatches.smuta, ...events.filter(event => event.wartime));
+        if (game.winner) entries.push({
+            ...dispatches.ending, text: dispatches.ending.text.replace('{winner}', this.getFactionName(game.winner.factionId))
+        });
+        return entries.filter(Boolean);
+    },
+
+    americanFactions: [
         {
             id: 'USA',
             name: '美利坚合众国',
@@ -787,6 +846,7 @@ const GameState = {
      */
     lobby: {
         roomCode: 'LOCAL',
+        scenarioId: 'america',
         mode: 'local',
         hostId: 'local-host',
         myUserId: 'local-host',
@@ -929,21 +989,19 @@ const GameState = {
     },
 
     getIdeology(idOrFactionId) {
-        // 直接传意识形态 id
         if (idOrFactionId && this.ideologies[idOrFactionId]) return this.ideologies[idOrFactionId];
-        // 传势力 id：玩家用 game.currentIdeology，其他势力用其 baseline
         const playerFactionId = this.getPlayerFactionId();
-        if (idOrFactionId && idOrFactionId === playerFactionId && this.game.currentIdeology) {
-            return this.ideologies[this.game.currentIdeology] || null;
+        const factionId = idOrFactionId || playerFactionId;
+        const startingIdeology = this.getFaction(factionId)?.ideology;
+        if (this.currentView === 'game-page') {
+            const currentIdeology = factionId === playerFactionId
+                ? this.game.currentIdeology
+                : this.game.turnPlans?.[factionId]?.playerState?.currentIdeology
+                    || this.game.humanStates?.[factionId]?.currentIdeology
+                    || this.game.aiIdeologies?.[factionId];
+            if (this.ideologies[currentIdeology]) return this.ideologies[currentIdeology];
         }
-        if (idOrFactionId) {
-            const faction = this.getFaction(idOrFactionId);
-            return faction ? this.ideologies[faction.ideology] || null : null;
-        }
-        // 默认：当前玩家
-        const factionId = playerFactionId;
-        const ideologyId = this.game.currentIdeology || (this.getFaction(factionId)?.ideology);
-        return this.ideologies[ideologyId] || null;
+        return this.ideologies[startingIdeology] || null;
     },
 
     setCurrentIdeology(ideologyId) {
@@ -1368,6 +1426,7 @@ const GameState = {
     getFocusStatus(focus, completed = this.game.completedFocuses) {
         if (completed.includes(focus.id)) return 'done';
         if (this.isFocusBlockedByMutual(focus, completed)) return 'mutually-blocked';
+        if (!this.isFocusStageOpen(focus)) return 'phase-blocked';
         if (!this.areFocusPrerequisitesMet(focus, completed)) return 'locked';
 
         const ppCost = this.getActionPPCost(1);
@@ -1497,13 +1556,30 @@ const GameState = {
     },
 
     updateLobbySetting(key, value) {
+        if (!this.isHost() || this.currentView !== 'lobby') return false;
         this.lobby.settings[key] = value;
         this.notify();
+        return true;
     },
 
     toggleLobbySwitch(key) {
-        this.lobby.settings[key] = !this.lobby.settings[key];
-        this.notify();
+        return this.updateLobbySetting(key, !this.lobby.settings[key]);
+    },
+
+    createLobbySettings(scenarioId, overrides = {}) {
+        const scenario = this.getScenario(scenarioId);
+        return {
+            maxPlayers: String((scenario.factions || this.americanFactions).length),
+            mapScale: '标准',
+            turnLimit: '180',
+            victory: '统一',
+            diplomacy: true,
+            ai: true,
+            randomness: false,
+            restoreHistory: true,
+            ...overrides,
+            story: Boolean(scenario.story && overrides.story === true)
+        };
     },
 
     addLobbyChat(text) {
@@ -1519,8 +1595,9 @@ const GameState = {
     /**
      * 创建初始 slots（默认每个国家一个空槽位）。
      */
-    createDefaultSlots() {
-        return this.factions.map(faction => ({
+    createDefaultSlots(scenarioId = this.lobby.scenarioId) {
+        const factions = this.getScenario(scenarioId).factions || this.americanFactions;
+        return factions.map(faction => ({
             factionId: faction.id,
             kind: 'open',
             userId: null,
@@ -1540,6 +1617,11 @@ const GameState = {
 
     getActiveSlots() {
         return (this.lobby.slots || []).filter(slot => slot.kind === 'human' || slot.kind === 'ai');
+    },
+
+    canAutoFillSoloCampaign() {
+        return Boolean(this.getScenario().preparationTurns && this.lobby.mode === 'local'
+            && this.lobby.settings.ai && this.getMySlot() && this.getActiveSlots().length === 1);
     },
 
     setSlot(factionId, patch) {
@@ -1622,9 +1704,12 @@ const GameState = {
     },
 
     /**
-     * 设定本地大厅（单机沙盒模式）。会重置 slots、把房主放到 USA 槽位上、其他默认空。
+     * 设定本地大厅，房主先入座剧本的第一个势力。
      */
-    initLocalLobby() {
+    initLocalLobby(scenarioId = this.lobby.scenarioId) {
+        const scenario = this.getScenario(scenarioId);
+        const previousSettings = scenario.id === this.lobby.scenarioId && this.lobby.mode === 'local'
+            ? this.lobby.settings : {};
         // 退出/重建房间时清掉上一局的国策更名，房间内恢复各国初始名称（见 getFaction 覆盖逻辑）。
         this.clearFactionNameOverrides();
         // 在本地模式下重新生成稳定的本地 userId（避免重用 Firebase uid 等不可控的值），
@@ -1633,6 +1718,7 @@ const GameState = {
         const myName = this.lobby.myName || '指挥官';
         this.lobby = {
             roomCode: 'LOCAL',
+            scenarioId: scenario.id,
             mode: 'local',
             hostId: myUserId,
             myUserId,
@@ -1640,26 +1726,15 @@ const GameState = {
             ready: false,
             connecting: false,
             statusMessage: '',
-            settings: this.lobby.settings || {
-                maxPlayers: '8',
-                mapScale: '标准',
-                turnLimit: '180',
-                victory: '统一',
-                diplomacy: true,
-                ai: true,
-                randomness: false,
-                restoreHistory: true
-            },
-            slots: this.createDefaultSlots(),
+            settings: this.createLobbySettings(scenario.id, previousSettings),
+            slots: this.createDefaultSlots(scenario.id),
             chat: [
                 { author: '系统', text: '本地房间已创建，所有空席位将待机不行动。' }
             ]
         };
-        // 玩家默认坐第一席（USA），其他全空
-        const usa = this.lobby.slots[0];
-        usa.kind = 'human';
-        usa.userId = myUserId;
-        usa.playerName = myName;
+        Object.assign(this.lobby.slots[0], { kind: 'human', userId: myUserId, playerName: myName });
+        this.selectedFactionId = this.lobby.slots[0].factionId;
+        if (window.MapData) MapData.reset();
     },
 
     setMyIdentity({ userId, name }) {
@@ -1730,7 +1805,8 @@ const GameState = {
             const slot = this.lobby.slots.find(s => s.kind === 'human' && s.userId === this.lobby.myUserId);
             if (slot) return slot.factionId;
         }
-        return this.selectedFactionId || (this.game && this.game.currentPlayerId) || this.factions[0].id;
+        const preferredId = this.selectedFactionId || this.game?.currentPlayerId;
+        return this.getFaction(preferredId).id;
     },
 
     startGameSession() {
@@ -1743,6 +1819,10 @@ const GameState = {
 
         this.game = {
             currentTurn: 1,
+            storyEnabled: Boolean(this.getScenario().story && this.lobby.settings.story),
+            showStoryModal: false,
+            selectedStoryId: null,
+            readStoryIds: [],
             lastSettledTurn: 1,
             currentPlayerId: firstFactionId,
             currentIdeology: myFaction.ideology || 'wartime_democracy',
@@ -1806,7 +1886,7 @@ const GameState = {
             winner: null,
             gameOver: false,
             showEndGameModal: false,
-            mapViewport: { x: 0, y: 0, width: 1000, height: 620 },
+            mapViewport: this.getMapOverview(),
             playerResources: {
                 money: myFaction.startingStats.money,
                 pp: Math.min(this.ppCap, myFaction.startingStats.pp),
@@ -1825,6 +1905,9 @@ const GameState = {
             SimultaneousTurns.initializeSession();
         }
         this.game.selectedFocusId = this.getFocusTree(myFaction.id)[0]?.id || null;
+        if (!this.isWarOpen()) {
+            this.addLog(`发育期持续 ${this.getScenario().preparationTurns} 回合。期间可建设、征兵、研究国策与境内调兵。`, 'system', false);
+        }
         this.currentView = 'game-page';
         this.refreshFactionStatus(false);
         this.checkVictory(false);
@@ -1884,13 +1967,14 @@ const GameState = {
         this.notify();
     },
 
-    closeModals() {
+    closeModals(shouldNotify = true) {
+        this.game.showStoryModal = false;
         this.game.battlePreview = null;
         this.game.actionConfirm = null;
         this.game.showFocusModal = false;
         this.game.showDiplomacyModal = false;
         this.game.showModifiersModal = false;
-        this.notify();
+        if (shouldNotify) this.notify();
     },
 
     toggleFocusModal(forceValue) {

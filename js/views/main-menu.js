@@ -1,10 +1,12 @@
 const MainMenuView = {
-    renderBackdrop() {
-        const nodes = (window.MapData && MapData.initialNodes) || [];
-        const provinces = nodes.map(node => {
-            const faction = GameState.getFaction(node.factionId);
-            return `<path d="${ProvinceGeography.provinces[node.id][3]}" fill="${faction.color}"></path>`;
-        }).join('');
+    renderBackdrop(scenario) {
+        const nodes = scenario.map?.nodes || MapData.americanNodes;
+        const geography = scenario.map || MapData.americanGeography;
+        const factions = scenario.factions || GameState.americanFactions;
+        const colors = new Map(factions.map(faction => [faction.id, faction.color]));
+        const provinces = nodes.map(node => (
+            `<path d="${geography.provinces[node.id][3]}" fill="${colors.get(node.factionId)}"></path>`
+        )).join('');
 
         return `
             <div class="main-menu-backdrop" aria-hidden="true">
@@ -20,13 +22,25 @@ const MainMenuView = {
         const myName = (GameState.lobby && GameState.lobby.myName) || '指挥官';
         const status = (GameState.lobby && GameState.lobby.statusMessage) || '';
         const connecting = !!(GameState.lobby && GameState.lobby.connecting);
+        const scenario = GameState.getScenario(window.app.menuScenarioId);
 
         return `
             <div class="view-main-menu animate-fade-in">
-                ${this.renderBackdrop()}
+                ${this.renderBackdrop(scenario)}
                 <div class="main-menu-content">
                     <h1 class="main-menu-title">裂旗战争</h1>
                     <div class="main-menu-subtitle">Shattered States</div>
+
+                    <div class="menu-scenarios" role="group" aria-label="选择战役">
+                        ${Object.values(GameState.scenarios).map(item => `
+                            <button class="menu-scenario" aria-pressed="${item.id === scenario.id}"
+                                onclick="window.app.selectScenario('${item.id}')">
+                                <small>${item.subtitle}</small>
+                                <strong>${item.name}</strong>
+                            </button>
+                        `).join('')}
+                    </div>
+                    <p class="menu-scenario-description">${scenario.description}</p>
 
                     <div class="menu-name-row">
                         <label>
@@ -55,7 +69,7 @@ const MainMenuView = {
                     ${status ? `<div class="menu-status text-muted">${escapeHtml(status)}</div>` : ''}
 
                     <div style="margin-top: var(--spacing-8); color: var(--color-text-muted); font-size: 0.875rem;">
-                        v0.6 · 本土战役
+                        v0.7 · 双战役
                     </div>
                 </div>
             </div>
@@ -109,16 +123,16 @@ const MainMenuView = {
         const codeField = isCreate ? '' : `
             <label class="room-dialog-field">
                 <span class="room-dialog-field-label">房间码</span>
-                <input id="room-dialog-code" class="room-code-input" type="text" maxlength="6"
-                    value="${escapeHtml(d.code || '')}" placeholder="ABC123" autocomplete="off" spellcheck="false"
+                <input id="room-dialog-code" class="room-code-input" type="text" maxlength="9"
+                    value="${escapeHtml(d.code || '')}" placeholder="ABCDEF 或 WR-ABCDEF" autocomplete="off" spellcheck="false"
                     oninput="window.app.roomDialog && (window.app.roomDialog.code = this.value)"
                     onkeydown="if(event.key==='Enter') window.app.submitRoomDialog()"
                     ${d.busy ? 'disabled' : ''}>
-                <span class="room-dialog-hint">向房主索取 6 位房间码（字母 / 数字），并选择与房主相同的联机方式。</span>
+                <span class="room-dialog-hint">请输入房主提供的完整房间码。西俄罗斯房间码含 WR- 前缀。</span>
             </label>
         `;
 
-        const title = isCreate ? '创建联机房间' : '加入联机房间';
+        const title = isCreate ? `创建房间 · ${GameState.getScenario(d.scenarioId).name}` : '加入联机房间';
         const submitLabel = d.busy
             ? (isCreate ? '创建中…' : '连接中…')
             : (isCreate ? '创建房间' : '加入房间');

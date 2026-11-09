@@ -395,9 +395,16 @@ const Multiplayer = {
         return userId;
     },
 
-    // Keep the same six-character invite format without mixing rule sets.
-    campaignRoomKey(code) {
-        return `provinces-v1-${code}`;
+    // America retains its existing room keys. Campaign prefixes keep different maps isolated.
+    campaignRoomKey(code, scenario) {
+        return `${scenario.roomPrefix ? 'campaign-v1' : 'provinces-v1'}-${code}`;
+    },
+
+    enterRoomLobby(lobby) {
+        GameState.clearFactionNameOverrides();
+        GameState.lobby = lobby;
+        GameState.selectedFactionId = GameState.getMySlot()?.factionId || null;
+        MapData.reset();
     },
 
     /**
@@ -405,18 +412,20 @@ const Multiplayer = {
      * options: { transport, config }
      */
     async createRoom(playerName, options = {}) {
+        const scenario = GameState.getScenario(options.scenarioId || 'america');
         const userId = await this.connect(options.transport, options.config);
         const cleanName = String(playerName || '').trim() || `指挥官-${userId.slice(-4)}`;
 
-        const code = this.generateRoomCode();
-        const room = this.transport.openRoom(this.campaignRoomKey(code));
+        const code = (scenario.roomPrefix || '') + this.generateRoomCode();
+        const room = this.transport.openRoom(this.campaignRoomKey(code, scenario));
         // 仅在后端支持快速存在性检查时做撞码重试
         if (room.canCheckExistence && (await room.exists())) {
             return this.createRoom(playerName, options);
         }
 
-        GameState.lobby = {
+        const lobby = {
             roomCode: code,
+            scenarioId: scenario.id,
             mode: 'online',
             transport: this.transportName,
             hostId: userId,
@@ -425,24 +434,13 @@ const Multiplayer = {
             ready: false,
             connecting: false,
             statusMessage: '已创建房间，等待玩家加入。',
-            settings: {
-                maxPlayers: '8',
-                mapScale: '标准',
-                turnLimit: '180',
-                victory: '统一',
-                diplomacy: true,
-                ai: true
-            },
-            slots: GameState.createDefaultSlots(),
+            settings: GameState.createLobbySettings(scenario.id),
+            slots: GameState.createDefaultSlots(scenario.id),
             chat: [
                 { author: '系统', text: `房间 ${code} 已创建。` }
             ]
         };
-        // 房主默认坐 USA 席位
-        const usa = GameState.lobby.slots[0];
-        usa.kind = 'human';
-        usa.userId = userId;
-        usa.playerName = cleanName;
+        Object.assign(lobby.slots[0], { kind: 'human', userId, playerName: cleanName });
 
         await room.writeRoot({
             meta: {
@@ -451,9 +449,10 @@ const Multiplayer = {
                 mode: 'online',
                 transport: this.transportName
             },
-            lobby: this.serializeLobby()
+            lobby: this.serializeLobby(lobby)
         });
 
+        this.enterRoomLobby(lobby);
         this.attachRoomListeners(room, userId, /* asHost */ true);
         GameState.notify();
         return code;
@@ -464,21 +463,27 @@ const Multiplayer = {
      * options: { transport, config }
      */
     async joinRoom(rawCode, playerName, options = {}) {
-        const userId = await this.connect(options.transport, options.config);
         const code = String(rawCode || '').trim().toUpperCase();
-        if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error('请输入 6 位房间码');
+        const scenario = Object.values(GameState.scenarios).find(item => item.roomPrefix && code.startsWith(item.roomPrefix))
+            || GameState.getScenario('america');
+        if (!/^[A-Z0-9]{6}$/.test(code.slice((scenario.roomPrefix || '').length))) {
+            throw new Error('请输入完整房间码。西俄罗斯房间码含 WR- 前缀。');
+        }
+        const userId = await this.connect(options.transport, options.config);
         const cleanName = String(playerName || '').trim() || `指挥官-${userId.slice(-4)}`;
 
-        const room = this.transport.openRoom(this.campaignRoomKey(code));
+        const room = this.transport.openRoom(this.campaignRoomKey(code, scenario));
         const data = await room.readAll();
-        if (!data || !data.lobby) throw new Error(`未找到省区版房间 ${code}，请确认房间码和游戏版本`);
+        if (!data?.lobby) throw new Error(`未找到房间 ${code}，请确认房间码和联机方式`);
 
-        const lobby = data.lobby || {};
-        const slots = (lobby.slots || []).map(slot => ({ ...slot }));
+        const remoteLobby = data.lobby;
+        if ((remoteLobby.scenarioId || 'america') !== scenario.id) throw new Error('房间的战役数据与房间码不匹配');
+        const slots = (remoteLobby.slots || []).map(slot => ({ ...slot }));
 
         // 如果我已在某个槽位上（重连），保留；否则坐第一个空席
         let mySlot = slots.find(s => s.userId === userId);
         if (!mySlot) {
+            if (scenario.roomPrefix && data.state?.turn) throw new Error('该战役已经开始，只能由原席位玩家重连');
             mySlot = slots.find(s => s.kind === 'open');
             if (!mySlot) throw new Error('房间没有空席位了');
             mySlot.kind = 'human';
@@ -489,9 +494,10 @@ const Multiplayer = {
             mySlot.playerName = cleanName;
         }
 
-        const hostId = (data.meta && data.meta.hostId) || lobby.hostId || userId;
-        GameState.lobby = {
+        const hostId = data.meta?.hostId || remoteLobby.hostId || userId;
+        const lobby = {
             roomCode: code,
+            scenarioId: scenario.id,
             mode: 'online',
             transport: this.transportName,
             hostId,
@@ -500,26 +506,19 @@ const Multiplayer = {
             ready: false,
             connecting: false,
             statusMessage: '已加入房间。',
-            settings: lobby.settings || {
-                maxPlayers: '8',
-                mapScale: '标准',
-                turnLimit: '180',
-                victory: '统一',
-                diplomacy: true,
-                ai: true
-            },
+            settings: GameState.createLobbySettings(scenario.id, remoteLobby.settings),
             slots,
             chat: [
-                ...((lobby.chat || []).slice(0, 30)),
+                ...((remoteLobby.chat || []).slice(0, 30)),
                 { author: '系统', text: `${cleanName} 加入了房间。`, ts: Date.now() }
             ]
         };
 
         // 把自己坐席位的修改写回
-        await room.writeLobby(this.serializeLobby());
+        await room.writeLobby(this.serializeLobby(lobby));
 
-        const isHost = userId === GameState.lobby.hostId;
-        this.attachRoomListeners(room, userId, isHost);
+        this.enterRoomLobby(lobby);
+        this.attachRoomListeners(room, userId, userId === hostId);
         GameState.notify();
         return code;
     },
@@ -665,6 +664,9 @@ const Multiplayer = {
             };
             GameState.game.humanCombat = humanCombat;
             const payload = {
+                scenarioId: GameState.getScenario().id,
+                storyEnabled: !!GameState.game.storyEnabled,
+                winner: GameState.game.winner || null,
                 turn: GameState.game.currentTurn,
                 currentPlayerId: GameState.game.currentPlayerId,
                 turnOrder: GameState.game.turnOrder || [],
@@ -726,9 +728,9 @@ const Multiplayer = {
         }
     },
 
-    serializeLobby() {
-        const lobby = GameState.lobby;
+    serializeLobby(lobby = GameState.lobby) {
         return {
+            scenarioId: lobby.scenarioId || 'america',
             settings: lobby.settings,
             slots: lobby.slots.map(slot => ({
                 factionId: slot.factionId,
@@ -743,7 +745,7 @@ const Multiplayer = {
     },
 
     applyLobbyFromRemote(remote) {
-        if (!remote) return;
+        if (!remote || (remote.scenarioId || 'america') !== GameState.getScenario().id) return;
         const myUserId = GameState.lobby.myUserId;
         const myName = GameState.lobby.myName;
         const roomCode = GameState.lobby.roomCode;
@@ -764,14 +766,17 @@ const Multiplayer = {
     },
 
     applyStateFromRemote(remote) {
-        if (!remote || !window.MapData) return false;
+        const scenario = GameState.getScenario();
+        if (!remote || !window.MapData || (remote.scenarioId || 'america') !== scenario.id) return false;
         if (!this.shouldApplyRemoteState(remote)) return false;
 
         // 客人首次进入对局（或房主开了新的一局，turn 回退到较小值）：先用"自己的势力"建立本地会话，
         // 保证 playerResources（按本势力 startingStats）、currentIdeology、diplomacy、modifiers 正确初始化。
         // 否则客人一直用默认 game 模板里的 money=25/pp=10，且后续无人为它结算。
         const isGuest = !GameState.isHost();
-        const isNewGame = remote.turn && GameState.game && remote.turn < (GameState.game.currentTurn || 0);
+        const isNewGame = remote.sessionId
+            ? remote.sessionId !== GameState.game.sessionId
+            : remote.turn < (GameState.game.currentTurn || 0);
         if (isGuest && remote.turn && (!this._localSessionStarted || isNewGame)) {
             this._localSessionStarted = true;
             if (window.MapData.reset) window.MapData.reset();
@@ -786,6 +791,9 @@ const Multiplayer = {
 
         // 把 game 关键字段刷新
         GameState.game.currentTurn = remote.turn;
+        GameState.game.storyEnabled = Boolean(scenario.story && remote.storyEnabled);
+        if (remote.winner && !GameState.game.winner) GameState.game.showEndGameModal = true;
+        GameState.game.winner = remote.winner || null;
         GameState.game.currentPlayerId = remote.currentPlayerId;
         GameState.game.turnOrder = remote.turnOrder || GameState.game.turnOrder || [];
         GameState.game.turnMode = remote.turnMode || GameState.game.turnMode || 'sequential';
