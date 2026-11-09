@@ -1028,18 +1028,15 @@ const GamePageView = {
         const completedInTree = tree.filter(focus => completed.includes(focus.id)).length;
         const observed = this.getObservedFactionResources(viewFactionId);
         const pp = observed.pp;
-        const layout = this.getFocusTreeLayout(tree);
         const selectedFocusId = isPlayerView ? GameState.game.selectedFocusId : GameState.game.focusViewSelectedId;
         const selectedFocus = GameState.getFocusById(selectedFocusId, viewFactionId) || tree[0];
+        const campaignTree = Boolean(tree[0]?.category);
+        const branchOnly = campaignTree && window.app.focusBranchOnly;
+        const visibleTree = branchOnly ? tree.filter(focus => focus.branch === selectedFocus.branch) : tree;
+        const layout = this.getFocusTreeLayout(visibleTree, branchOnly);
         const scale = window.app.getFocusTreeScale();
         const faction = GameState.getFaction(viewFactionId);
         const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
-        const campaignBranches = new Map();
-        if (GameState.getScenario().preparationTurns) {
-            tree.forEach(focus => {
-                if (!campaignBranches.has(focus.branch)) campaignBranches.set(focus.branch, focus.id);
-            });
-        }
 
         return `
             <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
@@ -1061,16 +1058,7 @@ const GamePageView = {
                             <button class="map-icon-btn" title="放大国策树" onclick="window.app.zoomFocusTree(1)">+</button>
                             <button class="btn btn-outline" onclick="window.app.resetFocusTreeView()">居中</button>
                         </div>
-                        ${campaignBranches.size ? `
-                            <label class="campaign-branch-jump">
-                                <span>国策支线</span>
-                                <select onchange="window.app.jumpToCampaignFocus(this.value)" aria-label="跳转国策支线">
-                                    ${[...campaignBranches].map(([branch, id]) => `
-                                        <option value="${id}" ${selectedFocus?.branch === branch ? 'selected' : ''}>${escapeHtml(branch)}</option>
-                                    `).join('')}
-                                </select>
-                            </label>
-                        ` : ''}
+                        ${campaignTree ? this.renderCampaignBranches(tree, selectedFocus, branchOnly) : ''}
                         <div class="focus-mobile-filter">
                             ${[
                                 { id: 'all', label: '全部' },
@@ -1084,13 +1072,21 @@ const GamePageView = {
                             `).join('')}
                         </div>
                     </div>
+                    ${campaignTree ? `
+                        <div class="focus-graph-legend" aria-label="国策连线图例">
+                            <span><i></i> 必须完成</span>
+                            <span><i class="focus-legend-any"></i> 任选方案</span>
+                            <span><i class="focus-legend-mutex"></i> 互斥</span>
+                            <span class="focus-legend-hint">点击详情中的前置国策可跨支线跳转</span>
+                        </div>
+                    ` : ''}
                     <div class="focus-modal-body">
                         <div class="focus-tree-scroll">
                             <div class="focus-tree-stage" style="width: ${layout.width * scale}px; height: ${layout.height * scale}px;">
-                                <div class="focus-tree-canvas" data-base-width="${layout.width}" data-base-height="${layout.height}"
+                                <div class="focus-tree-canvas" data-base-width="${layout.width}" data-base-height="${layout.height}" ${campaignTree ? 'data-campaign-tree="true"' : ''}
                                     style="width: ${layout.width}px; height: ${layout.height}px; transform: scale(${scale});">
-                                    ${this.renderFocusConnectors(tree, layout)}
-                                    ${tree.map(focus => this.renderFocusCard(focus, layout, { viewFactionId, selectedFocusId, isPlayerView })).join('')}
+                                    ${this.renderFocusConnectors(visibleTree, layout, selectedFocus?.id)}
+                                    ${visibleTree.map(focus => this.renderFocusCard(focus, layout, { viewFactionId, selectedFocusId: selectedFocus?.id, isPlayerView })).join('')}
                                 </div>
                             </div>
                         </div>
@@ -1101,22 +1097,56 @@ const GamePageView = {
         `;
     },
 
-    getFocusTreeLayout(tree) {
+    renderCampaignBranches(tree, selectedFocus, branchOnly) {
+        const labels = { politics: '政治与继承', industry: '工业与财政', military: '军务与战役', logistics: '运输与补给',
+            civil: '民政与救济', diplomacy: '对外协约', integration: '地区整合' };
+        const groups = new Map();
+        for (const focus of tree) {
+            if (!groups.has(focus.category)) groups.set(focus.category, new Map());
+            const branches = groups.get(focus.category);
+            if (!branches.has(focus.branch)) branches.set(focus.branch, { id: focus.id, count: 0 });
+            branches.get(focus.branch).count++;
+        }
+        return `
+            <div class="campaign-branch-controls">
+                <label class="campaign-branch-jump">
+                    <span>国策支线</span>
+                    <select onchange="window.app.jumpToCampaignFocus(this.value)" aria-label="跳转国策支线">
+                        ${[...groups].map(([category, branches]) => `
+                            <optgroup label="${labels[category]}">
+                                ${[...branches].map(([name, branch]) => `
+                                    <option value="${branch.id}" ${selectedFocus.branch === name ? 'selected' : ''}>${escapeHtml(name)} · ${branch.count}</option>
+                                `).join('')}
+                            </optgroup>
+                        `).join('')}
+                    </select>
+                </label>
+                <button class="btn btn-outline campaign-branch-view" type="button" aria-pressed="${branchOnly}"
+                    onclick="window.app.toggleCampaignBranchView()">仅此支线</button>
+            </div>
+        `;
+    },
+
+    getFocusTreeLayout(tree, compact = false) {
         const cellWidth = 226;
         const cellHeight = 184;
         const cardWidth = 190;
         const cardHeight = 150;
         const padding = 36;
-        const maxX = Math.max(...tree.map(focus => focus.x), 0);
-        const maxY = Math.max(...tree.map(focus => focus.y), 0);
+        const minX = compact && tree.length ? Math.min(...tree.map(focus => focus.x)) : 0;
+        const minY = compact && tree.length ? Math.min(...tree.map(focus => focus.y)) : 0;
+        const maxX = Math.max(...tree.map(focus => focus.x), minX) - minX;
+        const maxY = Math.max(...tree.map(focus => focus.y), minY) - minY;
         const positions = tree.reduce((acc, focus) => {
+            const left = padding + (focus.x - minX) * cellWidth;
+            const top = padding + (focus.y - minY) * cellHeight;
             acc[focus.id] = {
-                left: padding + focus.x * cellWidth,
-                top: padding + focus.y * cellHeight,
-                centerX: padding + focus.x * cellWidth + cardWidth / 2,
-                centerY: padding + focus.y * cellHeight + cardHeight / 2,
-                bottomY: padding + focus.y * cellHeight + cardHeight,
-                topY: padding + focus.y * cellHeight
+                left,
+                top,
+                centerX: left + cardWidth / 2,
+                centerY: top + cardHeight / 2,
+                bottomY: top + cardHeight,
+                topY: top
             };
             return acc;
         }, {});
@@ -1243,10 +1273,13 @@ const GamePageView = {
         return `M ${sx} ${sy} L ${sx} ${midY - r} Q ${sx} ${midY} ${sx + dir * r} ${midY} L ${tx - dir * r} ${midY} Q ${tx} ${midY} ${tx} ${midY + r} L ${tx} ${ty}`;
     },
 
-    renderFocusConnectors(tree, layout) {
+    renderFocusConnectors(tree, layout, selectedFocusId) {
         const lines = [];
         const bands = [];
         const mutualPairs = new Set();
+        const campaign = Boolean(tree[0]?.category);
+        const byId = new Map(tree.map(focus => [focus.id, focus]));
+        const completed = new Set(GameState.game.completedFocuses);
 
         // 分支泳道：把每条线圈成一簇（≥3 节点的分支才画底色+标题）
         const byBranch = {};
@@ -1280,15 +1313,27 @@ const GamePageView = {
             this.getFocusParentIds(focus).forEach(parentId => {
                 const source = layout.positions[parentId];
                 if (!source || !target) return;
-                lines.push(`<path class="focus-link" stroke="${color}" d="${this.focusLinkPath(source, target)}" />`);
+                const active = focus.id === selectedFocusId || parentId === selectedFocusId;
+                if (campaign && !active && byId.get(parentId).branch !== focus.branch) return;
+                const optional = !(focus.prerequisites || []).includes(parentId);
+                const classes = [
+                    'focus-link',
+                    optional ? 'focus-link-any' : '',
+                    completed.has(parentId) ? 'focus-link-met' : '',
+                    active ? 'focus-link-active' : ''
+                ].join(' ');
+                lines.push(`<path class="${classes}" style="--focus-link-color: ${color}" d="${this.focusLinkPath(source, target)}" />`);
             });
 
             (focus.mutuallyExclusive || []).forEach(otherId => {
                 const key = [focus.id, otherId].sort().join('|');
                 const other = layout.positions[otherId];
                 if (!target || !other || mutualPairs.has(key)) return;
+                if (campaign && focus.id !== selectedFocusId && otherId !== selectedFocusId
+                    && byId.get(otherId).branch !== focus.branch) return;
                 mutualPairs.add(key);
-                lines.push(`<path class="focus-mutual-link" d="M ${target.centerX} ${target.centerY} H ${other.centerX}" />`);
+                const middle = (target.centerX + other.centerX) / 2;
+                lines.push(`<path class="focus-mutual-link" d="M ${target.centerX} ${target.centerY} H ${middle} V ${other.centerY} H ${other.centerX}" />`);
             });
         });
 
@@ -1307,6 +1352,7 @@ const GamePageView = {
         if (GameState.isFocusBlockedByMutual(focus, completed)) return 'mutually-blocked';
         if (!GameState.isFocusStageOpen(focus)) return 'phase-blocked';
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return 'locked';
+        if (!GameState.hasFocusTerritory(focus, viewFactionId)) return 'territory-blocked';
         return 'available';
     },
 
@@ -1337,6 +1383,7 @@ const GamePageView = {
             done: '已完成',
             'mutually-blocked': '互斥',
             'phase-blocked': '战斗期开放',
+            'territory-blocked': '控制省区',
             locked: '锁定',
             'pp-blocked': 'PP不足'
         })[status] || (progress.current > 0 ? '推进中' : '可推进');
@@ -1388,9 +1435,21 @@ const GamePageView = {
         const mutualHtml = mutuals.length
             ? `<div class="focus-detail-block danger-block">
                     <span>互斥国策</span>
-                    <strong>${mutuals.map(id => GameState.getFocusById(id, viewFactionId)?.name || id).join(' / ')}</strong>
+                    <div class="focus-prereq-nodes">${mutuals.map(id => this.renderFocusLinkButton(id, viewFactionId)).join('')}</div>
                 </div>`
             : '';
+        const controlHtml = focus.requiredControl?.length ? `
+            <div class="focus-detail-block">
+                <span>需要控制的省区</span>
+                <div class="focus-prereq-nodes">
+                    ${focus.requiredControl.map(id => {
+                        const province = MapData.getNode(id);
+                        const controlled = province?.factionId === viewFactionId;
+                        return `<span class="focus-condition ${controlled ? 'met' : ''}">${controlled ? '✓ ' : ''}${escapeHtml(province?.name || id)}</span>`;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
 
         return `
             <aside class="focus-detail-panel" data-focus-detail-id="${focus.id}">
@@ -1411,8 +1470,9 @@ const GamePageView = {
 
                 <div class="focus-detail-block">
                     <span>前置条件</span>
-                    <strong>${prerequisiteHtml}</strong>
+                    ${prerequisiteHtml}
                 </div>
+                ${controlHtml}
                 ${mutualHtml}
 
                 <div class="focus-detail-block">
@@ -1435,17 +1495,30 @@ const GamePageView = {
         `;
     },
 
+    renderFocusLinkButton(id, factionId) {
+        const name = GameState.getFocusById(id, factionId)?.name || id;
+        const met = GameState.game.completedFocuses.includes(id);
+        return `<button type="button" class="focus-condition ${met ? 'met' : ''}"
+            data-focus-link-id="${escapeHtml(id)}" onclick="window.app.jumpToCampaignFocus('${escapeHtml(id)}')">
+            ${met ? '✓ ' : ''}${escapeHtml(name)}
+        </button>`;
+    },
+
     renderFocusPrerequisites(focus, factionId = GameState.getPlayerFactionId()) {
         const required = focus.prerequisites || [];
         const anyGroups = focus.prerequisiteAny || [];
-        const direct = required.map(id => GameState.getFocusById(id, factionId)?.name || id);
-        const optional = anyGroups.map(group => group.map(id => GameState.getFocusById(id, factionId)?.name || id).join(' + '));
-        const parts = [
-            ...direct,
-            ...optional.map(text => `任一：${text}`)
-        ];
-
-        return parts.length ? parts.join(' / ') : '无';
+        if (!required.length && !anyGroups.length) return '<strong>无</strong>';
+        const links = ids => ids.map(id => this.renderFocusLinkButton(id, factionId)).join('');
+        return `
+            ${required.length ? `
+                <small class="focus-prereq-label">全部完成</small>
+                <div class="focus-prereq-nodes">${links(required)}</div>
+            ` : ''}
+            ${anyGroups.length ? `
+                <small class="focus-prereq-label">任选一组，组内全部完成</small>
+                ${anyGroups.map(group => `<div class="focus-prereq-nodes focus-prereq-option">${links(group)}</div>`).join('')}
+            ` : ''}
+        `;
     },
 
     renderFocusEffect(effect, focus = null, factionId = GameState.getPlayerFactionId()) {

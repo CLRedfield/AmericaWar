@@ -1394,6 +1394,10 @@ const GameState = {
         return requiredMet && anyMet;
     },
 
+    hasFocusTerritory(focus, factionId = this.getPlayerFactionId()) {
+        return (focus.requiredControl || []).every(nodeId => window.MapData?.getNode(nodeId)?.factionId === factionId);
+    },
+
     isFocusBlockedByMutual(focus, completed = this.game.completedFocuses) {
         return (focus.mutuallyExclusive || []).some(id => completed.includes(id));
     },
@@ -1428,6 +1432,7 @@ const GameState = {
         if (this.isFocusBlockedByMutual(focus, completed)) return 'mutually-blocked';
         if (!this.isFocusStageOpen(focus)) return 'phase-blocked';
         if (!this.areFocusPrerequisitesMet(focus, completed)) return 'locked';
+        if (!this.hasFocusTerritory(focus)) return 'territory-blocked';
 
         const ppCost = this.getActionPPCost(1);
         return this.game.playerResources.pp >= ppCost ? 'available' : 'pp-blocked';

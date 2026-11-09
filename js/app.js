@@ -37,6 +37,7 @@ const App = {
     mobilePanel: null,
     mobileLobbyPanel: 'slots',
     focusMobileFilter: 'all',
+    focusBranchOnly: false,
     resolutionAnimation: null,
     resolutionAnimationTimer: null,
     lastPresentedResolutionKey: null,
@@ -1832,6 +1833,7 @@ const App = {
         if (GameState.isFocusBlockedByMutual(focus, completed)) return { enabled: false, reason: '互斥国策已完成', ...actionMeta };
         if (!GameState.isFocusStageOpen(focus)) return { enabled: false, reason: '战斗期开放', ...actionMeta };
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return { enabled: false, reason: '前置国策未满足', ...actionMeta };
+        if (!GameState.hasFocusTerritory(focus, playerFactionId)) return { enabled: false, reason: '需控制所列省区', ...actionMeta };
         if (resources.pp < actionMeta.ppCost) return { enabled: false, reason: `缺少 ${actionMeta.ppCost - resources.pp} PP`, ...actionMeta };
 
         return { enabled: true, reason: '', focus, ...actionMeta };
@@ -1864,6 +1866,17 @@ const App = {
         this.pendingFocusTreeScroll = null;
         this.focusTreeScroll = null;
         GameState.notify();
+    },
+
+    toggleCampaignBranchView() {
+        const game = GameState.game;
+        const factionId = game.focusViewFactionId || GameState.getPlayerFactionId();
+        const selectedId = factionId === GameState.getPlayerFactionId() ? game.selectedFocusId : game.focusViewSelectedId;
+        const selected = GameState.getFocusById(selectedId, factionId) || GameState.getFocusTree(factionId)[0];
+        if (!selected?.category) return;
+        this.focusBranchOnly = !this.focusBranchOnly;
+        game.focusTreeViewport = { scale: 1, autoFit: true };
+        this.jumpToCampaignFocus(selected.id);
     },
 
     advanceFocus(focusId = GameState.game.selectedFocusId) {
@@ -2281,7 +2294,8 @@ const App = {
         if (!vpW || !vpH || !baseW || !baseH) return null;
         const fitWhole = Math.min(vpW / baseW, vpH / baseH);
         const scale = fitWhole >= 0.5 ? fitWhole : (vpH / baseH) * 0.98;
-        return Math.max(0.25, Math.min(1, scale));
+        const minimum = canvas.dataset.campaignTree ? (this.focusBranchOnly ? 0.62 : 0.48) : 0.25;
+        return Math.max(minimum, Math.min(1, scale));
     },
 
     setFocusTreeScale(scale) {
@@ -2320,7 +2334,7 @@ const App = {
         };
     },
 
-    alignFocusTree() {
+    alignFocusTree(centerVertically = false) {
         const scroller = document.querySelector('.focus-tree-scroll');
         if (!scroller) {
             this.focusTreeCentered = false;
@@ -2360,8 +2374,9 @@ const App = {
 
         const scale = this.getFocusTreeScale();
         scroller.scrollLeft = Math.max(0, rootCard.offsetLeft * scale - scroller.clientWidth / 2 + (rootCard.offsetWidth * scale) / 2);
+        const offsetY = centerVertically ? (scroller.clientHeight - rootCard.offsetHeight * scale) / 2 : 30;
         scroller.scrollTop = GameState.getScenario().preparationTurns
-            ? Math.max(0, (rootCard.offsetTop + rootCard.offsetHeight / 2) * scale - scroller.clientHeight / 2) : 0;
+            ? Math.max(0, rootCard.offsetTop * scale - offsetY) : 0;
         this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };
         this.focusTreeCentered = true;
     },
@@ -2544,7 +2559,7 @@ const App = {
         // "居中"按钮：回到自动总览缩放并重新居中
         GameState.game.focusTreeViewport = { scale: 1, autoFit: true };
         this.focusTreeCentered = false;
-        this.alignFocusTree();
+        this.alignFocusTree(true);
     },
 
     getPointerDistance(a, b) {

@@ -30,6 +30,30 @@ function gameClient() {
     return Object.assign(context, vm.runInContext("({ GameState })", context));
 }
 
+function assertReachableFocuses(focuses, byId) {
+    const plans = new Map();
+    function combine(left, right) {
+        const compatible = new Map();
+        for (const first of left) {
+            for (const second of right) {
+                const joined = new Set([...first, ...second]);
+                const conflict = [...joined].some(id => byId.get(id).mutuallyExclusive?.some(other => joined.has(other)));
+                if (!conflict) compatible.set([...joined].sort().join('|'), joined);
+            }
+        }
+        return [...compatible.values()];
+    }
+    const requireAll = (choices, ids) => ids.reduce((current, id) => combine(current, plans.get(id)), choices);
+    for (const focus of [...focuses].sort((a, b) => a.y - b.y)) {
+        const required = requireAll([new Set([focus.id])], focus.prerequisites);
+        const reachable = focus.prerequisiteAny?.length
+            ? focus.prerequisiteAny.flatMap(group => requireAll(required, group))
+            : required;
+        assert.ok(reachable.length, focus.id + ' has at least one compatible prerequisite plan');
+        plans.set(focus.id, reachable);
+    }
+}
+
 test('West Russia provides a connected province map and complete, distinct faction trees', () => {
     const { GameState, MapData } = gameClient();
     GameState.initLocalLobby('west-russia');
@@ -56,6 +80,7 @@ test('West Russia provides a connected province map and complete, distinct facti
 
     const campaignFocusIds = new Set();
     const campaignIdeologies = new Set();
+    const topologies = new Set();
     const provincesPerFaction = { WRF: 14, KOM: 7, VYA: 10, SAM: 12, PRM: 10, ONE: 3, GOR: 5, VOL: 11, GEO: 6, TAT: 8, BSH: 7 };
     for (const faction of GameState.factions) {
         assert.equal(MapData.getNode(faction.capitalNodeId).factionId, faction.id);
@@ -73,9 +98,16 @@ test('West Russia provides a connected province map and complete, distinct facti
 
         const focuses = GameState.getFocusTree(faction.id);
         const byId = new Map(focuses.map(focus => [focus.id, focus]));
-        assert.equal(focuses.length, 150);
-        assert.equal(byId.size, 150);
-        assert.equal(new Set(focuses.map(focus => focus.branch)).size, 11);
+        assert.ok(focuses.length >= 150);
+        assert.equal(byId.size, focuses.length);
+        assert.ok(new Set(focuses.map(focus => focus.branch)).size >= 14);
+        assert.ok(focuses.filter(focus => !focus.prerequisites.length && !focus.prerequisiteAny).length >= 2);
+        assert.equal(new Set(focuses.map(focus => `${focus.x},${focus.y}`)).size, focuses.length);
+        const indices = new Map(focuses.map((focus, index) => [focus.id, index]));
+        const refs = ids => ids.map(id => indices.get(id));
+        topologies.add(JSON.stringify(focuses.map(focus => [
+            refs(focus.prerequisites), (focus.prerequisiteAny || []).map(refs), refs(focus.mutuallyExclusive || [])
+        ])));
         assert.equal(focuses.filter(focus => focus.id.endsWith('_commit')).length, 4);
         assert.ok(focuses.filter(focus => focus.story).length >= 12);
         assert.ok(focuses.some(focus => focus.wartime));
@@ -85,6 +117,7 @@ test('West Russia provides a connected province map and complete, distinct facti
             assert.ok(!campaignFocusIds.has(focus.id));
             campaignFocusIds.add(focus.id);
             assert.ok(focus.effects.length && focus.description);
+            for (const id of focus.requiredControl || []) assert.ok(MapData.getNode(id), id + ' exists');
             const parents = [...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()];
             for (const parent of parents) {
                 assert.ok(byId.has(parent), parent + ' exists');
@@ -101,8 +134,10 @@ test('West Russia provides a connected province map and complete, distinct facti
                 if (effect.tag) assert.ok(owned.some(node => node.tags.includes(effect.tag)), faction.id + ' can use ' + effect.tag);
             }
         }
+        assertReachableFocuses(focuses, byId);
     }
-    assert.equal(campaignFocusIds.size, 1650);
+    assert.equal(topologies.size, GameState.factions.length);
+    assert.equal(campaignFocusIds.size, 1716);
     assert.equal(campaignIdeologies.size, 20);
     const openingFrontiers = new Set(MapData.connections.map(([a, b]) => (
         [MapData.getNode(a).factionId, MapData.getNode(b).factionId].sort().join('-')
@@ -116,6 +151,57 @@ test('West Russia provides a connected province map and complete, distinct facti
     assert.equal(MapData.nodes.length, 48);
     assert.equal(GameState.getFocusTree('USA').length, 150);
     assert.equal(GameState.isWarOpen(), true);
+});
+
+test('political branch choices support nested succession, multiple candidates and grouped alternatives', () => {
+    const { GameState } = gameClient();
+    GameState.initLocalLobby('west-russia');
+
+    const successor = GameState.getFocusById('wr_wrf_cadres_commit', 'WRF');
+    assert.ok(successor.prerequisites.includes('wr_wrf_zhukov_congress'));
+    assert.ok(successor.mutuallyExclusive.includes('wr_wrf_zhukov_wartime'));
+    const reconstruction = GameState.getFocusById('wr_wrf_zhukov_0_choice', 'WRF');
+    const rivalReconstruction = GameState.getFocusById('wr_wrf_zhukov_1_choice', 'WRF');
+    assert.equal(GameState.isFocusBlockedByMutual(rivalReconstruction, [reconstruction.id]), false);
+    const rivalSettlement = GameState.getFocusById('wr_wrf_zhukov_1_settlement', 'WRF');
+    assert.equal(GameState.isFocusBlockedByMutual(rivalSettlement, ['wr_wrf_zhukov_0_settlement']), true);
+
+    const right = GameState.getFocusTree('KOM').filter(focus => /^wr_kom_right_\d+_choice$/.test(focus.id));
+    assert.equal(right.length, 4);
+    assert.ok(right.every(focus => focus.mutuallyExclusive.length === 3));
+
+    const union = GameState.getFocusById('wr_tat_union_commit', 'TAT');
+    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion']), false);
+    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion', 'wr_tat_openContracts']), true);
+    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_dockCrewSchool', 'wr_tat_riverBook']), true);
+});
+
+test('a conquest focus becomes available after taking its province and applies the local project', () => {
+    const { GameState, MapData, SimultaneousTurns, GameAI, app } = gameClient();
+    GameState.initLocalLobby('west-russia');
+    GameState.takeSlot('SAM');
+    GameState.addAiToSlot('TAT', 'very_easy');
+    GameState.startGameSession();
+    GameState.game.currentTurn = 4;
+    const focus = GameState.getFocusById('wr_sam_cheboksaryBridgehead');
+    const province = MapData.getNode('WR_CEB');
+    GameState.game.completedFocuses = [...focus.prerequisites];
+    assert.equal(GameState.getFocusStatus(focus), 'territory-blocked');
+    assert.equal(app.getFocusAdvanceAvailability(focus.id).reason, '需控制所列省区');
+    assert.equal(GameAI.aiAdvanceFocus('SAM', focus, null, { free: true }), false);
+    SimultaneousTurns.mergePlanningSnapshots([{ factionId: 'SAM', completedFocuses: [focus.id], focusProgress: { [focus.id]: 2 } }]);
+    assert.equal(GameState.game.completedFocuses.includes(focus.id), false);
+    assert.equal(GameState.getFocusProgress(focus.id), 0);
+
+    province.factionId = 'SAM';
+    const industry = province.industry;
+    assert.equal(GameState.getFocusStatus(focus), 'available');
+    for (let i = 0; i < GameState.getFocusRequiredProgress(focus); i++) {
+        GameState.game.playerResources.pp = GameState.getEffectivePPCap();
+        app.advanceFocus(focus.id);
+    }
+    assert.equal(GameState.getFocusStatus(focus), 'done');
+    assert.equal(province.industry, industry + 1);
 });
 
 test('preparation permits friendly movement and blocks cross-border orders through the host resolver', () => {
@@ -296,7 +382,7 @@ test('West Russia room codes, settings and authoritative snapshots select the sa
     host.GameState.setView('lobby');
     host.GameState.updateLobbySetting('story', true);
     host.Multiplayer.pushLobby();
-    const roomKey = 'campaign-v2-' + code;
+    const roomKey = 'campaign-v3-' + code;
     assert.equal(rooms.get(roomKey).lobby.scenarioId, 'west-russia');
     assert.equal(rooms.get(roomKey).lobby.settings.story, true);
 

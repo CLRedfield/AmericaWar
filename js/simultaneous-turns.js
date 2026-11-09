@@ -647,14 +647,14 @@ const SimultaneousTurns = {
             if (plan.playerState && GameState.getSlot(factionId)?.kind === 'human') {
                 game.humanStates[factionId] = this.clone(plan.playerState);
             }
-            const peacetimeFocusIds = warOpen ? null : new Set(
-                GameState.getFocusTree(factionId).filter(focus => !focus.wartime).map(focus => focus.id)
-            );
+            const campaignFocusIds = GameState.getScenario().preparationTurns ? new Set(GameState.getFocusTree(factionId)
+                .filter(focus => (warOpen || !focus.wartime) && GameState.hasFocusTerritory(focus, factionId))
+                .map(focus => focus.id)) : null;
             (plan.completedFocuses || []).forEach(focusId => {
-                if (!peacetimeFocusIds || peacetimeFocusIds.has(focusId)) completed.add(focusId);
+                if (!campaignFocusIds || campaignFocusIds.has(focusId)) completed.add(focusId);
             });
             Object.entries(plan.focusProgress || {}).forEach(([focusId, value]) => {
-                if (!peacetimeFocusIds || peacetimeFocusIds.has(focusId)) {
+                if (!campaignFocusIds || campaignFocusIds.has(focusId)) {
                     progress[focusId] = Math.max(progress[focusId] || 0, Number(value) || 0);
                 }
             });

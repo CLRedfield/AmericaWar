@@ -350,6 +350,7 @@ const GameAI = {
             !completed.includes(focus.id)
             && GameState.isFocusStageOpen(focus)
             && GameState.areFocusPrerequisitesMet(focus, completed)
+            && GameState.hasFocusTerritory(focus, factionId)
             && !GameState.isFocusBlockedByMutual(focus, completed)
         ));
         if (!available.length) return null;
@@ -430,6 +431,11 @@ const GameAI = {
         if (this._politicalFocusCache[factionId]) return this._politicalFocusCache[factionId];
 
         const tree = GameState.getFocusTree(factionId) || [];
+        if (tree[0]?.category) {
+            const political = new Set(tree.filter(focus => focus.category === 'politics').map(focus => focus.id));
+            this._politicalFocusCache[factionId] = political;
+            return political;
+        }
         const political = new Set();
         tree.forEach(focus => {
             if (focus.branch === '政治路线') political.add(focus.id);
@@ -546,14 +552,14 @@ const GameAI = {
             else if (effect.type === 'industryCapBonus') score += (effect.maxNodes || 1) * 4;
         });
 
-        if ((focus.branch || '').includes('军事') && situation.frontNodes.length > 0) score += 8;
-        if ((focus.branch || '').includes('经济') && situation.totalIndustry < 18) score += 6;
-        if ((focus.branch || '').includes('政治') && situation.capitalThreat === 0) score += 3;
+        if ((focus.category === 'military' || focus.branch?.includes('军事')) && situation.frontNodes.length > 0) score += 8;
+        if ((focus.category === 'industry' || focus.branch?.includes('经济')) && situation.totalIndustry < 18) score += 6;
+        if ((focus.category === 'politics' || focus.branch?.includes('政治')) && situation.capitalThreat === 0) score += 3;
         return score;
     },
 
     aiAdvanceFocus(factionId, focus, capitalNode, options = {}) {
-        if (!GameState.isFocusStageOpen(focus)) return false;
+        if (!GameState.isFocusStageOpen(focus) || !GameState.hasFocusTerritory(focus, factionId)) return false;
         const resources = this.computeFactionResources(factionId);
         const isFree = Boolean(options.free);
         const ppCost = isFree ? 0 : this.getActionPPCost(1, factionId, 'focus');

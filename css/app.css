@@ -2180,11 +2180,24 @@ button:disabled {
 
 .focus-link {
     fill: none;
-    stroke: rgba(148, 163, 184, 0.42);
+    stroke: var(--focus-link-color, #94a3b8);
     stroke-width: 2.5;
     stroke-linecap: round;
     stroke-linejoin: round;
+    stroke-opacity: 0.5;
+}
+
+.focus-link-any {
+    stroke-dasharray: 6 5;
+}
+
+.focus-link-met {
     stroke-opacity: 0.85;
+}
+
+.focus-link-active {
+    stroke-width: 3.5;
+    stroke-opacity: 1;
 }
 
 /* 分支泳道：把每条线在视觉上圈成一簇 */
@@ -2406,6 +2419,46 @@ button:disabled {
 .focus-detail-block.danger-block {
     border-color: rgba(239, 68, 68, 0.32);
     background: rgba(239, 68, 68, 0.08);
+}
+
+.focus-prereq-label {
+    color: #c6cad3;
+    font-size: .73rem;
+}
+
+.focus-prereq-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+}
+
+.focus-prereq-option {
+    padding-left: 6px;
+    border-left: 1px dashed #a7b4c078;
+}
+
+.focus-condition {
+    max-width: 100%;
+    padding: 4px 7px;
+    border: 1px solid #71829a77;
+    border-radius: 4px;
+    background: #243243;
+    color: #edf0f4;
+    font: inherit;
+    font-size: .78rem;
+    text-align: left;
+}
+
+button.focus-condition:hover,
+button.focus-condition:focus-visible {
+    cursor: pointer;
+    border-color: #d7bb82;
+}
+
+.focus-condition.met {
+    border-color: #74ab8c85;
+    color: #c2e8ce;
 }
 
 .focus-effect-list {
@@ -4012,12 +4065,18 @@ button:disabled {
     line-height: 1.9;
 }
 
+.campaign-branch-controls,
 .campaign-branch-jump {
     display: flex;
     align-items: center;
     gap: 6px;
     color: #dfc692;
     font-size: .78rem;
+}
+
+.campaign-branch-controls {
+    flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
 .campaign-branch-jump select {
@@ -4027,6 +4086,47 @@ button:disabled {
     border-radius: 4px;
     background: #172530;
     color: #e1e9ec;
+}
+
+.campaign-branch-view {
+    padding: 5px 8px;
+    font-size: .76rem;
+    white-space: nowrap;
+}
+
+.campaign-branch-view[aria-pressed="true"] {
+    border-color: #bfa670;
+    background: #665332;
+    color: #fff3d3;
+}
+
+.focus-graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 15px;
+    padding: 5px var(--spacing-4);
+    border-bottom: 1px solid var(--color-border);
+    color: #c9d3df;
+    font-size: .72rem;
+}
+
+.focus-graph-legend i {
+    display: inline-block;
+    width: 14px;
+    vertical-align: middle;
+    border-top: 2px solid #aabbd0;
+}
+
+.focus-graph-legend .focus-legend-any {
+    border-top-style: dashed;
+}
+
+.focus-graph-legend .focus-legend-mutex {
+    border-top: 2px dashed #ea8686;
+}
+
+.focus-legend-hint {
+    color: #9aa8b8;
 }
 
 .focus-war-requirement {
@@ -4043,6 +4143,10 @@ button:disabled {
 }
 
 @media (max-width: 760px) {
+    .focus-legend-hint {
+        display: none;
+    }
+
     .view-main-menu {
         justify-content: safe center;
         overflow: auto;
