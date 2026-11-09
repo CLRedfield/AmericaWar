@@ -78,7 +78,7 @@ const MainMenuView = {
                     ${status ? `<div class="menu-status text-muted">${escapeHtml(status)}</div>` : ''}
 
                     <div style="margin-top: var(--spacing-8); color: var(--color-text-muted); font-size: 0.875rem;">
-                        v0.7.3 · 双战役
+                        v0.7.4 · 双战役
                     </div>
                 </div>
             </div>

@@ -54,6 +54,30 @@ function assertReachableFocuses(focuses, byId) {
     }
 }
 
+function svgEdges(path, closed) {
+    return path.split('M').filter(Boolean).flatMap(ring => {
+        const points = ring.match(/-?[\d.]+ -?[\d.]+/g);
+        if (closed) points.push(points[0]);
+        return points.slice(1).map((point, index) => [point, points[index]].sort().join('|'));
+    });
+}
+
+test('detailed map frontiers trace the same edges as both province fills', () => {
+    const { GameState, MapData } = gameClient();
+    GameState.initLocalLobby('west-russia');
+    const { provinces, borders, rivers, lakes } = MapData.geography;
+    const outlines = new Map(Object.entries(provinces).map(([id, data]) => [id, new Set(svgEdges(data[3], true))]));
+    assert.equal(borders.length, 243);
+    for (const [a, b, path] of borders) {
+        const edges = svgEdges(path, false);
+        assert.ok(edges.length);
+        assert.ok(edges.every(edge => outlines.get(a).has(edge) && outlines.get(b).has(edge)), `${a}–${b} shares its drawn outline`);
+    }
+    assert.ok(rivers.startsWith('M') && lakes.startsWith('M'));
+    GameState.initLocalLobby('america');
+    assert.ok(MapData.geography.rivers.startsWith('M'));
+});
+
 test('West Russia provides a connected province map and complete, distinct faction trees', () => {
     const { GameState, MapData } = gameClient();
     GameState.initLocalLobby('west-russia');
@@ -176,31 +200,29 @@ test('political branch choices support nested succession, multiple candidates an
     assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_dockCrewSchool', 'wr_tat_riverBook']), true);
 });
 
-test('West Russia chapter layouts keep consecutive focuses close and preserve cross-chapter references', () => {
+test('West Russia draws every prerequisite downward and routes links between cards', () => {
     const { GameState, WestRussiaFocusLayout } = gameClient();
     GameState.initLocalLobby('west-russia');
     const silhouettes = new Set();
+    let crossBranchLinks = 0;
     for (const { id: factionId } of GameState.factions) {
         const tree = GameState.getFocusTree(factionId);
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const layout = WestRussiaFocusLayout.build(tree, factionId);
-        const { sections, positions, references, cardWidth, cardHeight } = layout;
+        const { sections, positions, links, references, cardWidth, cardHeight } = layout;
         const branchCount = new Set(tree.map(focus => focus.branch)).size;
         assert.equal(sections.length, branchCount);
         assert.equal(new Set(sections.map(section => section.name)).size, branchCount);
         assert.equal(Object.keys(positions).length, tree.length);
-        silhouettes.add(sections.map(section => [section.left, section.top, section.width, section.height].join(',')).join('|'));
+        silhouettes.add(tree.map(({ id }) => `${positions[id].column},${positions[id].row}`).join('|'));
 
         const parents = new Map(tree.map(focus => [focus.id, new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()])]));
-        const localChildren = new Map(tree.map(focus => [focus.id, 0]));
-        for (const [id, ids] of parents) {
-            for (const parentId of ids) {
-                if (byId.get(id).branch === byId.get(parentId).branch) localChildren.set(parentId, localChildren.get(parentId) + 1);
-            }
-        }
+        const byLink = new Map(links.map(link => [link.from + '|' + link.to, link]));
+        assert.equal(byLink.size, [...parents.values()].reduce((sum, group) => sum + group.size, 0));
+        let local = 0;
+        let tight = 0;
         for (const [index, focus] of tree.entries()) {
             const card = positions[focus.id];
-            const local = [...parents.get(focus.id)].filter(id => byId.get(id).branch === focus.branch);
             assert.ok(card.left >= 0 && card.left + cardWidth <= layout.width);
             assert.ok(card.top >= 0 && card.top + cardHeight <= layout.height);
             for (const other of tree.slice(index + 1)) {
@@ -209,32 +231,50 @@ test('West Russia chapter layouts keep consecutive focuses close and preserve cr
                     `${focus.id} overlaps ${other.id}`);
             }
             for (const parentId of parents.get(focus.id)) {
-                if (byId.get(parentId).branch !== focus.branch) {
-                    assert.ok(references.get(focus.id).before.includes(parentId));
-                    assert.ok(references.get(parentId).after.includes(focus.id));
-                    continue;
-                }
+                const link = byLink.get(parentId + '|' + focus.id);
+                assert.ok(link, `${parentId} → ${focus.id} is drawn`);
+                assert.equal(link.optional, !focus.prerequisites.includes(parentId));
                 const parent = positions[parentId];
-                const gap = card.row - parent.row;
-                assert.ok(gap >= 1 && gap <= 2, `${parentId} → ${focus.id} spans ${gap} rows`);
-                if (local.length === 1 && localChildren.get(parentId) === 1) {
-                    assert.equal(gap, 1);
-                    assert.equal(card.column, parent.column);
+                assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward`);
+                if (link.crossBranch) {
+                    assert.notEqual(byId.get(parentId).branch, focus.branch);
+                    assert.ok(references.get(parentId).after.includes(focus.id));
+                    crossBranchLinks++;
+                } else {
+                    local++;
+                    if (card.row - parent.row === 1) tight++;
                 }
+                let x = parent.centerX;
+                let y = parent.bottomY;
+                for (const [, command, value] of link.path.matchAll(/([HV]) (-?[\d.]+)/g)) {
+                    const nextX = command === 'H' ? Number(value) : x;
+                    const nextY = command === 'V' ? Number(value) : y;
+                    assert.ok(y <= nextY);
+                    for (const other of Object.values(positions)) {
+                        const intersects = Math.min(x, nextX) < other.left + cardWidth && Math.max(x, nextX) > other.left
+                            && y < other.bottomY && nextY > other.topY;
+                        assert.ok(!intersects, `${parentId} → ${focus.id} crosses a card`);
+                    }
+                    x = nextX;
+                    y = nextY;
+                }
+                assert.equal(x, card.centerX);
+                assert.equal(y, card.topY);
             }
         }
+        assert.ok(tight / local >= .95, `${factionId} keeps its local runs compact`);
 
         const political = sections.find(section => section.entryId.endsWith('_commit'));
         const isolated = WestRussiaFocusLayout.build(tree, factionId, political.name);
         assert.equal(isolated.sections.length, 1);
         assert.equal(Object.keys(isolated.positions).length, political.positions.length);
+        assert.ok(isolated.links.every(link => !link.crossBranch));
         for (const { id } of political.positions) {
-            assert.equal(isolated.positions[id].row, positions[id].row);
-            assert.equal(isolated.positions[id].column, positions[id].column);
             assert.deepEqual(isolated.references.get(id), references.get(id));
         }
     }
     assert.equal(silhouettes.size, GameState.factions.length);
+    assert.equal(crossBranchLinks, 373);
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {

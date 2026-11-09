@@ -3418,11 +3418,7 @@ button.focus-condition:focus-visible {
 /* Campaign atlas */
 .game-map-container {
     background-color: #15242e;
-    background-image:
-        radial-gradient(ellipse at 48% 42%, rgba(86, 113, 112, .28), transparent 74%),
-        linear-gradient(rgba(164, 193, 189, .06) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(164, 193, 189, .06) 1px, transparent 1px);
-    background-size: auto, 30px 30px, 30px 30px;
+    background-image: radial-gradient(ellipse at 48% 42%, rgba(86, 113, 112, .28), transparent 74%);
 }
 
 #svg-map {
@@ -3432,12 +3428,16 @@ button.focus-condition:focus-visible {
 .map-province {
     fill: color-mix(in srgb, var(--province-color) 68%, #6e7764);
     fill-rule: evenodd;
-    stroke: #202c30;
-    stroke-width: 1;
+    stroke: #14242b9c;
+    stroke-width: .65;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
     cursor: pointer;
     outline: none;
+}
+
+.atlas-overview .map-province:not(.selected, :hover, :focus-visible) {
+    stroke-opacity: .67;
 }
 
 .map-province.attack-target {
@@ -3893,10 +3893,7 @@ button.focus-condition:focus-visible {
 
 .scenario-west-russia .game-map-container {
     background-color: #172631;
-    background-image:
-        radial-gradient(ellipse at 50% 48%, #43616b50, transparent 72%),
-        linear-gradient(#c3d6de10 1px, transparent 1px),
-        linear-gradient(90deg, #c3d6de10 1px, transparent 1px);
+    background-image: radial-gradient(ellipse at 50% 48%, #43616b50, transparent 72%);
 }
 
 .atlas-surroundings {
@@ -3909,9 +3906,22 @@ button.focus-condition:focus-visible {
 
 .atlas-rivers {
     fill: none;
-    stroke: #b2d9e7;
-    stroke-width: .85;
-    opacity: .64;
+    stroke: #b9d9dc;
+    stroke-width: .75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: .56;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.atlas-lakes {
+    fill: #1c3540;
+    fill-rule: evenodd;
+    stroke: #99bcc780;
+    stroke-width: .55;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
     pointer-events: none;
 }
 
@@ -4129,95 +4139,130 @@ button.focus-condition:focus-visible {
     color: #9aa8b8;
 }
 
-.focus-chapter-outline {
-    fill-opacity: 0.045;
-    stroke-opacity: 0.27;
+.focus-west-russia .focus-link {
+    stroke-width: 1.8;
+    stroke-opacity: .64;
 }
 
-.focus-chapter-jump {
-    position: absolute;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    height: 40px;
-    padding: 0 18px;
+.focus-west-russia .focus-link-cross {
+    stroke-opacity: .58;
+}
+
+.focus-west-russia .focus-link-met {
+    stroke-opacity: .86;
+}
+
+.focus-west-russia .focus-link-active {
+    stroke: #f2d597;
+    stroke-width: 2.8;
+    stroke-opacity: 1;
+}
+
+.focus-west-russia .focus-emblem-card {
+    width: 154px;
+    height: 72px;
+    grid-template-rows: 37px 35px;
+    justify-items: center;
+    gap: 0;
+    padding: 0;
     border: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--chapter-color) 32%, transparent);
-    border-radius: 8px 8px 0 0;
-    background: color-mix(in srgb, var(--chapter-color) 9%, transparent);
-    color: var(--chapter-color);
-    cursor: pointer;
-    font: 700 16px/1.2 var(--font-display);
-    text-align: left;
-}
-
-.focus-chapter-jump.current,
-.focus-chapter-jump:hover {
-    background-color: color-mix(in srgb, var(--chapter-color) 18%, transparent);
-}
-
-.focus-chapter-jump small {
-    opacity: 0.8;
-    white-space: nowrap;
-}
-
-.focus-west-russia .focus-card {
-    width: 180px;
-    height: 106px;
-    grid-template-rows: minmax(31px, 1fr) 18px 4px;
-    gap: 5px;
-    padding: 7px 9px 25px;
-    border-radius: 5px;
+    background: transparent;
     box-shadow: none;
-}
-
-.focus-west-russia .focus-card.locked,
-.focus-west-russia .focus-card.blocked {
     opacity: 1;
+    transform: none;
 }
 
-.focus-west-russia .focus-title {
-    min-height: 0;
-    -webkit-line-clamp: 2;
-    font-size: 0.88rem;
+.focus-emblem {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--branch-color) 63%, #25303a);
+    border-radius: 50%;
+    color: var(--branch-color);
+    background: radial-gradient(circle at 42% 25%, #36424a, #1a242d 71%);
+    box-shadow: inset 0 0 0 3px #14212a, 0 3px 6px #05090daa;
 }
 
-.focus-west-russia .focus-progress-mini {
-    height: 4px;
+.focus-emblem svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.55;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
-.focus-references {
+.focus-emblem-choice {
     position: absolute;
-    z-index: 2;
-    display: flex;
-    gap: 4px;
+    right: -3px;
+    bottom: 1px;
+    width: 8px;
+    height: 8px;
+    border: 1px solid #f4a99d;
+    border-radius: 2px;
+    background: #734439;
+    transform: rotate(45deg);
 }
 
-.focus-reference {
-    min-height: 21px;
-    padding: 0 4px;
-    border: 1px solid #9bb3ca50;
-    border-radius: 3px;
-    background: #192b3b;
-    color: #c1d8eb;
-    font-family: inherit;
-    font-size: 11px;
+.focus-plaque {
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    padding: 2px 5px 3px;
+    border: 1px solid #5d6668;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #2a343c, #182029);
+    color: #e8e3d5;
+    font-size: 13px;
     font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-    cursor: pointer;
+    line-height: 1.15;
+    text-align: center;
 }
 
-.focus-reference.exclusive {
-    border-color: #b975706d;
-    background: #31232c;
-    color: #f0b6af;
+.focus-plaque > span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
-.focus-reference:hover {
-    border-color: currentColor;
+.focus-plaque::after {
+    position: absolute;
+    right: 3px;
+    bottom: 2px;
+    left: 3px;
+    height: 2px;
+    background: linear-gradient(90deg, #d6af65 var(--focus-progress), transparent var(--focus-progress));
+    content: "";
+}
+
+.focus-emblem-card.available .focus-plaque {
+    border-color: #af925f;
+}
+
+.focus-emblem-card.done .focus-plaque {
+    border-color: #76af9a;
+    background: linear-gradient(180deg, #294642, #1b302e);
+}
+
+.focus-emblem-card.blocked .focus-plaque {
+    border-color: #8d5453;
+}
+
+.focus-emblem-card:is(.selected, :hover, :focus-visible) .focus-plaque {
+    border-color: #f0ce88;
+    background: linear-gradient(180deg, #514332, #302b27);
+    box-shadow: 0 0 0 1px #e3b96c40;
+}
+
+.focus-west-russia .focus-emblem-card::before {
+    content: none;
 }
 
 .focus-modal-overview .focus-modal-body {
@@ -4233,44 +4278,46 @@ button.focus-condition:focus-visible {
     touch-action: auto;
 }
 
-.focus-modal-overview .focus-chapter-jump {
-    height: var(--chapter-height);
-    justify-content: center;
-    padding: 0 10px;
-    border: 1px solid transparent;
+.focus-chapter-jump {
+    position: absolute;
+    z-index: 1;
+    padding: 0;
+    border: 0;
     border-radius: 8px;
     background: transparent;
-    font-size: calc(10px * var(--focus-zoom-inverse, 1));
-    line-height: 1.12;
-    text-align: center;
+    color: var(--chapter-color);
+    cursor: pointer;
 }
 
-.focus-modal-overview .focus-chapter-jump.current,
-.focus-modal-overview .focus-chapter-jump:hover,
-.focus-modal-overview .focus-chapter-jump:focus-visible {
+.focus-chapter-jump:is(.current, :hover, :focus-visible) {
     outline: calc(1px * var(--focus-zoom-inverse, 1)) solid var(--chapter-color);
-    outline-offset: calc(-1px * var(--focus-zoom-inverse, 1));
+    z-index: 2;
 }
 
-.focus-modal-overview .focus-chapter-jump span {
-    padding: 0.15em 0.3em;
-    border-radius: 0.2em;
-    background: #0b1523eb;
-    overflow-wrap: anywhere;
-}
-
-.focus-modal-overview .focus-chapter-jump small {
+.focus-chapter-jump span {
     display: none;
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    padding: .18em .4em;
+    border-radius: .2em;
+    transform: translateX(-50%);
+    background: #0b1523;
+    font-size: calc(11px * var(--focus-zoom-inverse, 1));
+    font-weight: 700;
+    white-space: nowrap;
 }
 
-.focus-modal-overview .focus-link {
-    vector-effect: non-scaling-stroke;
-    stroke-width: 0.65px;
-    stroke-opacity: 0.55;
+.focus-chapter-jump:is(:hover, :focus-visible) span {
+    display: block;
+}
+
+.focus-modal-overview .focus-west-russia .focus-link {
+    stroke-width: calc(.75px * var(--focus-zoom-inverse, 1));
 }
 
 .focus-modal-overview .focus-link-any {
-    stroke-dasharray: 1.5 1.5;
+    stroke-dasharray: calc(2px * var(--focus-zoom-inverse, 1));
 }
 
 .focus-overview-nodes {
@@ -4280,11 +4327,22 @@ button.focus-condition:focus-visible {
 }
 
 .focus-overview-nodes rect {
-    opacity: 0.32;
+    opacity: .54;
 }
 
 .focus-overview-nodes .done {
-    opacity: 0.85;
+    opacity: .95;
+}
+
+@media (min-width: 1100px) {
+    .focus-campaign-modal {
+        width: min(1540px, calc(100vw - 48px));
+        max-height: min(94vh, 920px);
+    }
+
+    .focus-campaign-modal .focus-modal-body {
+        height: min(74vh, 760px);
+    }
 }
 
 .focus-war-requirement {
@@ -4301,14 +4359,6 @@ button.focus-condition:focus-visible {
 }
 
 @media (max-width: 760px) {
-    .focus-references.mobile-focus-hidden {
-        display: none;
-    }
-
-    .focus-modal-overview .focus-chapter-jump {
-        font-size: calc(9px * var(--focus-zoom-inverse, 1));
-    }
-
     .focus-legend-hint {
         display: none;
     }

@@ -210,8 +210,9 @@ const MapView = {
                 ${MapData.geography.surroundings ? `<path class="atlas-surroundings" d="${MapData.geography.surroundings}"></path>` : ''}
                 <g class="province-layer">${provinces}</g>
                 ${MapData.geography.rivers ? `<path class="atlas-rivers" d="${MapData.geography.rivers}"></path>` : ''}
-                <g class="atlas-context" aria-hidden="true">${this.renderMapContext(scenario)}</g>
                 <g class="frontier-layer" aria-hidden="true">${this.renderFrontiers()}</g>
+                ${MapData.geography.lakes ? `<path class="atlas-lakes" d="${MapData.geography.lakes}" aria-hidden="true"></path>` : ''}
+                <g class="atlas-context" aria-hidden="true">${this.renderMapContext(scenario)}</g>
                 <g class="territory-labels" aria-hidden="true">${industry ? '' : this.renderFactionLabels()}</g>
                 <g class="map-nodes-layer" aria-hidden="true">${markers}</g>
                 <g class="planned-orders-layer ${locked ? 'is-locked' : ''}">${this.renderPlannedOrders(orders, locked)}</g>

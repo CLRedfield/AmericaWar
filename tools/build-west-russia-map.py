@@ -7,7 +7,7 @@ from pathlib import Path
 
 import shapefile
 from pyproj import Transformer
-from shapely import box, coverage_simplify, make_valid, union_all
+from shapely import box, coverage_simplify, line_merge, make_valid, union_all
 from shapely.geometry import Point, Polygon, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
@@ -215,11 +215,14 @@ def opening_territories(regions, project):
     }
 
 
-def read_districts(source, project):
+def read_districts(source, project, include=None):
     bounds = box(32, 49, 66, 71)
     ids, geometries = [], []
     features = json.loads(source.read_text(encoding="utf-8"))["features"]
     for feature in sorted(features, key=lambda row: row["properties"]["shapeID"]):
+        district_id = feature["properties"]["shapeID"]
+        if include is not None and district_id not in include:
+            continue
         raw = shape(feature["geometry"])
         if raw.is_empty or not box(*raw.bounds).intersects(bounds):
             continue
@@ -227,7 +230,7 @@ def read_districts(source, project):
         polygons = [transform(project, polygon) for polygon in parts(make_valid(raw), "Polygon")
                     if polygon.intersects(bounds)]
         if polygons:
-            ids.append(feature["properties"]["shapeID"])
+            ids.append(district_id)
             geometries.append(make_valid(union_all(polygons)))
     return ids, geometries
 
@@ -331,16 +334,24 @@ def province_cells(source, domains, project):
 def river_lines(rivers, project, theatre):
     layer = shapefile.Reader(rivers)
     names = {"Volga", "Kama", "Northern Dvina", "Sukhona", "Vyatka", "Pechora", "Belaya", "Oka",
-             "Vychegda", "Northern Dvina River", "White Sea–Baltic Canal"}
+             "Vychegda", "Northern Dvina River", "White Sea–Baltic Canal", "Pinega", "Onega", "Mezen",
+             "Vym", "Unzha", "Sura", "Chusovaya", "Vishera", "Sheksna"}
     bounds = box(28, 50, 66, 69)
     for record in layer.iterShapeRecords(fields=["name", "name_en"]):
         if record.record.name not in names and record.record.name_en not in names:
             continue
         if box(*record.shape.bbox).intersects(bounds):
-            yield transform(project, shape(record.shape.__geo_interface__)).intersection(theatre).simplify(2400)
+            yield transform(project, shape(record.shape.__geo_interface__)).intersection(theatre).simplify(750)
 
 
-def make_map(admin, rivers, raions):
+def lake_shapes(lakes, project, clip):
+    bounds = box(26, 49, 68, 71)
+    for geometry in shapefile.Reader(lakes).iterShapes():
+        if box(*geometry.bbox).intersects(bounds):
+            yield transform(project, make_valid(shape(geometry.__geo_interface__))).intersection(clip).simplify(500)
+
+
+def make_map(admin, rivers, raions, detailed_raions=None, lakes=None):
     project = Transformer.from_crs(
         4326, "+proj=lcc +lat_1=53 +lat_2=65 +lat_0=59 +lon_0=47.5 +datum=WGS84",
         always_xy=True,
@@ -349,10 +360,19 @@ def make_map(admin, rivers, raions):
     domains = opening_territories(regions, project)
     cells, cities, sources = province_cells(raions, domains, project)
     theatre = union_all(list(cells.values()))
-    drawing_cells = dict(zip(cells, coverage_simplify(list(cells.values()), 1850)))
+    # Reuse the original assignment and gameplay graph. Detail and shared
+    # frontiers come from the same coverage, so their SVG outlines line up.
+    detail = cells
+    if detailed_raions:
+        ids, shapes = read_districts(detailed_raions, project, {key for group in sources.values() for key in group})
+        by_id = dict(zip(ids, shapes))
+        detail = {code: union_all([by_id[key] for key in sources[f"WR_{code}"]]) for code in cells}
+    drawing_cells = dict(zip(cells, coverage_simplify(list(detail.values()), 520)))
     min_x, min_y, max_x, max_y = theatre.bounds
     scale = min(846 / (max_x - min_x), 536 / (max_y - min_y))
     center_x, center_y = (min_x + max_x) / 2, (min_y + max_y) / 2
+    drawing_cells = {code: union_all([poly for poly in parts(cell, "Polygon") if poly.area * scale ** 2 >= 0.06])
+                     for code, cell in drawing_cells.items()}
 
     def to_screen(x, y):
         return round(500 + (x - center_x) * scale, 1), round(310 - (y - center_y) * scale, 1)
@@ -398,7 +418,10 @@ def make_map(admin, rivers, raions):
             lines = [line for line in parts(edge, "LineString") if line.length * scale > 0.12]
             if sum(line.length for line in lines) * scale < 1.4:
                 continue
-            border = "".join(path(line.simplify(1850).coords) for line in lines)
+            edge = line_merge(drawing_cells[left].boundary.intersection(drawing_cells[right].boundary))
+            border = "".join(path(line.coords) for line in parts(edge, "LineString") if line.length * scale > 0.12)
+            if not border:
+                raise ValueError(f"{left} and {right} lost their drawn shared boundary")
             borders.append([f"WR_{left}", f"WR_{right}", border])
 
     clip = box(center_x - 505 / scale, center_y - 315 / scale,
@@ -408,9 +431,10 @@ def make_map(admin, rivers, raions):
         "provinces": provinces,
         "districts": sources,
         "borders": borders,
-        "surroundings": polygon_paths(context.intersection(clip).simplify(3200), 1.0),
-        "rivers": "".join(path(line.coords) for river in river_lines(rivers, project, theatre)
+        "surroundings": polygon_paths(context.intersection(clip).simplify(1400), 0.4),
+        "rivers": "".join(path(line.coords) for river in river_lines(rivers, project, union_all(list(drawing_cells.values())))
                           for line in parts(river, "LineString")),
+        "lakes": "".join(polygon_paths(lake, 2) for lake in lake_shapes(lakes, project, clip)) if lakes else "",
         "labels": [[name, *to_screen(*project(lon, lat))] for name, lon, lat in LABELS],
     }
 
@@ -420,13 +444,15 @@ def main():
     parser.add_argument("admin", type=Path)
     parser.add_argument("rivers", type=Path)
     parser.add_argument("raions", type=Path)
+    parser.add_argument("--detailed-raions", type=Path)
+    parser.add_argument("--lakes", type=Path)
     args = parser.parse_args()
-    result = make_map(args.admin, args.rivers, args.raions)
+    result = make_map(args.admin, args.rivers, args.raions, args.detailed_raions, args.lakes)
     destination = Path(__file__).resolve().parents[1] / "js/scenarios/west-russia-map.js"
     encode = lambda value: json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     with destination.open("w", encoding="utf-8") as output:
         output.write("// Generated by tools/build-west-russia-map.py. District geometry © OpenStreetMap contributors via geoBoundaries, ODbL 1.0.\n")
-        output.write("// https://www.openstreetmap.org/copyright • Natural Earth context and rivers are public domain.\n")
+        output.write("// https://www.openstreetmap.org/copyright • Natural Earth context, rivers and lakes are public domain.\n")
         output.write("const WestRussiaGeography = {\n")
         for key, value in result.items():
             if isinstance(value, dict):

@@ -1878,13 +1878,6 @@ const App = {
         this.jumpToCampaignFocus(null, !this.focusTreeOverview);
     },
 
-    showFocusReferences(focusId, type) {
-        this.selectFocus(focusId);
-        const detail = document.querySelector('.focus-detail-panel');
-        if (detail?.dataset.focusDetailId !== focusId) return;
-        detail.querySelector(`[data-focus-reference-list="${type}"]`)?.scrollIntoView({ block: 'nearest' });
-    },
-
     toggleCampaignBranchView() {
         const game = GameState.game;
         const factionId = game.focusViewFactionId || GameState.getPlayerFactionId();
@@ -2313,8 +2306,7 @@ const App = {
         const fitWhole = Math.min(vpW / baseW, vpH / baseH);
         if (this.focusTreeOverview) return Math.min(1, fitWhole * 0.98);
         if (canvas.classList.contains('focus-west-russia')) {
-            const chapterWidth = canvas.querySelector('.focus-chapter-jump.current')?.offsetWidth || baseW;
-            return Math.max(0.74, Math.min(1, vpW / chapterWidth));
+            return this.focusBranchOnly ? Math.max(0.74, Math.min(1, fitWhole)) : 0.82;
         }
         const scale = fitWhole >= 0.5 ? fitWhole : (vpH / baseH) * 0.98;
         const minimum = canvas.dataset.campaignTree ? (this.focusBranchOnly ? 0.62 : 0.48) : 0.25;
@@ -2398,12 +2390,8 @@ const App = {
         if (!rootCard) return;
 
         const scale = this.getFocusTreeScale();
-        const heading = scroller.querySelector('.focus-chapter-jump.current');
-        const horizontalAnchor = heading && heading.offsetWidth * scale <= scroller.clientWidth + 1 ? heading : rootCard;
-        scroller.scrollLeft = Math.max(0, (horizontalAnchor.offsetLeft + horizontalAnchor.offsetWidth / 2) * scale - scroller.clientWidth / 2);
-        let offsetY = 30;
-        if (centerVertically) offsetY = (scroller.clientHeight - rootCard.offsetHeight * scale) / 2;
-        else if (heading && rootCard.dataset.focusRow === '0') offsetY = (rootCard.offsetTop - heading.offsetTop) * scale + 10;
+        scroller.scrollLeft = Math.max(0, (rootCard.offsetLeft + rootCard.offsetWidth / 2) * scale - scroller.clientWidth / 2);
+        const offsetY = centerVertically ? (scroller.clientHeight - rootCard.offsetHeight * scale) / 2 : 30;
         scroller.scrollTop = GameState.getScenario().preparationTurns
             ? Math.max(0, rootCard.offsetTop * scale - offsetY) : 0;
         this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };

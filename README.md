@@ -201,7 +201,7 @@ const firebaseConfig = {
 | 地图 | 点省区查看详情，拖动平移，滚轮或双指缩放，「首都」定位己方首都，「全图」恢复总览 |
 | 下达行军令 | 先选己方省区，电脑右键接壤目标，手机点「行军」再点高亮省区。第一次确认命令时支付移动令的 PP |
 | 行动面板 | 查看驻军、可调动兵力和工业，征兵、建设或撤销计划 |
-| 国策树 | 缩放、拖拽、分支定位与前置跳转。西俄可用「全局图」浏览各国的支线分布，或切换「仅此支线」。卡片上的「前置」「后续」可以定位跨支线国策 |
+| 国策树 | 缩放、拖拽、分支定位与前置跳转。西俄的完整国策树和「全局图」显示跨支线前置连线。切换「仅此支线」后可从详情跳转到相关国策 |
 | 战报标签 | 战斗 / 系统 / 聊天 / 外交，分流不同事件 |
 
 征兵动作支持滑块（每兵 $2，按当前 PP / 金钱上限自动 clamp，可一键 Max）。
@@ -245,15 +245,15 @@ AmericaWar/
 - **联机一致性**：人类玩家只写入自己的 `plans/{factionId}`；真人准备人数和公开国名随计划通道刷新，只有房主在统一结算后写完整 `state`。`factionNames`、`humanStates` 和回合阶段仍随权威快照同步兜底。
 - **意识形态加成**：通过专门 getter（`getEffectivePPCap` / `getEffectiveCaptureMoney` / `getCapitalTroopsPerTurn`…）动态求和，切换意识形态无需手动卸载旧 modifier。
 - **回归测试**使用 `node --test tests/*.test.js`，覆盖西俄地图邻接、国策依赖、发育期规则、剧情设置、意识形态切换与联机同步。
-- **西俄国策数据**在 `js/scenarios/west-russia-programs.js` 定义各国项目与政治前置，`west-russia-focus.js` 编译国策节点与互斥关系，`west-russia-focus-layout.js` 按各国路线排布支线并独立计算支线内的间距。测试遍历各国依赖，确认每个节点至少有一条与互斥规则相容的路线。
+- **西俄国策数据**在 `js/scenarios/west-russia-programs.js` 定义各国项目与政治前置，`west-russia-focus.js` 编译国策节点与互斥关系，`west-russia-focus-layout.js` 按全部前置分层，并在行列间的空隙为国策连线。测试遍历各国依赖，确认每个节点至少有一条与互斥规则相容的路线。
 
 ## 致谢与许可
 
 - 国策与意识形态系统的灵感大量取自 *Hearts of Iron IV* 与 *Kaiserredux* 模组社区。
 - 地理数据来自美国人口普查局 2017 年制图边界，使用 [us-atlas 3.0.1](https://github.com/topojson/us-atlas) 的 Albers 投影县界数据。上游 [ISC 许可](tools/us-atlas-LICENSE.txt) 随仓库保留。游戏加载本地生成的几何文件。
-- 重建地图时，下载 [counties-albers-10m.json](https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-albers-10m.json) 后运行 `python tools/build-provinces.py /path/to/counties-albers-10m.json`。
-- 西俄区县边界来自 © OpenStreetMap contributors，由 geoBoundaries 整理。生成的地图文件包含源区县 ID，区县数据及其衍生几何按 ODbL 1.0 提供。[geoBoundaries RUS ADM2](https://www.geoboundaries.org/api/current/gbOpen/RUS/ADM2/) · [源区县 GeoJSON](https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/RUS/ADM2/geoBoundaries-RUS-ADM2_simplified.geojson) · [OpenStreetMap 版权](https://www.openstreetmap.org/copyright) · [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/)
-- 西俄地图背景与河流使用 Natural Earth 公有领域数据。重建时下载并解压[带湖泊的行政区 5.1.1](https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces_lakes.zip)及[河流中心线 5.0.0](https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip)。[Natural Earth 使用条款](https://www.naturalearthdata.com/about/terms-of-use/)
+- 重建美国地图时，运行 `python tools/build-provinces.py counties-albers-10m.json --rivers ne_10m_rivers_lake_centerlines.shp`。[美国县界](https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-albers-10m.json)
+- 西俄区县边界来自 © OpenStreetMap contributors，由 geoBoundaries 整理。简化数据用于划分开局省区，完整数据用于细绘同一批区县。区县数据及其衍生几何按 ODbL 1.0 提供。[geoBoundaries RUS ADM2](https://www.geoboundaries.org/api/current/gbOpen/RUS/ADM2/) · [简化 GeoJSON](https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/RUS/ADM2/geoBoundaries-RUS-ADM2_simplified.geojson) · [完整 GeoJSON](https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09/releaseData/gbOpen/RUS/ADM2/geoBoundaries-RUS-ADM2.geojson) · [OpenStreetMap 版权](https://www.openstreetmap.org/copyright) · [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/)
+- 地图背景和水系使用 Natural Earth 公有领域数据。重建西俄时运行 `python tools/build-west-russia-map.py admin.shp rivers.shp raions-simplified.geojson --detailed-raions raions-full.geojson --lakes lakes.shp`，将参数替换为各数据文件路径。[带湖泊的行政区](https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces_lakes.zip) · [河流中心线](https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip) · [湖泊](https://naciscdn.org/naturalearth/10m/physical/ne_10m_lakes.zip) · [Natural Earth 使用条款](https://www.naturalearthdata.com/about/terms-of-use/)
 - 代码基于 [MIT License](LICENSE) 发布；游戏中涉及的真实人名、机构、品牌均为戏剧化处理。
 
 ```bash
