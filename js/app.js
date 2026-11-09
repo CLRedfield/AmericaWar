@@ -38,6 +38,7 @@ const App = {
     mobileLobbyPanel: 'slots',
     focusMobileFilter: 'all',
     focusBranchOnly: false,
+    focusTreeOverview: false,
     resolutionAnimation: null,
     resolutionAnimationTimer: null,
     lastPresentedResolutionKey: null,
@@ -1852,20 +1853,36 @@ const App = {
         }
     },
 
-    jumpToCampaignFocus(focusId) {
+    jumpToCampaignFocus(focusId, overview = false) {
         const game = GameState.game;
-        const viewFaction = game.focusViewFactionId || GameState.getPlayerFactionId();
+        const playerFaction = GameState.getPlayerFactionId();
+        const viewFaction = game.focusViewFactionId || playerFaction;
+        const isPlayerView = viewFaction === playerFaction;
+        focusId ||= (isPlayerView ? game.selectedFocusId : game.focusViewSelectedId) || GameState.getFocusTree(viewFaction)[0]?.id;
         if (!GameState.getFocusById(focusId, viewFaction)) return;
-        if (viewFaction === GameState.getPlayerFactionId()) {
+        if (isPlayerView) {
             GameState.setSelectedFocus(focusId, false);
         } else {
             game.focusViewSelectedId = focusId;
         }
+        if (overview !== this.focusTreeOverview) game.focusTreeViewport = { scale: 1, autoFit: true };
+        this.focusTreeOverview = overview;
         this.focusMobileFilter = 'all';
         this.focusTreeCentered = false;
         this.pendingFocusTreeScroll = null;
         this.focusTreeScroll = null;
         GameState.notify();
+    },
+
+    toggleFocusTreeOverview() {
+        this.jumpToCampaignFocus(null, !this.focusTreeOverview);
+    },
+
+    showFocusReferences(focusId, type) {
+        this.selectFocus(focusId);
+        const detail = document.querySelector('.focus-detail-panel');
+        if (detail?.dataset.focusDetailId !== focusId) return;
+        detail.querySelector(`[data-focus-reference-list="${type}"]`)?.scrollIntoView({ block: 'nearest' });
     },
 
     toggleCampaignBranchView() {
@@ -2187,6 +2204,7 @@ const App = {
         if (!GameState.game.showFocusModal || previousViewFactionId !== viewFactionId) {
             // 每次（重新）打开都按视口自动适配，给出总览而不是 100% 打开后狂滑
             GameState.game.focusTreeViewport = { scale: 1, autoFit: true };
+            this.focusTreeOverview = false;
             this.focusTreeCentered = false;
             this.pendingFocusTreeScroll = null;
             this.focusTreeScroll = null;
@@ -2278,7 +2296,7 @@ const App = {
     },
 
     clampFocusTreeScale(scale) {
-        return Math.min(1.45, Math.max(0.1, Number(scale) || 1));
+        return Math.min(1.45, Math.max(this.focusTreeOverview ? 0.02 : 0.1, Number(scale) || 1));
     },
 
     // 计算"打开即总览"的缩放：整棵树能放进视口就整体显示，否则按树高适配
@@ -2293,6 +2311,11 @@ const App = {
         const baseH = Number(canvas.dataset.baseHeight) || canvas.offsetHeight;
         if (!vpW || !vpH || !baseW || !baseH) return null;
         const fitWhole = Math.min(vpW / baseW, vpH / baseH);
+        if (this.focusTreeOverview) return Math.min(1, fitWhole * 0.98);
+        if (canvas.classList.contains('focus-west-russia')) {
+            const chapterWidth = canvas.querySelector('.focus-chapter-jump.current')?.offsetWidth || baseW;
+            return Math.max(0.74, Math.min(1, vpW / chapterWidth));
+        }
         const scale = fitWhole >= 0.5 ? fitWhole : (vpH / baseH) * 0.98;
         const minimum = canvas.dataset.campaignTree ? (this.focusBranchOnly ? 0.62 : 0.48) : 0.25;
         return Math.max(minimum, Math.min(1, scale));
@@ -2317,6 +2340,7 @@ const App = {
         stage.style.width = `${baseWidth * scale}px`;
         stage.style.height = `${baseHeight * scale}px`;
         canvas.style.transform = `scale(${scale})`;
+        canvas.style.setProperty('--focus-zoom-inverse', 1 / scale);
         this.updateFocusZoomLabel(scale);
     },
 
@@ -2349,6 +2373,7 @@ const App = {
         }
 
         this.applyFocusTreeTransform();
+        if (this.focusTreeOverview) return;
 
         if (this.pendingFocusTreeScroll) {
             scroller.scrollLeft = this.pendingFocusTreeScroll.left;
@@ -2373,8 +2398,12 @@ const App = {
         if (!rootCard) return;
 
         const scale = this.getFocusTreeScale();
-        scroller.scrollLeft = Math.max(0, rootCard.offsetLeft * scale - scroller.clientWidth / 2 + (rootCard.offsetWidth * scale) / 2);
-        const offsetY = centerVertically ? (scroller.clientHeight - rootCard.offsetHeight * scale) / 2 : 30;
+        const heading = scroller.querySelector('.focus-chapter-jump.current');
+        const horizontalAnchor = heading && heading.offsetWidth * scale <= scroller.clientWidth + 1 ? heading : rootCard;
+        scroller.scrollLeft = Math.max(0, (horizontalAnchor.offsetLeft + horizontalAnchor.offsetWidth / 2) * scale - scroller.clientWidth / 2);
+        let offsetY = 30;
+        if (centerVertically) offsetY = (scroller.clientHeight - rootCard.offsetHeight * scale) / 2;
+        else if (heading && rootCard.dataset.focusRow === '0') offsetY = (rootCard.offsetTop - heading.offsetTop) * scale + 10;
         scroller.scrollTop = GameState.getScenario().preparationTurns
             ? Math.max(0, rootCard.offsetTop * scale - offsetY) : 0;
         this.focusTreeScroll = { left: scroller.scrollLeft, top: scroller.scrollTop };
@@ -2423,7 +2452,7 @@ const App = {
 
     attachFocusTreeInteraction() {
         const scroller = document.querySelector('.focus-tree-scroll');
-        if (!scroller) return;
+        if (!scroller || this.focusTreeOverview) return;
 
         this.applyFocusTreeTransform();
         this.focusTreePointers = new Map();
@@ -2460,9 +2489,8 @@ const App = {
                     clientX: event.clientX,
                     clientY: event.clientY
                 });
-                scroller.setPointerCapture(event.pointerId);
-
                 if (this.focusTreePointers.size >= 2) {
+                    scroller.setPointerCapture(event.pointerId);
                     this.startFocusTreeTouchGesture(scroller);
                     event.preventDefault();
                     return;

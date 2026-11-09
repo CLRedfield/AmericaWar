@@ -4129,6 +4129,164 @@ button.focus-condition:focus-visible {
     color: #9aa8b8;
 }
 
+.focus-chapter-outline {
+    fill-opacity: 0.045;
+    stroke-opacity: 0.27;
+}
+
+.focus-chapter-jump {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--chapter-color) 32%, transparent);
+    border-radius: 8px 8px 0 0;
+    background: color-mix(in srgb, var(--chapter-color) 9%, transparent);
+    color: var(--chapter-color);
+    cursor: pointer;
+    font: 700 16px/1.2 var(--font-display);
+    text-align: left;
+}
+
+.focus-chapter-jump.current,
+.focus-chapter-jump:hover {
+    background-color: color-mix(in srgb, var(--chapter-color) 18%, transparent);
+}
+
+.focus-chapter-jump small {
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+.focus-west-russia .focus-card {
+    width: 180px;
+    height: 106px;
+    grid-template-rows: minmax(31px, 1fr) 18px 4px;
+    gap: 5px;
+    padding: 7px 9px 25px;
+    border-radius: 5px;
+    box-shadow: none;
+}
+
+.focus-west-russia .focus-card.locked,
+.focus-west-russia .focus-card.blocked {
+    opacity: 1;
+}
+
+.focus-west-russia .focus-title {
+    min-height: 0;
+    -webkit-line-clamp: 2;
+    font-size: 0.88rem;
+}
+
+.focus-west-russia .focus-progress-mini {
+    height: 4px;
+}
+
+.focus-references {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    gap: 4px;
+}
+
+.focus-reference {
+    min-height: 21px;
+    padding: 0 4px;
+    border: 1px solid #9bb3ca50;
+    border-radius: 3px;
+    background: #192b3b;
+    color: #c1d8eb;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.focus-reference.exclusive {
+    border-color: #b975706d;
+    background: #31232c;
+    color: #f0b6af;
+}
+
+.focus-reference:hover {
+    border-color: currentColor;
+}
+
+.focus-modal-overview .focus-modal-body {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.focus-modal-overview .focus-tree-scroll {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding-bottom: 0;
+    cursor: default;
+    touch-action: auto;
+}
+
+.focus-modal-overview .focus-chapter-jump {
+    height: var(--chapter-height);
+    justify-content: center;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    font-size: calc(10px * var(--focus-zoom-inverse, 1));
+    line-height: 1.12;
+    text-align: center;
+}
+
+.focus-modal-overview .focus-chapter-jump.current,
+.focus-modal-overview .focus-chapter-jump:hover,
+.focus-modal-overview .focus-chapter-jump:focus-visible {
+    outline: calc(1px * var(--focus-zoom-inverse, 1)) solid var(--chapter-color);
+    outline-offset: calc(-1px * var(--focus-zoom-inverse, 1));
+}
+
+.focus-modal-overview .focus-chapter-jump span {
+    padding: 0.15em 0.3em;
+    border-radius: 0.2em;
+    background: #0b1523eb;
+    overflow-wrap: anywhere;
+}
+
+.focus-modal-overview .focus-chapter-jump small {
+    display: none;
+}
+
+.focus-modal-overview .focus-link {
+    vector-effect: non-scaling-stroke;
+    stroke-width: 0.65px;
+    stroke-opacity: 0.55;
+}
+
+.focus-modal-overview .focus-link-any {
+    stroke-dasharray: 1.5 1.5;
+}
+
+.focus-overview-nodes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.focus-overview-nodes rect {
+    opacity: 0.32;
+}
+
+.focus-overview-nodes .done {
+    opacity: 0.85;
+}
+
 .focus-war-requirement {
     display: inline-block;
     margin-top: 8px;
@@ -4143,6 +4301,14 @@ button.focus-condition:focus-visible {
 }
 
 @media (max-width: 760px) {
+    .focus-references.mobile-focus-hidden {
+        display: none;
+    }
+
+    .focus-modal-overview .focus-chapter-jump {
+        font-size: calc(9px * var(--focus-zoom-inverse, 1));
+    }
+
     .focus-legend-hint {
         display: none;
     }

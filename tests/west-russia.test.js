@@ -27,7 +27,7 @@ function gameClient() {
     for (const filename of scripts) {
         vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), context, { filename });
     }
-    return Object.assign(context, vm.runInContext("({ GameState })", context));
+    return Object.assign(context, vm.runInContext("({ GameState, WestRussiaFocusLayout })", context));
 }
 
 function assertReachableFocuses(focuses, byId) {
@@ -174,6 +174,67 @@ test('political branch choices support nested succession, multiple candidates an
     assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion']), false);
     assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion', 'wr_tat_openContracts']), true);
     assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_dockCrewSchool', 'wr_tat_riverBook']), true);
+});
+
+test('West Russia chapter layouts keep consecutive focuses close and preserve cross-chapter references', () => {
+    const { GameState, WestRussiaFocusLayout } = gameClient();
+    GameState.initLocalLobby('west-russia');
+    const silhouettes = new Set();
+    for (const { id: factionId } of GameState.factions) {
+        const tree = GameState.getFocusTree(factionId);
+        const byId = new Map(tree.map(focus => [focus.id, focus]));
+        const layout = WestRussiaFocusLayout.build(tree, factionId);
+        const { sections, positions, references, cardWidth, cardHeight } = layout;
+        const branchCount = new Set(tree.map(focus => focus.branch)).size;
+        assert.equal(sections.length, branchCount);
+        assert.equal(new Set(sections.map(section => section.name)).size, branchCount);
+        assert.equal(Object.keys(positions).length, tree.length);
+        silhouettes.add(sections.map(section => [section.left, section.top, section.width, section.height].join(',')).join('|'));
+
+        const parents = new Map(tree.map(focus => [focus.id, new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()])]));
+        const localChildren = new Map(tree.map(focus => [focus.id, 0]));
+        for (const [id, ids] of parents) {
+            for (const parentId of ids) {
+                if (byId.get(id).branch === byId.get(parentId).branch) localChildren.set(parentId, localChildren.get(parentId) + 1);
+            }
+        }
+        for (const [index, focus] of tree.entries()) {
+            const card = positions[focus.id];
+            const local = [...parents.get(focus.id)].filter(id => byId.get(id).branch === focus.branch);
+            assert.ok(card.left >= 0 && card.left + cardWidth <= layout.width);
+            assert.ok(card.top >= 0 && card.top + cardHeight <= layout.height);
+            for (const other of tree.slice(index + 1)) {
+                const neighbor = positions[other.id];
+                assert.ok(Math.abs(card.left - neighbor.left) >= cardWidth || Math.abs(card.top - neighbor.top) >= cardHeight,
+                    `${focus.id} overlaps ${other.id}`);
+            }
+            for (const parentId of parents.get(focus.id)) {
+                if (byId.get(parentId).branch !== focus.branch) {
+                    assert.ok(references.get(focus.id).before.includes(parentId));
+                    assert.ok(references.get(parentId).after.includes(focus.id));
+                    continue;
+                }
+                const parent = positions[parentId];
+                const gap = card.row - parent.row;
+                assert.ok(gap >= 1 && gap <= 2, `${parentId} → ${focus.id} spans ${gap} rows`);
+                if (local.length === 1 && localChildren.get(parentId) === 1) {
+                    assert.equal(gap, 1);
+                    assert.equal(card.column, parent.column);
+                }
+            }
+        }
+
+        const political = sections.find(section => section.entryId.endsWith('_commit'));
+        const isolated = WestRussiaFocusLayout.build(tree, factionId, political.name);
+        assert.equal(isolated.sections.length, 1);
+        assert.equal(Object.keys(isolated.positions).length, political.positions.length);
+        for (const { id } of political.positions) {
+            assert.equal(isolated.positions[id].row, positions[id].row);
+            assert.equal(isolated.positions[id].column, positions[id].column);
+            assert.deepEqual(isolated.references.get(id), references.get(id));
+        }
+    }
+    assert.equal(silhouettes.size, GameState.factions.length);
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {

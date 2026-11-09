@@ -1031,16 +1031,20 @@ const GamePageView = {
         const selectedFocusId = isPlayerView ? GameState.game.selectedFocusId : GameState.game.focusViewSelectedId;
         const selectedFocus = GameState.getFocusById(selectedFocusId, viewFactionId) || tree[0];
         const campaignTree = Boolean(tree[0]?.category);
-        const branchOnly = campaignTree && window.app.focusBranchOnly;
+        const westRussia = GameState.getScenario().id === 'west-russia';
+        const overview = westRussia && window.app.focusTreeOverview;
+        const branchOnly = campaignTree && window.app.focusBranchOnly && !overview;
         const visibleTree = branchOnly ? tree.filter(focus => focus.branch === selectedFocus.branch) : tree;
-        const layout = this.getFocusTreeLayout(visibleTree, branchOnly);
+        const layout = westRussia
+            ? WestRussiaFocusLayout.build(tree, viewFactionId, branchOnly ? selectedFocus.branch : null)
+            : this.getFocusTreeLayout(visibleTree, branchOnly);
         const scale = window.app.getFocusTreeScale();
         const faction = GameState.getFaction(viewFactionId);
         const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
 
         return `
             <div class="modal-backdrop" onclick="window.app.closeModalOnBackdrop(event)">
-                <section class="modal-panel focus-modal">
+                <section class="modal-panel focus-modal ${overview ? 'focus-modal-overview' : ''}">
                     <header class="modal-header">
                         <h3>${faction.shortName} 国策树</h3>
                         <button class="modal-close" onclick="window.app.closeModals()">×</button>
@@ -1052,14 +1056,18 @@ const GamePageView = {
                             <span>${isPlayerView ? `行动递增 +${GameState.getActionExtraCost()} PP` : '只读查看，不消耗行动'}</span>
                             <span>已完成 ${completedInTree}/${tree.length}</span>
                         </div>
-                        <div class="focus-zoom-controls">
+                        ${overview ? '' : `<div class="focus-zoom-controls">
                             <button class="map-icon-btn" title="缩小国策树" onclick="window.app.zoomFocusTree(-1)">−</button>
                             <span data-focus-zoom-label>${Math.round(scale * 100)}%</span>
                             <button class="map-icon-btn" title="放大国策树" onclick="window.app.zoomFocusTree(1)">+</button>
                             <button class="btn btn-outline" onclick="window.app.resetFocusTreeView()">居中</button>
-                        </div>
-                        ${campaignTree ? this.renderCampaignBranches(tree, selectedFocus, branchOnly) : ''}
-                        <div class="focus-mobile-filter">
+                        </div>`}
+                        ${westRussia ? `
+                            <button class="btn btn-outline campaign-branch-view" type="button" aria-pressed="${Boolean(overview)}"
+                                onclick="window.app.toggleFocusTreeOverview()">全局图</button>
+                        ` : ''}
+                        ${campaignTree ? this.renderCampaignBranches(tree, selectedFocus, branchOnly, overview) : ''}
+                        ${overview ? '' : `<div class="focus-mobile-filter">
                             ${[
                                 { id: 'all', label: '全部' },
                                 { id: 'available', label: '可推进' },
@@ -1070,34 +1078,40 @@ const GamePageView = {
                                     ${item.label}
                                 </button>
                             `).join('')}
-                        </div>
+                        </div>`}
                     </div>
                     ${campaignTree ? `
                         <div class="focus-graph-legend" aria-label="国策连线图例">
                             <span><i></i> 必须完成</span>
                             <span><i class="focus-legend-any"></i> 任选方案</span>
-                            <span><i class="focus-legend-mutex"></i> 互斥</span>
-                            <span class="focus-legend-hint">点击详情中的前置国策可跨支线跳转</span>
+                            ${westRussia ? `
+                                <span class="focus-legend-hint">${overview ? '点击支线进入国策' : '↑ 前置与 ↓ 后续可跨支线跳转 · 互斥见卡片与详情'}</span>
+                            ` : `
+                                <span><i class="focus-legend-mutex"></i> 互斥</span>
+                                <span class="focus-legend-hint">点击详情中的前置国策可跨支线跳转</span>
+                            `}
                         </div>
                     ` : ''}
                     <div class="focus-modal-body">
                         <div class="focus-tree-scroll">
                             <div class="focus-tree-stage" style="width: ${layout.width * scale}px; height: ${layout.height * scale}px;">
-                                <div class="focus-tree-canvas" data-base-width="${layout.width}" data-base-height="${layout.height}" ${campaignTree ? 'data-campaign-tree="true"' : ''}
+                                <div class="focus-tree-canvas ${westRussia ? 'focus-west-russia' : ''}" data-base-width="${layout.width}" data-base-height="${layout.height}" ${campaignTree ? 'data-campaign-tree="true"' : ''}
                                     style="width: ${layout.width}px; height: ${layout.height}px; transform: scale(${scale});">
                                     ${this.renderFocusConnectors(visibleTree, layout, selectedFocus?.id)}
-                                    ${visibleTree.map(focus => this.renderFocusCard(focus, layout, { viewFactionId, selectedFocusId: selectedFocus?.id, isPlayerView })).join('')}
+                                    ${westRussia ? this.renderFocusChapterHeadings(layout, selectedFocus) : ''}
+                                    ${overview ? this.renderFocusOverviewNodes(visibleTree, layout) : visibleTree.map(focus =>
+                                        this.renderFocusCard(focus, layout, { viewFactionId, selectedFocusId: selectedFocus?.id, isPlayerView })).join('')}
                                 </div>
                             </div>
                         </div>
-                        ${this.renderFocusDetailPanel(selectedFocus, { viewFactionId, isPlayerView })}
+                        ${overview ? '' : this.renderFocusDetailPanel(selectedFocus, { viewFactionId, isPlayerView, references: layout.references?.get(selectedFocus?.id) })}
                     </div>
                 </section>
             </div>
         `;
     },
 
-    renderCampaignBranches(tree, selectedFocus, branchOnly) {
+    renderCampaignBranches(tree, selectedFocus, branchOnly, overview) {
         const labels = { politics: '政治与继承', industry: '工业与财政', military: '军务与战役', logistics: '运输与补给',
             civil: '民政与救济', diplomacy: '对外协约', integration: '地区整合' };
         const groups = new Map();
@@ -1121,8 +1135,8 @@ const GamePageView = {
                         `).join('')}
                     </select>
                 </label>
-                <button class="btn btn-outline campaign-branch-view" type="button" aria-pressed="${branchOnly}"
-                    onclick="window.app.toggleCampaignBranchView()">仅此支线</button>
+                ${overview ? '' : `<button class="btn btn-outline campaign-branch-view" type="button" aria-pressed="${branchOnly}"
+                    onclick="window.app.toggleCampaignBranchView()">仅此支线</button>`}
             </div>
         `;
     },
@@ -1273,13 +1287,42 @@ const GamePageView = {
         return `M ${sx} ${sy} L ${sx} ${midY - r} Q ${sx} ${midY} ${sx + dir * r} ${midY} L ${tx - dir * r} ${midY} Q ${tx} ${midY} ${tx} ${midY + r} L ${tx} ${ty}`;
     },
 
-    renderFocusConnectors(tree, layout, selectedFocusId) {
-        const lines = [];
-        const bands = [];
-        const mutualPairs = new Set();
-        const campaign = Boolean(tree[0]?.category);
-        const byId = new Map(tree.map(focus => [focus.id, focus]));
+    focusChapterColor(category) {
+        return ({ politics: '#d6b682', military: '#d69a89', logistics: '#8aafcd', industry: '#82b9bb',
+            civil: '#a6b994', diplomacy: '#b5a4ce', integration: '#cfac74' })[category];
+    },
+
+    renderFocusChapterHeadings(layout, selectedFocus) {
+        return layout.sections.map(chapter => `
+            <button type="button" class="focus-chapter-jump ${chapter.name === selectedFocus?.branch ? 'current' : ''}"
+                data-focus-chapter="${chapter.entryId}" title="${escapeHtml(chapter.name)}"
+                style="left: ${chapter.left}px; top: ${chapter.top}px; width: ${chapter.width}px; --chapter-height: ${chapter.height}px; --chapter-color: ${this.focusChapterColor(chapter.category)}"
+                onclick="window.app.jumpToCampaignFocus('${chapter.entryId}')">
+                <span>${escapeHtml(chapter.name)}</span><small>${chapter.positions.length} 项</small>
+            </button>
+        `).join('');
+    },
+
+    renderFocusOverviewNodes(tree, layout) {
         const completed = new Set(GameState.game.completedFocuses);
+        return `
+            <svg class="focus-overview-nodes" width="${layout.width}" height="${layout.height}" aria-hidden="true">
+                ${tree.map(focus => {
+                    const { left, top } = layout.positions[focus.id];
+                    return `<rect class="${completed.has(focus.id) ? 'done' : ''}" x="${left}" y="${top}" width="${layout.cardWidth}"
+                        height="${layout.cardHeight}" rx="8" fill="${this.focusChapterColor(focus.category)}" />`;
+                }).join('')}
+            </svg>
+        `;
+    },
+
+    renderFocusLaneBands(tree, layout) {
+        const bands = [];
+        if (layout.sections) return layout.sections.map(chapter => {
+            const color = this.focusChapterColor(chapter.category);
+            return `<rect class="focus-chapter-outline" x="${chapter.left}" y="${chapter.top}"
+                width="${chapter.width}" height="${chapter.height}" rx="8" fill="${color}" stroke="${color}" />`;
+        }).join('');
 
         // 分支泳道：把每条线圈成一簇（≥3 节点的分支才画底色+标题）
         const byBranch = {};
@@ -1306,15 +1349,25 @@ const GamePageView = {
             bands.push(`<rect class="focus-lane-band" x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${color}" />`);
             bands.push(`<text class="focus-lane-label" x="${x + 16}" y="${y + 24}" fill="${color}">${escapeHtml(branch)}</text>`);
         });
+        return bands.join('');
+    },
+
+    renderFocusConnectors(tree, layout, selectedFocusId) {
+        const lines = [];
+        const activeLines = [];
+        const mutualPairs = new Set();
+        const campaign = Boolean(tree[0]?.category);
+        const byId = new Map(tree.map(focus => [focus.id, focus]));
+        const completed = new Set(GameState.game.completedFocuses);
 
         tree.forEach(focus => {
             const target = layout.positions[focus.id];
-            const color = this.branchColor(focus.branch);
+            const color = layout.sections ? this.focusChapterColor(focus.category) : this.branchColor(focus.branch);
             this.getFocusParentIds(focus).forEach(parentId => {
                 const source = layout.positions[parentId];
                 if (!source || !target) return;
                 const active = focus.id === selectedFocusId || parentId === selectedFocusId;
-                if (campaign && !active && byId.get(parentId).branch !== focus.branch) return;
+                if ((layout.sections || (campaign && !active)) && byId.get(parentId).branch !== focus.branch) return;
                 const optional = !(focus.prerequisites || []).includes(parentId);
                 const classes = [
                     'focus-link',
@@ -1322,9 +1375,18 @@ const GamePageView = {
                     completed.has(parentId) ? 'focus-link-met' : '',
                     active ? 'focus-link-active' : ''
                 ].join(' ');
-                lines.push(`<path class="${classes}" style="--focus-link-color: ${color}" d="${this.focusLinkPath(source, target)}" />`);
+                let path = this.focusLinkPath(source, target);
+                if (layout.sections && target.row - source.row > 1) {
+                    // Route past intermediate cards through the gutter between columns.
+                    const gap = (layout.cellHeight - layout.cardHeight) / 2;
+                    const dir = target.centerX < source.centerX ? -1 : 1;
+                    const gutter = source.centerX + dir * layout.cellWidth / 2;
+                    path = `M ${source.centerX} ${source.bottomY} v ${gap} H ${gutter} V ${target.topY - gap} H ${target.centerX} V ${target.topY}`;
+                }
+                (active ? activeLines : lines).push(`<path class="${classes}" style="--focus-link-color: ${color}" d="${path}" />`);
             });
 
+            if (layout.sections) return;
             (focus.mutuallyExclusive || []).forEach(otherId => {
                 const key = [focus.id, otherId].sort().join('|');
                 const other = layout.positions[otherId];
@@ -1339,8 +1401,9 @@ const GamePageView = {
 
         return `
             <svg class="focus-connector-layer" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}">
-                ${bands.join('')}
+                ${this.renderFocusLaneBands(tree, layout)}
                 ${lines.join('')}
+                ${activeLines.join('')}
             </svg>
         `;
     },
@@ -1389,12 +1452,15 @@ const GamePageView = {
         })[status] || (progress.current > 0 ? '推进中' : '可推进');
         const position = layout.positions[focus.id];
         const progressPercent = Math.round(progress.ratio * 100);
+        const references = layout.references?.get(focus.id);
+        const color = references ? this.focusChapterColor(focus.category) : this.branchColor(focus.branch);
 
         return `
             <button class="focus-card ${stateClass} ${selected ? 'selected' : ''} ${mobileHidden ? 'mobile-focus-hidden' : ''}" data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch || '')}"
-                style="left: ${position.left}px; top: ${position.top}px; --branch-color: ${this.branchColor(focus.branch)};"
+                ${references ? `data-focus-row="${position.row}"` : ''}
+                style="left: ${position.left}px; top: ${position.top}px; --branch-color: ${color};"
                 onclick="window.app.selectFocus('${focus.id}')">
-                <div class="focus-branch">${focus.branch}</div>
+                ${references ? '' : `<div class="focus-branch">${focus.branch}</div>`}
                 <div class="focus-title">${focus.name}</div>
                 <div class="focus-card-row">
                     <span class="focus-status-pill">${statusText}</span>
@@ -1403,8 +1469,32 @@ const GamePageView = {
                 <div class="focus-progress-mini" aria-label="国策推进进度">
                     <span style="width: ${progressPercent}%"></span>
                 </div>
-                <div class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</div>
+                ${references ? '' : `<div class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</div>`}
             </button>
+            ${references ? this.renderFocusReferences(focus, references, position, viewFactionId, mobileHidden) : ''}
+        `;
+    },
+
+    renderFocusReferences(focus, references, position, factionId, mobileHidden) {
+        const types = [
+            ['before', '↑ 前置', '跨支线前置'],
+            ['after', '↓ 后续', '跨支线后续'],
+            ['exclusive', '互斥', '互斥国策']
+        ];
+        const links = types.filter(([key]) => references[key].length);
+        if (!links.length) return '';
+        return `
+            <div class="focus-references ${mobileHidden ? 'mobile-focus-hidden' : ''}"
+                style="left: ${position.left + 9}px; top: ${position.bottomY - 25}px;">
+                ${links.map(([key, label, description]) => {
+                    const ids = references[key];
+                    const names = ids.map(id => GameState.getFocusById(id, factionId).name);
+                    const target = ids.length === 1 ? `jumpToCampaignFocus('${ids[0]}')` : `showFocusReferences('${focus.id}', '${key}')`;
+                    return `<button type="button" class="focus-reference ${key}" data-focus-reference="${key}"
+                        title="${escapeHtml(description + ' · ' + names.join('、'))}"
+                        onclick="window.app.${target}">${label}${ids.length > 1 ? ` ${ids.length}` : ''}</button>`;
+                }).join('')}
+            </div>
         `;
     },
 
@@ -1431,9 +1521,10 @@ const GamePageView = {
         const title = availability.reason ? `title="${availability.reason}"` : '';
         const mutuals = focus.mutuallyExclusive || [];
         const prerequisiteHtml = this.renderFocusPrerequisites(focus, viewFactionId);
+        const successors = context.references?.after || [];
         const effectsHtml = (focus.effects || []).map(effect => `<li>${this.renderFocusEffect(effect, focus, viewFactionId)}</li>`).join('');
         const mutualHtml = mutuals.length
-            ? `<div class="focus-detail-block danger-block">
+            ? `<div class="focus-detail-block danger-block" data-focus-reference-list="exclusive">
                     <span>互斥国策</span>
                     <div class="focus-prereq-nodes">${mutuals.map(id => this.renderFocusLinkButton(id, viewFactionId)).join('')}</div>
                 </div>`
@@ -1468,12 +1559,18 @@ const GamePageView = {
                     <div class="focus-progress-large"><span style="width: ${Math.round(progress.ratio * 100)}%"></span></div>
                 </div>
 
-                <div class="focus-detail-block">
+                <div class="focus-detail-block" data-focus-reference-list="before">
                     <span>前置条件</span>
                     ${prerequisiteHtml}
                 </div>
                 ${controlHtml}
                 ${mutualHtml}
+                ${successors.length ? `
+                    <div class="focus-detail-block" data-focus-reference-list="after">
+                        <span>跨支线后续</span>
+                        <div class="focus-prereq-nodes">${successors.map(id => this.renderFocusLinkButton(id, viewFactionId)).join('')}</div>
+                    </div>
+                ` : ''}
 
                 <div class="focus-detail-block">
                     <span>完成效果</span>
