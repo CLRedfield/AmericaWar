@@ -50,6 +50,7 @@ const App = {
     focusTreeCentered: false,
     pendingFocusTreeScroll: null,
     focusTreeScroll: null,
+    focusTreeResizeObserver: null,
     tutorialTab: 'intro',
     lastFocusDragEndedAt: 0,
     roomDialog: null,
@@ -2439,8 +2440,21 @@ const App = {
     },
 
     attachFocusTreeInteraction() {
+        this.focusTreeResizeObserver?.disconnect();
+        this.focusTreeResizeObserver = null;
         const scroller = document.querySelector('.focus-tree-scroll');
-        if (!scroller || this.focusTreeOverview) return;
+        if (!scroller) return;
+        if (this.focusTreeOverview) {
+            // The overview cannot pan, so it must remain fitted when its actual
+            // viewport changes. Rebind after render and release on modal close.
+            if (typeof ResizeObserver === 'function') {
+                this.focusTreeResizeObserver = new ResizeObserver(() => {
+                    if (scroller.isConnected && this.focusTreeOverview) this.alignFocusTree();
+                });
+                this.focusTreeResizeObserver.observe(scroller);
+            }
+            return;
+        }
 
         this.applyFocusTreeTransform();
         this.focusTreePointers = new Map();

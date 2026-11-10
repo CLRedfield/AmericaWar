@@ -4196,16 +4196,46 @@ button.focus-condition:focus-visible {
     stroke-linejoin: round;
 }
 
-.focus-emblem-choice {
+.focus-choice-label {
     position: absolute;
-    right: -3px;
-    bottom: 1px;
-    width: 8px;
-    height: 8px;
-    border: 1px solid #f4a99d;
-    border-radius: 2px;
-    background: #734439;
-    transform: rotate(45deg);
+    top: 10px;
+    right: 6px;
+    padding: 2px 4px;
+    border: 1px solid #b6766b;
+    border-radius: 3px;
+    background: #312126;
+    color: #f2b4a7;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.focus-mutual-bracket {
+    fill: none;
+    stroke: #dc8b81;
+    stroke-width: 1.8;
+    stroke-dasharray: 4 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.focus-mutual-label-background {
+    fill: #251c23;
+    stroke: #9b655f;
+    stroke-width: .8;
+}
+
+.focus-mutual-label {
+    fill: #f3b4a8;
+    font: 700 11px var(--font-display);
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.focus-mutual-group.active .focus-mutual-bracket {
+    stroke: #ffc0ae;
+    stroke-width: 2.4;
 }
 
 .focus-plaque {
@@ -4259,6 +4289,18 @@ button.focus-condition:focus-visible {
     border-color: #f0ce88;
     background: linear-gradient(180deg, #514332, #302b27);
     box-shadow: 0 0 0 1px #e3b96c40;
+}
+
+.focus-emblem-card.focus-mutual-target .focus-plaque {
+    border-color: #ef9e8f;
+    background: linear-gradient(180deg, #553133, #342126);
+    box-shadow: 0 0 0 1px #d97b6c80;
+}
+
+.focus-emblem-card.focus-mutual-target .focus-choice-label {
+    border-color: #f4ac99;
+    background: #713b37;
+    color: #fff0e9;
 }
 
 .focus-west-russia .focus-emblem-card::before {
@@ -4320,6 +4362,16 @@ button.focus-condition:focus-visible {
     stroke-dasharray: calc(2px * var(--focus-zoom-inverse, 1));
 }
 
+.focus-modal-overview .focus-mutual-bracket {
+    stroke-width: calc(.8px * var(--focus-zoom-inverse, 1));
+    stroke-dasharray: none;
+}
+
+.focus-modal-overview .focus-mutual-label,
+.focus-modal-overview .focus-mutual-label-background {
+    display: none;
+}
+
 .focus-overview-nodes {
     position: absolute;
     inset: 0;
@@ -4332,6 +4384,13 @@ button.focus-condition:focus-visible {
 
 .focus-overview-nodes .done {
     opacity: .95;
+}
+
+.focus-overview-nodes .focus-overview-mutual-target {
+    fill: #b35f59;
+    stroke: #f7aa99;
+    stroke-width: calc(1.4px * var(--focus-zoom-inverse, 1));
+    opacity: 1;
 }
 
 @media (min-width: 1100px) {

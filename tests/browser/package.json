@@ -1,0 +1,15 @@
+{
+  "name": "americawar-focus-browser-acceptance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser acceptance and visual regression checks for the West Russia focus tree",
+  "scripts": {
+    "test": "node run.cjs verify",
+    "capture": "node run.cjs capture",
+    "visual": "node run.cjs compare",
+    "list": "playwright test --list"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
+}

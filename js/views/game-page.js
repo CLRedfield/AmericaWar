@@ -1085,7 +1085,7 @@ const GamePageView = {
                             <span><i></i> 必须完成</span>
                             <span><i class="focus-legend-any"></i> 任选方案</span>
                             ${westRussia ? `
-                                <span><i class="focus-legend-mutex"></i> 互斥</span>
+                                <span><i class="focus-legend-mutex"></i> 互斥 · 红框为选中项的冲突路线</span>
                                 <span class="focus-legend-hint">${overview ? '点选入口或用下拉菜单定位支线' : branchOnly ? '详情可跳转相邻支线 · 全树显示跨支线连线' : '前置在上 · 选中国策可突出相连路线'}</span>
                             ` : `
                                 <span><i class="focus-legend-mutex"></i> 互斥</span>
@@ -1298,7 +1298,8 @@ const GamePageView = {
             <svg class="focus-overview-nodes" width="${layout.width}" height="${layout.height}" aria-hidden="true">
                 ${tree.map(focus => {
                     const { left, top } = layout.positions[focus.id];
-                    return `<rect class="${completed.has(focus.id) ? 'done' : ''}" x="${left + 9}" y="${top + 8}" width="${layout.cardWidth - 18}"
+                    const mutualTarget = selectedFocus?.mutuallyExclusive?.includes(focus.id);
+                    return `<rect class="${completed.has(focus.id) ? 'done' : ''} ${mutualTarget ? 'focus-overview-mutual-target' : ''}" x="${left + 9}" y="${top + 8}" width="${layout.cardWidth - 18}"
                         height="${layout.cardHeight - 16}" rx="8" fill="${this.focusChapterColor(focus.category)}" />`;
                 }).join('')}
             </svg>
@@ -1390,6 +1391,84 @@ const GamePageView = {
         `;
     },
 
+    getCampaignMutualGroups(tree, layout) {
+        const byId = new Map(tree.map(focus => [focus.id, focus]));
+        const neighbors = new Map(tree.map(focus => [focus.id, (focus.mutuallyExclusive || []).filter(id => {
+            const other = byId.get(id);
+            return other?.branch === focus.branch && other.mutuallyExclusive?.includes(focus.id)
+                && layout.positions[id]?.row === layout.positions[focus.id]?.row;
+        })]));
+        const visited = new Set();
+        const groups = [];
+        const cards = tree.map(focus => ({ id: focus.id, ...layout.positions[focus.id] }));
+        const intersectsCard = (x1, y1, x2, y2) => cards.some(card => (
+            Math.min(x1, x2) < card.left + layout.cardWidth && Math.max(x1, x2) > card.left
+            && Math.min(y1, y2) < card.bottomY && Math.max(y1, y2) > card.topY
+        ));
+        const prerequisiteSegments = (layout.links || []).flatMap(link => {
+            const segments = [];
+            let x = 0;
+            let y = 0;
+            for (const [, command, first, second] of link.path.matchAll(/([MHVL])\s+(-?[\d.]+)(?:\s+(-?[\d.]+))?/g)) {
+                const nextX = command === 'V' ? x : Number(first);
+                const nextY = command === 'H' ? y : Number(command === 'V' ? first : second);
+                if (command !== 'M') segments.push([x, y, nextX, nextY]);
+                x = nextX;
+                y = nextY;
+            }
+            return segments;
+        });
+        for (const focus of tree) {
+            if (visited.has(focus.id)) continue;
+            const ids = [focus.id];
+            visited.add(focus.id);
+            for (let i = 0; i < ids.length; i++) {
+                for (const id of neighbors.get(ids[i])) {
+                    if (visited.has(id)) continue;
+                    visited.add(id);
+                    ids.push(id);
+                }
+            }
+            // A connected exclusion graph is not necessarily a choice group:
+            // every pair must exclude each other before it can say "N choose 1".
+            if (ids.length < 2 || !ids.every(id => ids.every(other => id === other || neighbors.get(id).includes(other)))) continue;
+            ids.sort((a, b) => layout.positions[a].centerX - layout.positions[b].centerX);
+            const first = layout.positions[ids[0]];
+            const last = layout.positions[ids[ids.length - 1]];
+            if (cards.some(card => !ids.includes(card.id)
+                && card.left < last.centerX && card.left + layout.cardWidth > first.centerX
+                && card.topY < first.bottomY && card.bottomY > first.topY)) continue;
+
+            // Keep the bracket above the emblems. Labels must also avoid the
+            // real prerequisite routes, including optional and active links.
+            const y = first.topY - 12;
+            const midpoint = (first.centerX + last.centerX) / 2;
+            const segments = [[first.centerX, y, last.centerX, y],
+                ...ids.map(id => [layout.positions[id].centerX, y, layout.positions[id].centerX, y + 7])];
+            if (segments.some(segment => intersectsCard(...segment))) continue;
+            const offsets = [0];
+            for (let offset = 36; offset <= (last.centerX - first.centerX) / 2; offset += 36) offsets.push(-offset, offset);
+            const labelRect = [-8, -22, 12].flatMap(dy => offsets.map(dx => ({
+                x: midpoint + dx - 25, y: y + dy - 9, width: 50, height: 17,
+                distance: dx * dx + (dy + 8) * (dy + 8)
+            }))).sort((a, b) => a.distance - b.distance).find(rect => (
+                rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= layout.width && rect.y + rect.height <= layout.height
+                && !intersectsCard(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height)
+                // Three layout pixels clear the 2.8px selected prerequisite stroke.
+                && !prerequisiteSegments.some(([x1, y1, x2, y2]) => (
+                    Math.min(x1, x2) < rect.x + rect.width + 3 && Math.max(x1, x2) > rect.x - 3
+                    && Math.min(y1, y2) < rect.y + rect.height + 3 && Math.max(y1, y2) > rect.y - 3
+                ))
+            )) || null;
+            const number = ({ 2: '二', 3: '三', 4: '四', 5: '五', 6: '六' })[ids.length] || ids.length;
+            groups.push({ ids, label: `${number}选一`, labelX: labelRect ? labelRect.x + 25 : midpoint,
+                labelY: labelRect ? labelRect.y + 9 : y - 8, labelRect,
+                path: `M ${first.centerX} ${y + 7} V ${y} H ${last.centerX} V ${y + 7}`
+                    + ids.slice(1, -1).map(id => ` M ${layout.positions[id].centerX} ${y} V ${y + 7}`).join('') });
+        }
+        return groups;
+    },
+
     renderCampaignFocusLinks(tree, layout, selectedFocusId) {
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const completed = new Set(GameState.game.completedFocuses);
@@ -1403,18 +1482,16 @@ const GamePageView = {
             (active ? selected : lines).push(`<path class="${classes}" style="--focus-link-color: ${color}"
                 data-focus-from="${from}" data-focus-to="${to}" d="${path}" />`);
         }
-        for (const focus of tree) {
-            const a = layout.positions[focus.id];
-            for (const other of focus.mutuallyExclusive || []) {
-                const b = layout.positions[other];
-                if (b?.row !== a.row || b.column !== a.column + 1) continue;
-                const x = a.left + layout.cardWidth + 5;
-                const y = a.centerY;
-                lines.push(`<path class="focus-mutual-link" d="M ${x} ${y} H ${b.left - 5}" />`);
-            }
-        }
+        const mutualGroups = this.getCampaignMutualGroups(tree, layout).map(group => `
+            <g class="focus-mutual-group ${group.ids.includes(selectedFocusId) ? 'active' : ''}"
+                data-focus-mutual-group="${group.ids.join(' ')}">
+                <path class="focus-mutual-bracket" d="${group.path}" />
+                ${group.labelRect ? `<rect class="focus-mutual-label-background" x="${group.labelRect.x}" y="${group.labelRect.y}"
+                    width="${group.labelRect.width}" height="${group.labelRect.height}" rx="3" />
+                <text class="focus-mutual-label" x="${group.labelX}" y="${group.labelY}">${group.label}</text>` : ''}
+            </g>`).join('');
         return `<svg class="focus-connector-layer" width="${layout.width}" height="${layout.height}" aria-hidden="true">
-            ${lines.join('')}${selected.join('')}
+            ${lines.join('')}${selected.join('')}${mutualGroups}
         </svg>`;
     },
 
@@ -1435,7 +1512,9 @@ const GamePageView = {
         const completed = GameState.game.completedFocuses;
         const status = this.getFocusStatusForView(focus, viewFactionId, isPlayerView);
         const progress = GameState.getFocusProgressInfo(focus);
-        const selected = (context.selectedFocusId || GameState.game.selectedFocusId) === focus.id;
+        const selectedId = context.selectedFocusId || GameState.game.selectedFocusId;
+        const selected = selectedId === focus.id;
+        const mutualTarget = !selected && Boolean(GameState.getFocusById(selectedId, viewFactionId)?.mutuallyExclusive?.includes(focus.id));
         const stateClass = status === 'done'
             ? 'done'
             : status === 'available'
@@ -1462,7 +1541,7 @@ const GamePageView = {
         const position = layout.positions[focus.id];
         const progressPercent = Math.round(progress.ratio * 100);
         const classes = `${stateClass} ${selected ? 'selected' : ''} ${mobileHidden ? 'mobile-focus-hidden' : ''}`;
-        if (layout.links) return this.renderCampaignFocusCard(focus, position, classes, statusText, progressPercent);
+        if (layout.links) return this.renderCampaignFocusCard(focus, position, classes, statusText, progressPercent, mutualTarget);
         const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
         const color = this.branchColor(focus.branch);
 
@@ -1484,7 +1563,7 @@ const GamePageView = {
         `;
     },
 
-    renderCampaignFocusCard(focus, position, classes, status, progress) {
+    renderCampaignFocusCard(focus, position, classes, status, progress, mutualTarget = false) {
         const glyph = {
             politics: 'M3 8 12 3l9 5H3Zm2 11h14M7 10v7m5-7v7m5-7v7',
             military: 'm4 11 8-6 8 6M4 17l8-6 8 6',
@@ -1494,16 +1573,20 @@ const GamePageView = {
             diplomacy: 'm12 3 9 9-9 9-9-9 9-9Zm-4 9h8m-4-4v8',
             integration: 'M12 3v5m0 8v5M3 12h5m8 0h5M8 8h8v8H8z'
         }[focus.category];
-        const label = escapeHtml(`${focus.name} · ${focus.branch} · ${status}`);
+        const mutuals = focus.mutuallyExclusive || [];
+        const label = escapeHtml(`${focus.name} · ${focus.branch} · ${status}`
+            + (mutuals.length ? ` · 与 ${mutuals.length} 项国策互斥` : '')
+            + (mutualTarget ? ' · 与当前选中国策互斥' : ''));
         return `
-            <button class="focus-card focus-emblem-card ${classes}" data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch)}"
+            <button class="focus-card focus-emblem-card ${classes} ${mutualTarget ? 'focus-mutual-target' : ''}" data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch)}"
+                data-focus-mutual-ids="${mutuals.join(' ')}" data-focus-mutual-selected="${mutualTarget}"
                 aria-label="${label}" title="${label}"
                 style="left: ${position.left}px; top: ${position.top}px; --branch-color: ${this.focusChapterColor(focus.category)}; --focus-progress: ${progress}%"
                 onclick="window.app.selectFocus('${focus.id}')">
                 <span class="focus-emblem" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><path d="${glyph}" /></svg>
-                    ${focus.mutuallyExclusive?.length ? '<i class="focus-emblem-choice"></i>' : ''}
                 </span>
+                ${mutuals.length ? `<span class="focus-choice-label" aria-hidden="true">互斥 ${mutuals.length}</span>` : ''}
                 <span class="focus-plaque"><span>${escapeHtml(focus.name)}</span></span>
             </button>
         `;
