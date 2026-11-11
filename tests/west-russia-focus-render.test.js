@@ -89,7 +89,9 @@ function renderedEdges(html) {
 
 function expectedEdges(tree) {
     const visible = new Set(tree.map(focus => focus.id));
-    return tree.flatMap(focus => [...parentIds(focus)].filter(id => visible.has(id)).map(id => ({
+    const byId = new Map(tree.map(focus => [focus.id, focus]));
+    return tree.flatMap(focus => [...parentIds(focus)]
+        .filter(id => visible.has(id) && byId.get(id).branch === focus.branch).map(id => ({
         key: `${id}|${focus.id}`,
         optional: !focus.prerequisites.includes(id)
     })));
@@ -142,7 +144,7 @@ function segmentIntersectsRect(segment, { left, top, width, height }) {
     return true;
 }
 
-test('all West Russia views retain the actual prerequisite edges and optional alternatives', () => {
+test('West Russia full, overview and isolated views draw every real local prerequisite and preserve OR alternatives', () => {
     const client = gameClient();
     const { GameState, WestRussiaFocusLayout } = client;
     GameState.game.completedFocuses.push('wr_one_assembly');
@@ -150,10 +152,14 @@ test('all West Russia views retain the actual prerequisite edges and optional al
         const tree = GameState.getFocusTree(faction.id);
         const full = render(client, faction.id, tree[0].id);
         assert.equal(cards(full).size, tree.length, `${faction.id}: every full-tree card is rendered`);
-        assertSameEdges(full, tree, `${faction.id}: full tree prerequisites`);
+        assertSameEdges(full, tree, `${faction.id}: full tree local prerequisites`);
+        assert.equal(renderedEdges(full).some(edge => {
+            const [from, to] = edge.key.split('|');
+            return GameState.getFocusById(from, faction.id).branch !== GameState.getFocusById(to, faction.id).branch;
+        }), false, faction.id + ': full view uses references instead of long cross-branch paths');
 
         const overview = render(client, faction.id, tree[0].id, { overview: true });
-        assertSameEdges(overview, tree, `${faction.id}: overview prerequisites`);
+        assertSameEdges(overview, tree, `${faction.id}: overview local prerequisites`);
         const overviewSvg = elements(overview, 'svg').find(element => hasClass(element, 'focus-overview-nodes'));
         assert.ok(overviewSvg, `${faction.id}: overview node layer exists`);
         assert.equal((overviewSvg.contents.match(/<rect\b/g) || []).length, tree.length);
@@ -165,6 +171,59 @@ test('all West Russia views retain the actual prerequisite edges and optional al
             assertSameEdges(isolated, branchTree, `${faction.id}/${section.name}: internal prerequisites`);
         }
     }
+});
+
+test('every external West Russia prerequisite is named on its card and has a real clickable detail reference', () => {
+    const client = gameClient();
+    const { GameState, GamePageView, App } = client;
+    GameState.game.completedFocuses.push('wr_one_assembly');
+    let externalDependencies = 0;
+    for (const faction of GameState.factions) {
+        const tree = GameState.getFocusTree(faction.id);
+        const byId = new Map(tree.map(focus => [focus.id, focus]));
+        const fullCards = cards(render(client, faction.id, tree[0].id));
+        let navigationChecked = false;
+        for (const focus of tree) {
+            const expected = [...parentIds(focus)].filter(id => byId.get(id).branch !== focus.branch).sort();
+            const card = fullCards.get(focus.id);
+            assert.deepEqual(ids(card.attrs['data-focus-external-ids']).sort(), expected,
+                focus.id + ': card retains all AND and OR external parents');
+            assert.equal(Number(card.attrs['data-focus-external-count']), expected.length);
+            if (!expected.length) {
+                assert.doesNotMatch(card.contents, /focus-external-label/);
+                continue;
+            }
+            externalDependencies += expected.length;
+            assert.match(card.contents, new RegExp('外部前置\\s*' + expected.length));
+            const allParents = [...parentIds(focus)];
+            assert.equal(GameState.areFocusPrerequisitesMet(focus, allParents), true);
+            const requiredExternal = expected.find(id => focus.prerequisites.includes(id));
+            if (requiredExternal) assert.equal(GameState.areFocusPrerequisitesMet(focus,
+                allParents.filter(id => id !== requiredExternal)), false,
+            focus.id + ': an unmet external AND prerequisite still blocks progress');
+            const detail = GamePageView.renderFocusDetailPanel(focus, {
+                viewFactionId: faction.id, isPlayerView: faction.id === GameState.getPlayerFactionId()
+            });
+            const summary = elements(detail, 'div').find(element => hasClass(element, 'focus-external-prerequisites'));
+            assert.ok(summary, focus.id + ': external requirements are directly visible in its detail panel');
+            assert.equal(summary.attrs['data-focus-external-for'], focus.id);
+            const destinations = elements(summary.contents, 'button').map(element => element.attrs['data-focus-link-id']).filter(Boolean);
+            assert.deepEqual(destinations.sort(), expected, focus.id + ': every external parent is a navigation button');
+            if (!navigationChecked) {
+                GameState.game.focusViewFactionId = faction.id;
+                App.focusBranchOnly = true;
+                App.jumpToCampaignFocus(expected[0]);
+                const selected = faction.id === GameState.getPlayerFactionId()
+                    ? GameState.game.selectedFocusId : GameState.game.focusViewSelectedId;
+                assert.equal(selected, expected[0], faction.id + ': external reference opens the actual prerequisite');
+                const parentCards = cards(GamePageView.renderFocusTreeModal());
+                assert.ok(parentCards.has(expected[0]));
+                assert.ok([...parentCards.keys()].every(id => byId.get(id).branch === byId.get(expected[0]).branch));
+                navigationChecked = true;
+            }
+        }
+    }
+    assert.equal(externalDependencies, 391, 'all external dependencies remain visible as references');
 });
 
 test('both campaigns use the same full-size colored card contract and political routes have distinct colors', () => {

@@ -1118,7 +1118,7 @@ const GamePageView = {
                             <span><i class="focus-legend-any"></i> 任选方案</span>
                             ${westRussia ? `
                                 <span><i class="focus-legend-mutex"></i> 互斥 · 红框为选中项的冲突路线</span>
-                                <span class="focus-legend-hint">${overview ? '点选入口或用下拉菜单定位支线' : branchOnly ? '详情可跳转相邻支线 · 全树显示跨支线连线' : '前置在上 · 选中国策可突出相连路线'}</span>
+                                <span class="focus-legend-hint">${overview ? '点选入口或用下拉菜单定位支线' : '线只连接本支线 · 外部前置见卡片与详情'}</span>
                             ` : `
                                 <span><i class="focus-legend-mutex"></i> 互斥</span>
                                 <span class="focus-legend-hint">点击详情中的前置国策可跨支线跳转</span>
@@ -1545,6 +1545,9 @@ const GamePageView = {
         const lines = [];
         const selected = [];
         for (const { from, to, optional, crossBranch, path } of layout.links) {
+            // Cross-branch requirements are explicit references, not long wires
+            // weaving through unrelated political and economic cards.
+            if (crossBranch || byId.get(from)?.branch !== byId.get(to)?.branch) continue;
             const active = from === selectedFocusId || to === selectedFocusId;
             const classes = ['focus-link', optional ? 'focus-link-any' : '', crossBranch ? 'focus-link-cross' : '',
                 completed.has(from) ? 'focus-link-met' : '', active ? 'focus-link-active' : ''].join(' ');
@@ -1615,7 +1618,9 @@ const GamePageView = {
         const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
         const color = this.focusBranchColor(focus, viewFactionId);
         const mutuals = focus.mutuallyExclusive || [];
+        const externalParents = focus.category ? this.getExternalFocusParentIds(focus, viewFactionId) : [];
         const label = escapeHtml(`${focus.name} · ${focus.branch} · ${statusText}`
+            + (externalParents.length ? ` · 外部前置 ${externalParents.length}，点击查看详情` : '')
             + (mutuals.length ? ` · 与 ${mutuals.length} 项国策互斥` : '')
             + (mutualTarget ? ' · 与当前选中国策互斥' : ''));
 
@@ -1623,6 +1628,7 @@ const GamePageView = {
             <button type="button" class="focus-card focus-unified-card ${classes} ${mutualTarget ? 'focus-mutual-target' : ''}"
                 data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch || '')}" data-focus-category="${escapeHtml(focus.category || 'politics')}"
                 data-focus-mutual-ids="${mutuals.join(' ')}" data-focus-mutual-selected="${mutualTarget}"
+                data-focus-external-ids="${externalParents.join(' ')}" data-focus-external-count="${externalParents.length}"
                 aria-label="${label}" aria-pressed="${selected}" title="${label}"
                 style="left: ${position.left}px; top: ${position.top}px; width: ${layout.cardWidth}px; height: ${layout.cardHeight}px; --branch-color: ${color}; --branch-text-color: ${this.focusBranchTextColor(color)};"
                 onclick="window.app.selectFocus('${focus.id}')">
@@ -1637,10 +1643,34 @@ const GamePageView = {
                 </span>
                 <span class="focus-card-bottom">
                     <span class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</span>
-                    ${mutuals.length ? `<span class="focus-choice-label" aria-hidden="true">互斥 ${mutuals.length}</span>` : ''}
+                    <span class="focus-card-badges">
+                        ${externalParents.length ? `<span class="focus-external-label" aria-hidden="true">外部前置 ${externalParents.length}</span>` : ''}
+                        ${mutuals.length ? `<span class="focus-choice-label" aria-hidden="true">互斥 ${mutuals.length}</span>` : ''}
+                    </span>
                 </span>
             </button>
         `;
+    },
+
+    getExternalFocusParentIds(focus, factionId = GameState.getPlayerFactionId()) {
+        return this.getFocusParentIds(focus).filter(id => {
+            const parent = GameState.getFocusById(id, factionId);
+            return parent && parent.branch !== focus.branch;
+        });
+    },
+
+    renderFocusExternalPrerequisites(focus, factionId) {
+        if (!focus.category) return '';
+        const external = this.getExternalFocusParentIds(focus, factionId);
+        if (!external.length) return '';
+        const required = new Set(focus.prerequisites || []);
+        return `<div class="focus-detail-block focus-external-prerequisites" data-focus-external-for="${focus.id}">
+            <span>来自其它支线</span>
+            <small>点击名称可跳转；完整要求见下方前置条件。</small>
+            <div class="focus-external-reference-list">${external.map(id => `<span class="focus-external-reference">
+                <small>${required.has(id) ? '必需' : '可选方案'}</small>${this.renderFocusLinkButton(id, factionId)}
+            </span>`).join('')}</div>
+        </div>`;
     },
 
     renderFocusDetailPanel(focus, context = {}) {
@@ -1696,6 +1726,7 @@ const GamePageView = {
                     ${focus.wartime ? '<small class="focus-war-requirement">战斗期国策</small>' : ''}
                 </div>
 
+                ${this.renderFocusExternalPrerequisites(focus, viewFactionId)}
                 <div class="focus-detail-progress">
                     <div>
                         <span>推进进度</span>
@@ -1751,7 +1782,13 @@ const GamePageView = {
         const required = focus.prerequisites || [];
         const anyGroups = focus.prerequisiteAny || [];
         if (!required.length && !anyGroups.length) return '<strong>无</strong>';
-        const links = ids => ids.map(id => this.renderFocusLinkButton(id, factionId)).join('');
+        const external = new Set(focus.category ? this.getExternalFocusParentIds(focus, factionId) : []);
+        const links = ids => ids.map(id => {
+            if (!external.has(id)) return this.renderFocusLinkButton(id, factionId);
+            const parent = GameState.getFocusById(id, factionId);
+            const met = GameState.game.completedFocuses.includes(id);
+            return `<span class="focus-condition ${met ? 'met' : ''}" data-focus-requirement-id="${escapeHtml(id)}">${met ? '✓ ' : ''}${escapeHtml(parent?.name || id)}</span>`;
+        }).join('');
         return `
             ${required.length ? `
                 <small class="focus-prereq-label">全部完成</small>

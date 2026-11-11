@@ -202,16 +202,17 @@ test('political branch choices support nested succession, multiple candidates an
         'choosing the union government does not require economic contracts or crew training');
 });
 
-test('West Russia draws every prerequisite downward and routes links between cards', () => {
+test('West Russia tiles aligned branch panels and preserves all prerequisites as local lines or external references', () => {
     const { GameState, WestRussiaFocusLayout } = gameClient();
     GameState.initLocalLobby('west-russia');
     const silhouettes = new Set();
     let crossBranchLinks = 0;
+    let allPrerequisites = 0;
     for (const { id: factionId } of GameState.factions) {
         const tree = GameState.getFocusTree(factionId);
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const layout = WestRussiaFocusLayout.build(tree, factionId);
-        const { sections, positions, links, references, cardWidth, cardHeight } = layout;
+        const { sections, positions, links, allLinks, externalLinks, references, cardWidth, cardHeight } = layout;
         assert.equal(cardWidth, 190, factionId + ': the same card width as the American campaign');
         assert.equal(cardHeight, 150, factionId + ': the same card height as the American campaign');
         const branchCount = new Set(tree.map(focus => focus.branch)).size;
@@ -224,6 +225,8 @@ test('West Russia draws every prerequisite downward and routes links between car
                 right: Math.max(...cards.map(card => card.left + cardWidth)),
                 top: Math.min(...cards.map(card => card.top)), bottom: Math.max(...cards.map(card => card.bottomY)) };
         });
+        assert.equal(new Set(panels.map(panel => panel.top)).size, 1,
+            factionId + ': every branch starts at the same top edge');
         for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) {
             const a = panels[i], b = panels[j];
             assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
@@ -233,7 +236,15 @@ test('West Russia draws every prerequisite downward and routes links between car
 
         const parents = new Map(tree.map(focus => [focus.id, new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()])]));
         const byLink = new Map(links.map(link => [link.from + '|' + link.to, link]));
-        assert.equal(byLink.size, [...parents.values()].reduce((sum, group) => sum + group.size, 0));
+        const allByLink = new Map(allLinks.map(link => [link.from + '|' + link.to, link]));
+        const externalByLink = new Map(externalLinks.map(link => [link.from + '|' + link.to, link]));
+        const actualCount = [...parents.values()].reduce((sum, group) => sum + group.size, 0);
+        allPrerequisites += actualCount;
+        assert.equal(allByLink.size, actualCount, factionId + ': no logical prerequisite is deleted');
+        assert.equal(byLink.size + externalByLink.size, allByLink.size,
+            factionId + ': every dependency has exactly one local-line or external-reference representation');
+        assert.ok(links.every(link => !link.crossBranch), factionId + ': long cross-branch physical paths are omitted');
+        assert.ok(externalLinks.every(link => link.crossBranch), factionId + ': external metadata keeps the cross-branch dependencies');
         let local = 0;
         let tight = 0;
         for (const [index, focus] of tree.entries()) {
@@ -246,19 +257,25 @@ test('West Russia draws every prerequisite downward and routes links between car
                     `${focus.id} overlaps ${other.id}`);
             }
             for (const parentId of parents.get(focus.id)) {
-                const link = byLink.get(parentId + '|' + focus.id);
-                assert.ok(link, `${parentId} → ${focus.id} is drawn`);
-                assert.equal(link.optional, !focus.prerequisites.includes(parentId));
-                const parent = positions[parentId];
-                assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward`);
-                if (link.crossBranch) {
-                    assert.notEqual(byId.get(parentId).branch, focus.branch);
+                const key = parentId + '|' + focus.id;
+                const actual = allByLink.get(key);
+                assert.ok(actual, `${parentId} → ${focus.id} retains its dependency metadata`);
+                assert.equal(actual.optional, !focus.prerequisites.includes(parentId));
+                if (byId.get(parentId).branch !== focus.branch) {
+                    assert.ok(externalByLink.has(key), `${parentId} → ${focus.id} remains an external reference`);
+                    assert.equal(byLink.has(key), false, 'Cross-branch references must not create long physical paths');
                     assert.ok(references.get(parentId).after.includes(focus.id));
+                    assert.ok(references.get(focus.id).before.includes(parentId));
                     crossBranchLinks++;
-                } else {
-                    local++;
-                    if (card.row - parent.row === 1) tight++;
+                    continue;
                 }
+                const link = byLink.get(key);
+                assert.ok(link, `${parentId} → ${focus.id} is drawn inside its branch`);
+                assert.equal(link.optional, actual.optional);
+                const parent = positions[parentId];
+                assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward locally`);
+                local++;
+                if (card.row - parent.row === 1) tight++;
                 let x = parent.centerX;
                 let y = parent.bottomY;
                 for (const [, command, value] of link.path.matchAll(/([HV]) (-?[\d.]+)/g)) {
@@ -289,7 +306,8 @@ test('West Russia draws every prerequisite downward and routes links between car
         }
     }
     assert.equal(silhouettes.size, GameState.factions.length);
-    assert.equal(crossBranchLinks, 391, 'opening projects now share their own economic or military branch; all prerequisite edges remain drawn');
+    assert.equal(allPrerequisites, 2030, 'all original logical dependencies remain intact');
+    assert.equal(crossBranchLinks, 391, 'opening projects share their own branch; all external prerequisites remain references');
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {

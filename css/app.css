@@ -4805,3 +4805,42 @@ button.focus-condition:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     .focus-unified-card { transition: none; }
 }
+
+
+/* Flat branch boards: dependencies outside the board are short, explicit references. */
+.focus-unified-card .focus-card-badges {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    gap: 3px;
+    white-space: nowrap;
+}
+.focus-unified-card .focus-external-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 17px;
+    padding: 1px 3px;
+    border: 1px solid #8faaa0;
+    border-radius: 2px;
+    background: #354b43;
+    color: #d7eee0;
+    font-size: 9px;
+    line-height: 1.2;
+}
+.focus-unified-card .focus-card-bottom { gap: 3px; }
+.focus-unified-card .focus-card-bottom .focus-cost { white-space: nowrap; font-size: 9px; }
+.focus-external-prerequisites {
+    border-color: #7f9b8c80;
+    background: #304238;
+}
+.focus-external-prerequisites > small {
+    display: block;
+    color: #b9c9bd;
+    font-size: .68rem;
+    line-height: 1.5;
+}
+.focus-external-reference-list { display: grid; gap: 7px; margin-top: 8px; }
+.focus-external-reference { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.focus-external-reference > small { flex: 0 0 3.5em; color: #b4c4b7; font-size: .64rem; }
+.focus-external-reference .focus-condition { min-width: 0; text-align: left; }

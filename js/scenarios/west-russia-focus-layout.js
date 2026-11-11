@@ -6,10 +6,9 @@ const WestRussiaFocusLayout = (() => {
     const padding = 54;
     const cache = new WeakMap();
 
-    // Full cards use the same dimensions as the American campaign. A chapter
-    // owns its rectangle; unrelated chapters never fill gaps inside it.
-    const categoryOrder = ['politics', 'industry', 'logistics', 'military', 'civil', 'diplomacy', 'integration'];
-    const boardColumns = 26;
+    // Every chapter is a complete, top-aligned lane, like the American trees.
+    // External requirements are navigable references, not lines across lanes.
+    const categoryOrder = ['politics', 'industry', 'military', 'logistics', 'civil', 'diplomacy', 'integration'];
 
     function rankFocuses(nodes, links, localParents, localChildren) {
         let rows = new Map(nodes.map(({ id }) => [id, 0]));
@@ -80,108 +79,6 @@ const WestRussiaFocusLayout = (() => {
         const lanes = [...new Set(columns.values())].sort((a, b) => a - b);
         const laneIndex = new Map(lanes.map((lane, index) => [lane, index]));
         return nodes.map(({ id }) => ({ id, column: laneIndex.get(columns.get(id)), row: rows.get(id) }));
-    }
-
-    function chapterComponents(chapters, links, branchById) {
-        const next = new Map(chapters.map(chapter => [chapter.name, new Set()]));
-        for (const link of links) {
-            const from = branchById.get(link.from);
-            const to = branchById.get(link.to);
-            if (from !== to) next.get(from).add(to);
-        }
-        const indices = new Map();
-        const low = new Map();
-        const active = new Set();
-        const stack = [];
-        const groups = [];
-        let index = 0;
-        function visit(name) {
-            indices.set(name, index);
-            low.set(name, index++);
-            stack.push(name);
-            active.add(name);
-            for (const other of next.get(name)) {
-                if (!indices.has(other)) {
-                    visit(other);
-                    low.set(name, Math.min(low.get(name), low.get(other)));
-                } else if (active.has(other)) low.set(name, Math.min(low.get(name), indices.get(other)));
-            }
-            if (low.get(name) !== indices.get(name)) return;
-            const component = [];
-            let member;
-            do {
-                member = stack.pop();
-                active.delete(member);
-                component.push(member);
-            } while (member !== name);
-            groups.push(component);
-        }
-        for (const chapter of chapters) if (!indices.has(chapter.name)) visit(chapter.name);
-        const byName = new Map(chapters.map((chapter, order) => [chapter.name, { ...chapter, order }]));
-        const components = groups.map((names, id) => {
-            const members = names.map(name => byName.get(name)).sort((a, b) => a.order - b.order);
-            const top = Math.min(...members.flatMap(chapter => chapter.positions.map(node => node.row)));
-            let column = 0;
-            const positions = [];
-            for (const chapter of members) {
-                const width = Math.max(...chapter.positions.map(node => node.column)) + 1;
-                positions.push(...chapter.positions.map(node => ({ ...node, column: node.column + column, row: node.row - top })));
-                column += width + 1;
-            }
-            return { id, members, positions, width: column - 1,
-                height: Math.max(...positions.map(node => node.row)) + 1, before: new Set(), after: new Set(),
-                priority: Math.min(...members.map(chapter => categoryOrder.indexOf(chapter.category))),
-                order: Math.min(...members.map(chapter => chapter.order)) };
-        });
-        const owner = new Map(components.flatMap(component => component.positions.map(node => [node.id, component.id])));
-        for (const link of links) {
-            const from = owner.get(link.from);
-            const to = owner.get(link.to);
-            if (from !== to) {
-                components[from].after.add(to);
-                components[to].before.add(from);
-            }
-        }
-        return { components, owner };
-    }
-
-    function placeChapterBoards(chapters, links, branchById) {
-        const { components, owner } = chapterComponents(chapters, links, branchById);
-        const limit = Math.max(boardColumns, ...components.map(component => component.width));
-        const placed = new Map();
-        const rectangles = [];
-        const remaining = new Set(components.map(component => component.id));
-        const incoming = new Map(components.map(component => [component.id, links.filter(link => owner.get(link.to) === component.id && owner.get(link.from) !== component.id)]));
-        while (remaining.size) {
-            const ready = [...remaining].map(id => components[id]).filter(component => [...component.before].every(id => !remaining.has(id)))
-                .sort((a, b) => a.priority - b.priority || a.order - b.order);
-            if (!ready.length) throw new Error('Invalid focus chapter graph');
-            const component = ready[0];
-            const local = new Map(component.positions.map(node => [node.id, node]));
-            const edges = incoming.get(component.id);
-            const minimumTop = Math.max(0, ...edges.map(link => placed.get(link.from).row + 1 - local.get(link.to).row));
-            const aim = edges.length ? edges.reduce((sum, link) => sum + placed.get(link.from).column - local.get(link.to).column, 0) / edges.length : (limit - component.width) / 2;
-            let placement = null;
-            for (let row = minimumTop; !placement; row++) {
-                const candidates = [];
-                for (let column = 0; column + component.width <= limit; column++) {
-                    const free = rectangles.every(rect => column >= rect.right || column + component.width + 1 <= rect.left
-                        || row >= rect.bottom || row + component.height + 1 <= rect.top);
-                    if (free) candidates.push({ row, column });
-                }
-                placement = candidates.sort((a, b) => Math.abs(a.column - aim) - Math.abs(b.column - aim) || a.column - b.column)[0] || null;
-            }
-            rectangles.push({ left: placement.column, right: placement.column + component.width + 1,
-                top: placement.row, bottom: placement.row + component.height + 1 });
-            for (const node of component.positions) placed.set(node.id, {
-                column: placement.column + node.column, row: placement.row + node.row
-            });
-            remaining.delete(component.id);
-        }
-        // Remove unused outer columns left behind by centering the opening.
-        const left = Math.min(...[...placed.values()].map(node => node.column));
-        for (const node of placed.values()) node.column -= left;
-        return placed;
     }
 
     function routeLinks(links, positions) {
@@ -259,51 +156,64 @@ const WestRussiaFocusLayout = (() => {
         const nodes = onlyBranch ? tree.filter(focus => focus.branch === onlyBranch) : tree;
         const visible = new Set(nodes.map(focus => focus.id));
         const byId = new Map(tree.map(focus => [focus.id, focus]));
-        const references = new Map(tree.map(focus => [focus.id, { after: [] }]));
+        const references = new Map(tree.map(focus => [focus.id, { before: [], after: [] }]));
         const localParents = new Map(nodes.map(focus => [focus.id, []]));
         const localChildren = new Map(nodes.map(focus => [focus.id, []]));
-        const links = [];
+        const allLinks = [];
+        const localLinks = [];
+        const externalLinks = [];
         for (const focus of tree) {
             const required = new Set(focus.prerequisites);
             const parents = new Set([...required, ...(focus.prerequisiteAny || []).flat()]);
             for (const parentId of parents) {
                 const crossBranch = byId.get(parentId).branch !== focus.branch;
-                if (crossBranch) references.get(parentId).after.push(focus.id);
-                if (!visible.has(parentId) || !visible.has(focus.id)) continue;
-                links.push({ from: parentId, to: focus.id, optional: !required.has(parentId), crossBranch });
-                if (!crossBranch) {
+                const link = { from: parentId, to: focus.id, optional: !required.has(parentId), crossBranch };
+                allLinks.push(link);
+                if (crossBranch) {
+                    references.get(parentId).after.push(focus.id);
+                    references.get(focus.id).before.push(parentId);
+                    externalLinks.push(link);
+                } else if (visible.has(parentId) && visible.has(focus.id)) {
+                    localLinks.push(link);
                     localParents.get(focus.id).push(parentId);
                     localChildren.get(parentId).push(focus.id);
                 }
             }
         }
 
-        const rows = rankFocuses(nodes, links, localParents, localChildren);
+        const rows = rankFocuses(nodes, localLinks, localParents, localChildren);
         const branches = new Map();
         for (const node of nodes) {
             if (!branches.has(node.branch)) branches.set(node.branch, []);
             branches.get(node.branch).push(node);
         }
-        const chapters = [...branches.values()].map(group => {
+        const chapters = [...branches.values()].map((group, order) => {
             const root = group[0];
-            return { name: root.branch, category: root.category, entryId: root.id,
+            return { name: root.branch, category: root.category, entryId: root.id, order,
                 positions: chapterColumns(group, rows, localParents, localChildren) };
-        });
-        const branchById = new Map(nodes.map(node => [node.id, node.branch]));
-        const cells = placeChapterBoards(chapters, links, branchById);
+        }).sort((a, b) => categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category) || a.order - b.order);
         const positions = {};
-        for (const [id, { column, row }] of cells) {
-            const left = padding + column * cellWidth;
-            const top = padding + row * cellHeight;
-            positions[id] = { left, top, topY: top, bottomY: top + cardHeight, centerX: left + cardWidth / 2,
-                centerY: top + cardHeight / 2, row, column };
+        const sections = [];
+        let columns = 0;
+        for (const chapter of chapters) {
+            const width = Math.max(...chapter.positions.map(node => node.column)) + 1;
+            const sectionPositions = chapter.positions.map(({ id, column, row }) => {
+                const col = columns + column;
+                const left = padding + col * cellWidth;
+                const top = padding + row * cellHeight;
+                positions[id] = { left, top, topY: top, bottomY: top + cardHeight, centerX: left + cardWidth / 2,
+                    centerY: top + cardHeight / 2, row, column: col };
+                return { id, column: col, row };
+            });
+            sections.push({ ...chapter, positions: sectionPositions });
+            columns += width;
         }
-        const sections = chapters.map(chapter => ({ ...chapter,
-            positions: chapter.positions.map(({ id }) => ({ id, ...cells.get(id) })) }));
-        const columns = Math.max(...[...cells.values()].map(node => node.column)) + 1;
         const width = padding * 2 + (columns - 1) * cellWidth + cardWidth;
-        const height = padding * 2 + Math.max(...[...cells.values()].map(node => node.row)) * cellHeight + cardHeight;
-        const layout = { positions, sections, references, links: routeLinks(links, positions), width, height, cardWidth, cardHeight, cellWidth, cellHeight, padding };
+        const height = padding * 2 + Math.max(...rows.values()) * cellHeight + cardHeight;
+        // Only local edges receive screen paths. Keep the complete dependency
+        // graph and external links available for inspection and jump controls.
+        const layout = { positions, sections, references, links: routeLinks(localLinks, positions), allLinks, externalLinks,
+            width, height, cardWidth, cardHeight, cellWidth, cellHeight, padding };
         layouts.set(onlyBranch, layout);
         return layout;
     }

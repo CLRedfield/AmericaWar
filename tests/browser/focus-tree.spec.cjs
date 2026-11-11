@@ -121,12 +121,20 @@ async function checkRenderedGeometry(page, testInfo, name) {
         }
         return { cards: cards.length, overlaps, detachedEndpoints,
             paths: canvas.querySelectorAll('path[data-focus-from]').length,
-            crossBranchPaths: canvas.querySelectorAll('.focus-link-cross').length };
+            crossBranchPaths: canvas.querySelectorAll('.focus-link-cross').length,
+            invalidExternalBadges: [...canvas.querySelectorAll('.focus-card')].filter(node => {
+                const external = (node.dataset.focusExternalIds || '').split(/\s+/).filter(Boolean);
+                const badge = node.querySelector('.focus-external-label');
+                return Number(node.dataset.focusExternalCount || 0) !== external.length
+                    || (external.length > 0 && (!badge || !badge.textContent.includes(String(external.length))));
+            }).map(node => node.dataset.focusId) };
     });
     await attachJson(testInfo, name, result);
     expect(result.overlaps).toEqual([]);
     expect(result.detachedEndpoints).toEqual([]);
     expect(result.paths).toBeGreaterThan(0);
+    expect(result.crossBranchPaths).toBe(0);
+    expect(result.invalidExternalBadges).toEqual([]);
 }
 
 for (const faction of factions) {
