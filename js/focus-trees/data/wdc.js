@@ -27,7 +27,7 @@
             f('WDC_personalist_command', '个人强人', '山地军政', 1, 6, 7, '军区交给一位个人化的强人指挥官。', [E.capT(3), E.allCapT(2)], ['WDC_officer_governors'], { mutuallyExclusive: ['WDC_staff_technocracy'] }),
             f('WDC_staff_technocracy', '参谋技术官僚', '山地军政', 3, 6, 7, '由参谋与工程军官组成技术统帅。', [E.actionCost('build', -1), E.capI(1)], ['WDC_officer_governors'], { mutuallyExclusive: ['WDC_personalist_command'] }),
             f('WDC_desert_discipline', '荒漠纪律', '山地军政', 1, 7, 8, '以严格纪律维持稀薄补给线。', [E.allCapT(3), E.freeT(3)], ['WDC_personalist_command']),
-            f('WDC_command_state', '司令部国家', '山地军政', 1, 8, 9, '承认军区司令部就是西部国家。', [E.gDef(0.05), E.capT(4), E.ideo('military_junta', '落基山军政府', '军政府')], ['WDC_desert_discipline']),
+            f('WDC_command_state', '司令部国家', '山地军政', 1, 8, 9, '军区以分驻补给站和参谋调度维系山地国家，使有限部队能够灵活转场。', [E.gDef(0.05), E.capT(4), E.freeT(4), E.ppIncome(1), E.maint(-0.04), E.ideo('military_junta', '落基山军政府', '军政府')], ['WDC_desert_discipline']),
             f('WDC_engineer_corps', '工程兵团', '山地军政', 3, 7, 8, '工程兵团修筑道路、水站与工事。', [E.allI(1, 2), E.actionCost('build', -1)], ['WDC_staff_technocracy']),
             f('WDC_technocratic_command', '技术统帅部', '山地军政', 3, 8, 9, '由工程师与技术军官统治的统帅部。', [E.allI(1, 2), E.capBoost(1, 2), E.ideo('technocracy', '西部参谋统合区', '参谋统合区')], ['WDC_engineer_corps']),
             f('WDC_western_command_state', '西部军政', '山地军政', 2, 9, 11, '无论强人还是技术官僚，军区都凝成一套西部军政。', [E.gDef(0.05), E.capT(4), E.allCapT(2), E.badge('西部军政')], [], { prerequisiteAny: [['WDC_command_state'], ['WDC_technocratic_command']] }),
@@ -89,7 +89,7 @@
             f('WDC_sovereign_states', '主权州联盟', '边疆联邦', 22, 7, 8, '让各州保留自己的地盘与守备。', [E.moneyIncome(1), E.allCapT(2)], ['WDC_states_rights_bloc']),
             f('WDC_mountain_confederation', '山地邦联', '边疆联邦', 22, 8, 9, '把州权自治写进山地邦联宪章。', [E.ppIncome(1), E.freeT(4), E.ideo('federalism', '西部指挥军区', '西部军区')], ['WDC_sovereign_states']),
             f('WDC_homestead_acts', '拓荒法案', '边疆联邦', 26, 7, 8, '用土地分配换取拓荒者的忠诚。', [E.recruitAmount(1), E.money(10)], ['WDC_homestead_democracy']),
-            f('WDC_frontier_republic_wdc', '边疆共和国', '边疆联邦', 26, 8, 9, '把拓荒民主升格为边疆共和国。', [E.ppCap(2), E.freeT(2), E.ideo('frontier_republic', '拓荒者共和国', '拓荒共和国')], ['WDC_homestead_acts']),
+            f('WDC_frontier_republic_wdc', '边疆共和国', '边疆联邦', 26, 8, 9, '拓荒合作社向边疆征募提供廉价装备与稳定税收，让大批民兵真正养得起。', [E.ppCap(2), E.freeT(2), E.recruitCost(-1), E.moneyIncome(2), E.maint(-0.02), E.ideo('frontier_republic', '拓荒者共和国', '拓荒共和国')], ['WDC_homestead_acts']),
             f('WDC_western_federation', '西部联邦', '边疆联邦', 24, 9, 11, '无论州权还是拓荒，山地诸州都结成西部联邦。', [E.ppIncome(1), E.allCapT(3), E.freeT(2), E.badge('西部联邦')], [], { prerequisiteAny: [['WDC_mountain_confederation'], ['WDC_frontier_republic_wdc']] }),
 
             // ===================== 政治终局：合流 =====================

@@ -202,17 +202,20 @@ test('political branch choices support nested succession, multiple candidates an
         'choosing the union government does not require economic contracts or crew training');
 });
 
-test('West Russia tiles aligned branch panels and preserves all prerequisites as local lines or external references', () => {
+test('West Russia forms a connected political crown and compact wings without losing prerequisites', () => {
     const { GameState, WestRussiaFocusLayout } = gameClient();
     GameState.initLocalLobby('west-russia');
     const silhouettes = new Set();
+    const politicalShapes = new Set();
     let crossBranchLinks = 0;
+    let politicalBridges = 0;
     let allPrerequisites = 0;
     for (const { id: factionId } of GameState.factions) {
         const tree = GameState.getFocusTree(factionId);
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const layout = WestRussiaFocusLayout.build(tree, factionId);
         const { sections, positions, links, allLinks, externalLinks, references, cardWidth, cardHeight } = layout;
+        assert.equal(layout.structure, 'political-crown');
         assert.equal(cardWidth, 190, factionId + ': the same card width as the American campaign');
         assert.equal(cardHeight, 150, factionId + ': the same card height as the American campaign');
         const branchCount = new Set(tree.map(focus => focus.branch)).size;
@@ -225,14 +228,44 @@ test('West Russia tiles aligned branch panels and preserves all prerequisites as
                 right: Math.max(...cards.map(card => card.left + cardWidth)),
                 top: Math.min(...cards.map(card => card.top)), bottom: Math.max(...cards.map(card => card.bottomY)) };
         });
-        assert.equal(new Set(panels.map(panel => panel.top)).size, 1,
-            factionId + ': every branch starts at the same top edge');
+        assert.ok(new Set(panels.map(panel => panel.top)).size >= 3,
+            factionId + ': the opening, political choices and supporting wings have distinct stages');
         for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) {
             const a = panels[i], b = panels[j];
             assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
                 `${factionId}: ${a.name} and ${b.name} keep separate branch panels instead of interleaving`);
         }
         silhouettes.add(tree.map(({ id }) => `${positions[id].column},${positions[id].row}`).join('|'));
+
+        const prefix = 'wr_' + factionId.toLowerCase() + '_';
+        const assembly = positions[prefix + 'assembly'];
+        const political = sections.filter(section => section.entryId.endsWith('_commit'));
+        assert.equal(political.length, 4);
+        for (const section of political) {
+            assert.equal(section.region, 'politics');
+            assert.ok(section.shape, section.name + ': describes its actual branch shape');
+            politicalShapes.add(section.shape);
+            const entry = byId.get(section.entryId);
+            const parentId = entry.prerequisites[0];
+            const parent = positions[parentId];
+            const entryPosition = positions[entry.id];
+            assert.ok(entryPosition.row > assembly.row, entry.id + ': follows the shared political opening');
+            if (parentId.endsWith('_congress')) {
+                assert.equal(entryPosition.row, parent.row + 1, entry.id + ': succession grows directly from its parent congress');
+            }
+            const stem = entry.id.replace(/_commit$/, '');
+            const choices = tree.filter(focus => focus.branch === section.name && /_\d+_choice$/.test(focus.id));
+            assert.ok(choices.length >= 2, section.name + ': keeps a visible policy fork');
+            const columns = choices.map(focus => positions[focus.id].column);
+            assert.equal(new Set(columns).size, choices.length, section.name + ': choices have separate arms');
+            const wartime = positions[stem + '_wartime'];
+            assert.ok(wartime.column > Math.min(...columns) && wartime.column < Math.max(...columns),
+                section.name + ': the political spine sits between its policy arms');
+            const rulebook = positions[stem + '_rulebook'];
+            const settlements = tree.filter(focus => focus.branch === section.name && /_\d+_settlement$/.test(focus.id));
+            assert.ok(settlements.every(focus => positions[focus.id].row < rulebook.row),
+                section.name + ': alternative policy arms visibly converge below their governments');
+        }
 
         const parents = new Map(tree.map(focus => [focus.id, new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()])]));
         const byLink = new Map(links.map(link => [link.from + '|' + link.to, link]));
@@ -241,9 +274,11 @@ test('West Russia tiles aligned branch panels and preserves all prerequisites as
         const actualCount = [...parents.values()].reduce((sum, group) => sum + group.size, 0);
         allPrerequisites += actualCount;
         assert.equal(allByLink.size, actualCount, factionId + ': no logical prerequisite is deleted');
-        assert.equal(byLink.size + externalByLink.size, allByLink.size,
-            factionId + ': every dependency has exactly one local-line or external-reference representation');
-        assert.ok(links.every(link => !link.crossBranch), factionId + ': long cross-branch physical paths are omitted');
+        const localLinkCount = links.filter(link => !link.crossBranch).length;
+        assert.equal(localLinkCount + externalByLink.size, allByLink.size,
+            factionId + ': every dependency remains a local line or a named external reference');
+        assert.ok(links.filter(link => link.crossBranch).every(link => link.bridge),
+            factionId + ': only explicit political bridges receive cross-branch paths');
         assert.ok(externalLinks.every(link => link.crossBranch), factionId + ': external metadata keeps the cross-branch dependencies');
         let local = 0;
         let tight = 0;
@@ -263,19 +298,26 @@ test('West Russia tiles aligned branch panels and preserves all prerequisites as
                 assert.equal(actual.optional, !focus.prerequisites.includes(parentId));
                 if (byId.get(parentId).branch !== focus.branch) {
                     assert.ok(externalByLink.has(key), `${parentId} → ${focus.id} remains an external reference`);
-                    assert.equal(byLink.has(key), false, 'Cross-branch references must not create long physical paths');
                     assert.ok(references.get(parentId).after.includes(focus.id));
                     assert.ok(references.get(focus.id).before.includes(parentId));
                     crossBranchLinks++;
-                    continue;
+                    const bridge = focus.category === 'politics' && byId.get(parentId).category === 'politics'
+                        && (focus.id.endsWith('_commit') || focus.id === 'wr_one_zeroListen')
+                        && (parentId.endsWith('_assembly') || parentId.endsWith('_congress'));
+                    assert.equal(byLink.has(key), bridge, `${parentId} → ${focus.id}: only a political hierarchy bridge is drawn`);
+                    if (!bridge) continue;
+                    assert.equal(byLink.get(key).bridge, true);
+                    politicalBridges++;
                 }
                 const link = byLink.get(key);
-                assert.ok(link, `${parentId} → ${focus.id} is drawn inside its branch`);
+                assert.ok(link, `${parentId} → ${focus.id} retains its visible connection`);
                 assert.equal(link.optional, actual.optional);
                 const parent = positions[parentId];
                 assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward locally`);
-                local++;
-                if (card.row - parent.row === 1) tight++;
+                if (!link.crossBranch) {
+                    local++;
+                    if (card.row - parent.row === 1) tight++;
+                }
                 let x = parent.centerX;
                 let y = parent.bottomY;
                 for (const [, command, value] of link.path.matchAll(/([HV]) (-?[\d.]+)/g)) {
@@ -296,18 +338,20 @@ test('West Russia tiles aligned branch panels and preserves all prerequisites as
         }
         assert.ok(tight / local >= .95, `${factionId} keeps its local runs compact`);
 
-        const political = sections.find(section => section.entryId.endsWith('_commit'));
-        const isolated = WestRussiaFocusLayout.build(tree, factionId, political.name);
+        const isolatedSection = political[0];
+        const isolated = WestRussiaFocusLayout.build(tree, factionId, isolatedSection.name);
         assert.equal(isolated.sections.length, 1);
-        assert.equal(Object.keys(isolated.positions).length, political.positions.length);
+        assert.equal(Object.keys(isolated.positions).length, isolatedSection.positions.length);
         assert.ok(isolated.links.every(link => !link.crossBranch));
-        for (const { id } of political.positions) {
+        for (const { id } of isolatedSection.positions) {
             assert.deepEqual(isolated.references.get(id), references.get(id));
         }
     }
     assert.equal(silhouettes.size, GameState.factions.length);
+    assert.ok(politicalShapes.size >= 3, 'Political chapters retain different real fork and cabinet structures');
     assert.equal(allPrerequisites, 2030, 'all original logical dependencies remain intact');
     assert.equal(crossBranchLinks, 391, 'opening projects share their own branch; all external prerequisites remain references');
+    assert.equal(politicalBridges, 45, 'all route entries and the northern signal chain visibly connect to their actual political parents');
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {

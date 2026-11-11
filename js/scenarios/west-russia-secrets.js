@@ -3,19 +3,21 @@ const WestRussiaSecrets = (() => {
     const sealed = {
         id: 'ONE_zero_sealed', factionId: 'ONE', title: '白海守灯人', mechanic: 'commerce',
         playstyle: '封存异常电报，发展贸易、守住海岸。',
-        payoff: '每个港口金钱 +1.4/回合；PP +1.5/回合；防御 +12%',
+        payoff: '每个港口金钱 +2/回合；PP +1.5/回合；防御 +12%；免维护 5 兵；维护费率 -2.5%',
         tradeoff: '进攻 -15%',
-        effects: [{ type: 'taggedIncome', tag: '港口', amount: 1.4 }, { type: 'ppIncome', amount: 1.5 },
-            { type: 'globalDefense', amount: 0.12 }, { type: 'globalAttack', amount: -0.15 }]
+        effects: [{ type: 'taggedIncome', tag: '港口', amount: 2 }, { type: 'ppIncome', amount: 1.5 },
+            { type: 'globalDefense', amount: 0.12 }, { type: 'globalAttack', amount: -0.15 },
+            { type: 'freeTroops', amount: 5 }, { type: 'maintenanceRate', amount: -0.025 }]
     };
     const broadcast = {
         id: 'ONE_zero_broadcast', factionId: 'ONE', title: '第零潮汐共同体', mechanic: 'levies',
         playstyle: '接受海底的援军，以高昂军费换取攻势。',
-        payoff: '进攻 +35%；占领补兵 +2；每次征兵 +3',
-        tradeoff: '金钱 -4/回合；PP -2/回合；维护费率 +6%',
+        payoff: '进攻 +35%；占领补兵 +2、得钱 +6；每次征兵 +3；免维护 10 兵',
+        tradeoff: '金钱 -1/回合；PP -0.8/回合；维护费率 +3%',
         effects: [{ type: 'globalAttack', amount: 0.35 }, { type: 'captureTroops', amount: 2 },
-            { type: 'recruitAmount', amount: 3 }, { type: 'moneyIncome', amount: -4 },
-            { type: 'ppIncome', amount: -2 }, { type: 'maintenanceRate', amount: 0.06 }]
+            { type: 'recruitAmount', amount: 3 }, { type: 'moneyIncome', amount: -1 },
+            { type: 'ppIncome', amount: -0.8 }, { type: 'maintenanceRate', amount: 0.03 },
+            { type: 'captureMoney', amount: 6 }, { type: 'freeTroops', amount: 10 }]
     };
     function extend(profile, design) {
         if (profile.faction.id !== 'ONE') return design;

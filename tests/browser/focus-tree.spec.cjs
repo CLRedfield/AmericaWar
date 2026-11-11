@@ -96,7 +96,7 @@ async function attachJson(testInfo, name, data) {
     await testInfo.attach(name, { body: Buffer.from(JSON.stringify(data, null, 2)), contentType: 'application/json' });
 }
 
-async function checkRenderedGeometry(page, testInfo, name) {
+async function checkRenderedGeometry(page, testInfo, name, expectedBridges = 0) {
     const result = await page.locator('.focus-tree-canvas').evaluate(canvas => {
         const cards = [...canvas.querySelectorAll('.focus-card')].map(element => ({
             id: element.dataset.focusId, rect: element.getBoundingClientRect()
@@ -122,18 +122,28 @@ async function checkRenderedGeometry(page, testInfo, name) {
         return { cards: cards.length, overlaps, detachedEndpoints,
             paths: canvas.querySelectorAll('path[data-focus-from]').length,
             crossBranchPaths: canvas.querySelectorAll('.focus-link-cross').length,
+            invalidPoliticalBridges: [...canvas.querySelectorAll('.focus-link-cross')].filter(link => {
+                const from = link.dataset.focusFrom || '', to = link.dataset.focusTo || '';
+                return !(to.endsWith('_commit') || to === 'wr_one_zeroListen')
+                    || !(from.endsWith('_assembly') || from.endsWith('_congress'));
+            }).map(link => [link.dataset.focusFrom, link.dataset.focusTo]),
             invalidExternalBadges: [...canvas.querySelectorAll('.focus-card')].filter(node => {
                 const external = (node.dataset.focusExternalIds || '').split(/\s+/).filter(Boolean);
+                const drawn = new Set([...canvas.querySelectorAll('path[data-focus-from]')]
+                    .filter(link => link.dataset.focusTo === node.dataset.focusId).map(link => link.dataset.focusFrom));
+                const referenced = external.filter(id => !drawn.has(id));
                 const badge = node.querySelector('.focus-external-label');
                 return Number(node.dataset.focusExternalCount || 0) !== external.length
-                    || (external.length > 0 && (!badge || !badge.textContent.includes(String(external.length))));
+                    || (referenced.length > 0 && (!badge || !badge.textContent.includes(String(referenced.length))))
+                    || (referenced.length === 0 && Boolean(badge));
             }).map(node => node.dataset.focusId) };
     });
     await attachJson(testInfo, name, result);
     expect(result.overlaps).toEqual([]);
     expect(result.detachedEndpoints).toEqual([]);
     expect(result.paths).toBeGreaterThan(0);
-    expect(result.crossBranchPaths).toBe(0);
+    expect(result.crossBranchPaths).toBe(expectedBridges);
+    expect(result.invalidPoliticalBridges).toEqual([]);
     expect(result.invalidExternalBadges).toEqual([]);
 }
 
@@ -142,7 +152,7 @@ for (const faction of factions) {
         await openTree(page, faction.id);
         await expect(page.locator('.focus-card')).toHaveCount(faction.count);
         await checkUnifiedCards(page, testInfo, `${faction.id}-unified-cards`);
-        await checkRenderedGeometry(page, testInfo, `${faction.id}-full-geometry`);
+        await checkRenderedGeometry(page, testInfo, `${faction.id}-full-geometry`, 4);
         await snapshot(page, testInfo, `${faction.id}-full`);
 
         await page.getByRole('button', { name: '全局图', exact: true }).click();

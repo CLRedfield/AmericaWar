@@ -60,8 +60,13 @@ test('answering the signal creates a costly supernatural institution and an acti
     const state = GameState.getGameModifiers().routeState;
     assert.equal(state.id, 'ONE_zero_broadcast');
     assert.equal(GameState.getIdeology().id, 'wr_zero_tide');
-    assert.equal(GameState.getGameModifiers().moneyIncome, -4);
-    assert.equal(GameState.getGameModifiers().ppIncome, -2);
+    assert.equal(GameState.getGameModifiers().moneyIncome, -1);
+    assert.equal(GameState.getGameModifiers().ppIncome, -0.8);
+    assert.equal(GameState.getMoneyIncomeBonus(), -3, 'the final ideology still imposes a peacetime deficit');
+    assert.ok(GameState.getMaintenanceRate() > 0.5, 'the supernatural army remains expensive');
+    assert.equal(GameState.getEffectiveCaptureMoney(), 6, 'victory supplies the next attack');
+    assert.equal(GameState.getEffectiveCaptureTroops(), 2);
+    assert.equal(GameState.getEffectiveFreeTroops(), 10);
     assert.ok(GameState.getEffectiveGlobalAttack() >= .5);
     const html = GamePageView.renderRouteAction();
     assert.match(html, /战时征集/);

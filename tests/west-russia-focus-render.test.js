@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const { createHash } = require('node:crypto');
 
 const root = path.resolve(__dirname, '..');
 const scripts = [...fs.readFileSync(path.join(root, 'index.html'), 'utf8')
@@ -66,6 +67,12 @@ function parentIds(focus) {
     return new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()]);
 }
 
+function politicalBridge(parent, focus) {
+    return parent.category === 'politics' && focus.category === 'politics'
+        && (focus.id.endsWith('_commit') || focus.id === 'wr_one_zeroListen')
+        && (parent.id.endsWith('_assembly') || parent.id.endsWith('_congress'));
+}
+
 function render(client, factionId, selectedId, { branchOnly = false, overview = false } = {}) {
     const { GameState, GamePageView, App } = client;
     GameState.game.focusViewFactionId = factionId;
@@ -91,7 +98,7 @@ function expectedEdges(tree) {
     const visible = new Set(tree.map(focus => focus.id));
     const byId = new Map(tree.map(focus => [focus.id, focus]));
     return tree.flatMap(focus => [...parentIds(focus)]
-        .filter(id => visible.has(id) && byId.get(id).branch === focus.branch).map(id => ({
+        .filter(id => visible.has(id) && (byId.get(id).branch === focus.branch || politicalBridge(byId.get(id), focus))).map(id => ({
         key: `${id}|${focus.id}`,
         optional: !focus.prerequisites.includes(id)
     })));
@@ -144,7 +151,7 @@ function segmentIntersectsRect(segment, { left, top, width, height }) {
     return true;
 }
 
-test('West Russia full, overview and isolated views draw every real local prerequisite and preserve OR alternatives', () => {
+test('West Russia draws local prerequisites and short political hierarchy bridges while preserving OR alternatives', () => {
     const client = gameClient();
     const { GameState, WestRussiaFocusLayout } = client;
     GameState.game.completedFocuses.push('wr_one_assembly');
@@ -153,10 +160,17 @@ test('West Russia full, overview and isolated views draw every real local prereq
         const full = render(client, faction.id, tree[0].id);
         assert.equal(cards(full).size, tree.length, `${faction.id}: every full-tree card is rendered`);
         assertSameEdges(full, tree, `${faction.id}: full tree local prerequisites`);
-        assert.equal(renderedEdges(full).some(edge => {
+        const displayedBridges = renderedEdges(full).filter(edge => {
             const [from, to] = edge.key.split('|');
             return GameState.getFocusById(from, faction.id).branch !== GameState.getFocusById(to, faction.id).branch;
-        }), false, faction.id + ': full view uses references instead of long cross-branch paths');
+        });
+        assert.equal(displayedBridges.length, faction.id === 'ONE' ? 5 : 4,
+            faction.id + ': each political route and the revealed signal chain visibly connect to their actual parent');
+        for (const edge of displayedBridges) {
+            const [from, to] = edge.key.split('|');
+            assert.ok(politicalBridge(GameState.getFocusById(from, faction.id), GameState.getFocusById(to, faction.id)),
+                faction.id + ': physical cross-branch links are limited to the short political hierarchy');
+        }
 
         const overview = render(client, faction.id, tree[0].id, { overview: true });
         assertSameEdges(overview, tree, `${faction.id}: overview local prerequisites`);
@@ -202,7 +216,11 @@ test('every external West Russia prerequisite is named on its card and has a rea
                 continue;
             }
             externalDependencies += expected.length;
-            assert.match(card.contents, new RegExp('外部前置\\s*' + expected.length));
+            const referenced = expected.filter(id => !politicalBridge(byId.get(id), focus));
+            if (referenced.length) assert.match(card.contents, new RegExp('外部前置\\s*' + referenced.length),
+                focus.id + ': only prerequisites without a visible political bridge need a badge');
+            else assert.doesNotMatch(card.contents, /focus-external-label/,
+                focus.id + ': a drawn political entry does not repeat its prerequisite badge');
             const allParents = [...parentIds(focus)];
             assert.equal(GameState.areFocusPrerequisitesMet(focus, allParents), true);
             const requiredExternal = expected.find(id => focus.prerequisites.includes(id));
@@ -285,6 +303,35 @@ test('both campaigns use the same full-size colored card contract and political 
     }
 });
 
+test('the American campaign retains its authored tree silhouettes and prerequisite structure', () => {
+    const { GameState, GamePageView } = gameClient();
+    GameState.initLocalLobby('america');
+    // The West Russia redesign must not rearrange the American trees the
+    // player already finds readable. Effects can change without moving nodes.
+    const authored = {
+        USA: 'a2402cf6283a979b2888ec5a841b51626c970fd183ea14786cd170f9d5afd84d',
+        CSA: '24f95907a92e838f5a7ed2e8a5445a8cfbb211056c648de522fb339455b682f1',
+        AUS: '1b12c12f05532162a848d10c8df1c64a5093980ec82dbf489a9bd8e5044c0093',
+        CON: 'ac65d573321ca21a321bd79b3032d9b16512bd2c9916f7396a8f936eedafc680',
+        NEN: 'fc6d73e1ef451e9d56a343a55766165570b103bd369e2ab4c5dee4348afed1a8',
+        PAC: '38925f2ad53563a422141718d723e77343b982c0a89e8f5e9b8f4b7a09ea04d2',
+        WDC: 'c1c0249e7f099d548899c2263f94489ebe79d5555e07f1495e2b2d30fe84c8a6',
+        TEX: 'd06a738cb149b1bbf52fb477d24377010be9af764ec27fe7aab9b12abc6b1be6'
+    };
+    for (const faction of GameState.factions) {
+        const tree = GameState.getFocusTree(faction.id);
+        const geometry = tree.map(focus => [focus.id, focus.x, focus.y, focus.prerequisites,
+            focus.prerequisiteAny || [], focus.mutuallyExclusive || []]);
+        assert.equal(createHash('sha256').update(JSON.stringify(geometry)).digest('hex'), authored[faction.id],
+            faction.id + ': keeps the original authored nodes and connections');
+        const layout = GamePageView.getFocusTreeLayout(tree);
+        for (const focus of tree) {
+            assert.equal(layout.positions[focus.id].left, 36 + focus.x * 226);
+            assert.equal(layout.positions[focus.id].top, 36 + focus.y * 184);
+        }
+    }
+});
+
 test('all factions expose every mutex relation and highlight exactly the selected focus conflicts', () => {
     const client = gameClient();
     const { GameState } = client;
@@ -325,7 +372,8 @@ test('Komi right-wing candidates form one four-way choice in full, overview and 
         const candidateGroups = mutualGroups(html).filter(group => ids(group.attrs['data-focus-mutual-group']).some(id => expected.includes(id)));
         assert.equal(candidateGroups.length, 1, 'Four candidates must not appear as two independent choices');
         assert.deepEqual(ids(candidateGroups[0].attrs['data-focus-mutual-group']).sort(), [...expected].sort());
-        assert.match(candidateGroups[0].contents, /四选一/);
+        assert.match(candidateGroups[0].contents, /四选一/,
+            'Four-way choice remains visibly named in ' + JSON.stringify(options));
     }
 });
 

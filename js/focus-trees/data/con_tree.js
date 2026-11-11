@@ -48,9 +48,9 @@
             f('CON_christian_identity', '基督教认同', '宪政国', 7, 6, 7, '把白人福音派神学抬成国家意识形态。', [E.crisis(3), E.ppIncome(1)], ['CON_strongman_call'], { mutuallyExclusive: ['CON_patton_junta'] }),
             f('CON_patton_junta', '巴顿军政府', '宪政国', 9, 6, 7, '巴顿将军以铁腕接管摄政府。', [E.capT(3), E.gAtk(0.05)], ['CON_strongman_call'], { mutuallyExclusive: ['CON_christian_identity'] }),
             f('CON_ci_white_gospel', '白人福音', '宪政国', 7, 7, 8, '巡回布道把战争包装成净化与圣战。', [E.crisis(3), E.freeT(2)], ['CON_christian_identity']),
-            f('CON_ci_dominion', '神权统治', '宪政国', 7, 8, 9, '基督教认同教团把南方变成一座神权堡垒。', [E.ppIncome(1), E.gDef(0.05), E.crisis(4), E.ideo('christian_identity', '基督教神权国', '神权国')], ['CON_ci_white_gospel']),
+            f('CON_ci_dominion', '神权统治', '宪政国', 7, 8, 9, '教团以教区仓廪和常备守军维系神权堡垒，为长期防务提供粮饷。', [E.ppIncome(1), E.gDef(0.05), E.crisis(4), E.moneyIncome(2.5), E.freeT(6), E.recruitCost(-1), E.maint(-0.02), E.ideo('christian_identity', '基督教神权国', '神权国')], ['CON_ci_white_gospel']),
             f('CON_patton_martial_law', '军事戒严', '宪政国', 9, 7, 8, '全境实行戒严，军令直达每个县。', [E.allCapT(2), E.maint(-0.02)], ['CON_patton_junta']),
-            f('CON_patton_caudillo', '南方军事强人', '宪政国', 9, 8, 9, '巴顿成为南方的军事强人，承认个人统治。', [E.gAtk(0.05), E.capT(3), E.allCapT(2), E.ideo('military_junta', '南方军政府', '南方军政府')], ['CON_patton_martial_law']),
+            f('CON_patton_caudillo', '南方军事强人', '宪政国', 9, 8, 9, '巴顿以机动作战巩固个人统治，将缴获兵员交给前线军需体系。', [E.gAtk(0.05), E.capT(3), E.allCapT(2), E.actionCost('move', -1), E.capTroop(1), E.freeT(4), E.maint(-0.02), E.ideo('military_junta', '南方军政府', '南方军政府')], ['CON_patton_martial_law']),
             // 棕榈扇收束 capstone
             f('CON_constitutional_republic', '宪政美利坚共和国', '宪政国', 5, 11, 11, '无论由谁掌舵，深南方都凝成一个自认正统的宪政共和国。', [E.ppCap(3), E.pp(6), E.gDef(0.04), E.allCapT(3), E.badge('宪政美利坚共和国')], [], { prerequisiteAny: [['CON_odp_restored_republic'], ['CON_ford_corporate_state'], ['CON_klan_imperial_congress'], ['CON_ci_dominion'], ['CON_patton_caudillo'], ['CON_russell_dixiecrat']] }),
 
@@ -83,10 +83,10 @@
             f('CON_noi_nation', '伊斯兰国度', '黑人起义', 21, 5, 7, '伊斯兰国度以信仰与纪律自立社区。', [E.recruitAmount(1), E.crisis(2)], ['CON_uplift_movement'], { mutuallyExclusive: ['CON_garvey_unia'] }),
             f('CON_unia_black_star', '黑星航运', '黑人起义', 19, 6, 7, '黑星航运把海岸贸易掌握在自己手里。', [E.tagT('港口', 1), E.money(8)], ['CON_garvey_unia']),
             f('CON_unia_back_to_africa', '返非运动', '黑人起义', 19, 7, 8, '组织志愿者与资源，启动返非计划。', [E.freeT(2), E.tagInc('港口', 1)], ['CON_unia_black_star']),
-            f('CON_unia_liberia_pact', '利比里亚协定', '黑人起义', 19, 8, 9, '与利比里亚结盟，建立跨大西洋的黑人国家网络。', [E.moneyIncome(1), E.tagT('港口', 1), E.ideo('garveyism', '黑星-利比里亚联盟', '黑星联盟')], ['CON_unia_back_to_africa']),
+            f('CON_unia_liberia_pact', '利比里亚协定', '黑人起义', 19, 8, 9, '黑星航运以跨大西洋侨商网络承担征募和远征补给，港口仍是财富中心。', [E.moneyIncome(1), E.tagT('港口', 1), E.moneyIncome(2), E.recruitCost(-1), E.capMoney(3), E.ideo('garveyism', '黑星-利比里亚联盟', '黑星联盟')], ['CON_unia_back_to_africa']),
             f('CON_noi_self_reliance', '自立社区', '黑人起义', 21, 6, 7, '以自营商铺与农场支撑社区财政。', [E.moneyIncome(1), E.freeT(2)], ['CON_noi_nation']),
             f('CON_noi_fruit', '伊斯兰之果民兵', '黑人起义', 21, 7, 8, '伊斯兰之果把信徒训练成纪律严明的民兵。', [E.allT(1), E.gAtk(0.05)], ['CON_noi_self_reliance']),
-            f('CON_noi_nation_state', '信仰国度', '黑人起义', 21, 8, 9, '把黑带打造成一个信仰立国的国度。', [E.freeT(3), E.crisis(3), E.ideo('black_nationalism', '伊斯兰信仰国度', '信仰国度')], ['CON_noi_fruit']),
+            f('CON_noi_nation_state', '信仰国度', '黑人起义', 21, 8, 9, '信仰社群经营工坊和互助商社，使自力更生足以供养常备军。', [E.freeT(3), E.crisis(3), E.actionCost('build', -1), E.moneyIncome(2), E.ppIncome(1), E.ideo('black_nationalism', '伊斯兰信仰国度', '信仰国度')], ['CON_noi_fruit']),
             // 握拳收束 capstone + Sun Ra 支线
             f('CON_black_belt_republic', '黑带共和国', '黑人起义', 17, 10, 11, '各派系在同一面旗下结成黑带共和国。', [E.recruitAmount(2), E.ppCap(3), E.allCapT(3), E.badge('黑带共和国'), E.ideo('black_belt', '黑带共和国', '黑带共和国')], [], { prerequisiteAny: [['CON_pan_african_socialism'], ['CON_abb_brotherhood'], ['CON_progressive_black_republic'], ['CON_unia_liberia_pact'], ['CON_noi_nation_state'], ['CON_black_belt_assembly']] }),
             f('CON_sun_ra_arkestra', '太阳神拉星际方舟', '黑人起义', 17, 11, 12, '太阳神拉把黑带共和国想象成一艘驶向群星的方舟。', [E.ppIncome(1), E.freeT(4), E.crisis(4), E.badge('宇宙黑人国'), E.ideo('afrofuturism', '宇宙黑人国', '星际方舟')], ['CON_black_belt_republic']),

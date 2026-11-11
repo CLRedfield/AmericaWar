@@ -1118,7 +1118,7 @@ const GamePageView = {
                             <span><i class="focus-legend-any"></i> 任选方案</span>
                             ${westRussia ? `
                                 <span><i class="focus-legend-mutex"></i> 互斥 · 红框为选中项的冲突路线</span>
-                                <span class="focus-legend-hint">${overview ? '点选入口或用下拉菜单定位支线' : '线只连接本支线 · 外部前置见卡片与详情'}</span>
+                                <span class="focus-legend-hint">${overview ? '点选入口或用下拉菜单定位支线' : '政治入口与分支内连线 · 其它前置点击查看'}</span>
                             ` : `
                                 <span><i class="focus-legend-mutex"></i> 互斥</span>
                                 <span class="focus-legend-hint">点击详情中的前置国策可跨支线跳转</span>
@@ -1401,6 +1401,15 @@ const GamePageView = {
                 maxB = Math.max(maxB, p.bottomY);
             });
             if (!isFinite(minL)) return;
+            if (layout.regions) {
+                // Let the forks and convergences make the silhouette. A small
+                // colored heading is enough to identify a chapter; enclosing
+                // every branch in a tall panel makes them all look alike.
+                const y = minT - 27;
+                bands.push(`<g class="focus-section-heading"><path class="focus-section-rule" d="M ${minL} ${y - 8} V ${y + 7} H ${minL + 14}" stroke="${color}" />`
+                    + `<text class="focus-lane-label" x="${minL + 20}" y="${y + 5}" fill="${color}">${escapeHtml(branch)}</text></g>`);
+                return;
+            }
             const pad = 16;
             const labelGap = 22;
             const x = minL - pad;
@@ -1465,7 +1474,9 @@ const GamePageView = {
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const neighbors = new Map(tree.map(focus => [focus.id, (focus.mutuallyExclusive || []).filter(id => {
             const other = byId.get(id);
-            return other?.branch === focus.branch && other.mutuallyExclusive?.includes(focus.id)
+            const politicalEntries = focus.category === 'politics' && other?.category === 'politics'
+                && focus.id.endsWith('_commit') && other.id.endsWith('_commit');
+            return (other?.branch === focus.branch || politicalEntries) && other?.mutuallyExclusive?.includes(focus.id)
                 && layout.positions[id]?.row === layout.positions[focus.id]?.row;
         })]));
         const visited = new Set();
@@ -1518,6 +1529,11 @@ const GamePageView = {
             if (segments.some(segment => intersectsCard(...segment))) continue;
             const offsets = [0];
             for (let offset = 36; offset <= (last.centerX - first.centerX) / 2; offset += 36) offsets.push(-offset, offset);
+            // Compact four-way fans can fill the entire space above their
+            // bracket with prerequisite lines. Put the label beside the fan
+            // when no clear position exists within it.
+            const halfSpan = (last.centerX - first.centerX) / 2;
+            for (const margin of [64, 105]) offsets.push(-halfSpan - margin, halfSpan + margin);
             const labelRect = [-8, -22, 12].flatMap(dy => offsets.map(dx => ({
                 x: midpoint + dx - 25, y: y + dy - 9, width: 50, height: 17,
                 distance: dx * dx + (dy + 8) * (dy + 8)
@@ -1544,14 +1560,15 @@ const GamePageView = {
         const completed = new Set(GameState.game.completedFocuses);
         const lines = [];
         const selected = [];
-        for (const { from, to, optional, crossBranch, path } of layout.links) {
-            // Cross-branch requirements are explicit references, not long wires
-            // weaving through unrelated political and economic cards.
-            if (crossBranch || byId.get(from)?.branch !== byId.get(to)?.branch) continue;
+        for (const { from, to, optional, crossBranch, path, display } of layout.links) {
+            // The shared political opening and succession are part of the
+            // visible tree. Other cross-wing projects remain jump references.
+            const politicalBridge = display === 'political-entry';
+            if ((crossBranch || byId.get(from)?.branch !== byId.get(to)?.branch) && !politicalBridge) continue;
             const active = from === selectedFocusId || to === selectedFocusId;
             const classes = ['focus-link', optional ? 'focus-link-any' : '', crossBranch ? 'focus-link-cross' : '',
                 completed.has(from) ? 'focus-link-met' : '', active ? 'focus-link-active' : ''].join(' ');
-            const color = crossBranch ? '#91a69b' : this.focusBranchColor(byId.get(to));
+            const color = this.focusBranchColor(byId.get(to));
             (active ? selected : lines).push(`<path class="${classes}" style="--focus-link-color: ${color}"
                 data-focus-from="${from}" data-focus-to="${to}" d="${path}" />`);
         }
@@ -1619,6 +1636,8 @@ const GamePageView = {
         const color = this.focusBranchColor(focus, viewFactionId);
         const mutuals = focus.mutuallyExclusive || [];
         const externalParents = focus.category ? this.getExternalFocusParentIds(focus, viewFactionId) : [];
+        const referencedParents = externalParents.filter(id => !layout.links?.some(link =>
+            link.from === id && link.to === focus.id && link.display === 'political-entry'));
         const label = escapeHtml(`${focus.name} · ${focus.branch} · ${statusText}`
             + (externalParents.length ? ` · 外部前置 ${externalParents.length}，点击查看详情` : '')
             + (mutuals.length ? ` · 与 ${mutuals.length} 项国策互斥` : '')
@@ -1644,7 +1663,7 @@ const GamePageView = {
                 <span class="focus-card-bottom">
                     <span class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</span>
                     <span class="focus-card-badges">
-                        ${externalParents.length ? `<span class="focus-external-label" aria-hidden="true">外部前置 ${externalParents.length}</span>` : ''}
+                        ${referencedParents.length ? `<span class="focus-external-label" aria-hidden="true">外部前置 ${referencedParents.length}</span>` : ''}
                         ${mutuals.length ? `<span class="focus-choice-label" aria-hidden="true">互斥 ${mutuals.length}</span>` : ''}
                     </span>
                 </span>
