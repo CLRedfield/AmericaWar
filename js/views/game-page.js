@@ -1571,7 +1571,7 @@ const GamePageView = {
         const statusText = ({
             done: '已完成',
             'mutually-blocked': '互斥',
-            'phase-blocked': '战斗期开放',
+            'phase-blocked': focus.notBeforeTurn && GameState.game.currentTurn < focus.notBeforeTurn ? `第${focus.notBeforeTurn}回合` : '战斗期开放',
             'territory-blocked': '控制省区',
             locked: '锁定',
             'pp-blocked': 'PP不足'

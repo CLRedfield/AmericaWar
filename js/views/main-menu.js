@@ -61,7 +61,7 @@ const MainMenuView = {
                             </label>
                             <label class="menu-turn-field">
                                 <span>每回合时间</span>
-                                <select onchange="window.app.setMenuTurnLimit(this.value)">
+                                <select aria-label="每回合时间" onchange="window.app.setMenuTurnLimit(this.value)">
                                     ${GameState.turnLimitOptions.map(option => `
                                         <option value="${option}" ${option === window.app.menuTurnLimit ? 'selected' : ''}>${GameState.formatTurnLimitOption(option)}</option>
                                     `).join('')}

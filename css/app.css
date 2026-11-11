@@ -4778,3 +4778,15 @@ button.focus-condition:focus-visible {
     .route-action-card { margin-top: 14px; }
     .route-power > .btn { min-height: 44px; }
 }
+
+/* Focus commands share the warm metal and paper language of the command desk. */
+.focus-card { background: #252c29; box-shadow: 0 2px 6px #0004; }
+.focus-card:is(:hover, .selected) { background: #373c30; border-color: #c7b27d; }
+.focus-card.done { background: #2b3a30; border-color: #93ac8e; }
+.focus-emblem { background: #2d342c; box-shadow: inset 0 0 0 3px #20271f, 0 2px 3px #0005; }
+.focus-plaque { background: #2b312c; border-color: #717866; box-shadow: 0 2px 3px #0004; }
+.focus-emblem-card.done .focus-plaque { background: #2f3c30; border-color: #98b393; }
+.focus-emblem-card:is(.selected, :hover, :focus-visible) .focus-plaque { background: #4a4532; border-color: #d5bf87; box-shadow: 0 0 0 1px #c7b27d55; }
+.focus-emblem-card.focus-mutual-target .focus-plaque { background: #49332e; border-color: #ce8d7e; }
+.focus-detail-actions { background: #252c29; padding-bottom: 8px; }
+.route-outcome-preview .focus-effect-list { margin-top: 14px; font-size: .75rem; line-height: 1.7; }
