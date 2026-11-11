@@ -189,6 +189,14 @@ test('every external West Russia prerequisite is named on its card and has a rea
             assert.deepEqual(ids(card.attrs['data-focus-external-ids']).sort(), expected,
                 focus.id + ': card retains all AND and OR external parents');
             assert.equal(Number(card.attrs['data-focus-external-count']), expected.length);
+            if (focus.prerequisiteAny?.length) {
+                const requirements = GamePageView.renderFocusPrerequisites(focus, faction.id);
+                const groups = elements(requirements, 'div').filter(element => hasClass(element, 'focus-prereq-option'))
+                    .map(element => [...element.contents.matchAll(/data-focus-(?:link|requirement)-id="([^"]+)"/g)]
+                        .map(([, id]) => id).sort().join('|')).sort();
+                const actual = Array.from(focus.prerequisiteAny, group => Array.from(group).sort().join('|')).sort();
+                assert.deepEqual(groups, actual, focus.id + ': OR alternatives retain every complete group');
+            }
             if (!expected.length) {
                 assert.doesNotMatch(card.contents, /focus-external-label/);
                 continue;
