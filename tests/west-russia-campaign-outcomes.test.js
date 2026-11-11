@@ -34,17 +34,15 @@ function complete(client, key) {
     assert.ok(GameState.game.completedFocuses.includes(id));
 }
 
-test('the northern signal appears through exploration, obeys its date and forces a seal-or-reply choice', () => {
+test('the northern signal unlocks through politics alone and forces a seal-or-reply choice', () => {
     const c = campaign();
     const { GameState, GamePageView, App } = c;
     assert.doesNotMatch(GamePageView.renderFocusTreeModal(), /data-focus-id="wr_one_zeroListen"/);
     complete(c, 'report');
-    complete(c, 'shortwaveReceivers');
+    complete(c, 'assembly');
     assert.match(GamePageView.renderFocusTreeModal(), /data-focus-id="wr_one_zeroListen"/);
-    complete(c, 'nightLights');
-    GameState.game.currentTurn = 5;
-    assert.equal(App.getFocusAdvanceAvailability('wr_one_zeroListen').enabled, false);
-    GameState.game.currentTurn = 6;
+    assert.equal(GameState.game.currentTurn, 1);
+    assert.equal(App.getFocusAdvanceAvailability('wr_one_zeroListen').enabled, true);
     complete(c, 'zeroListen');
     complete(c, 'zeroSeal');
     assert.equal(GameState.getGameModifiers().routeState.id, 'ONE_zero_sealed');
@@ -56,10 +54,8 @@ test('the northern signal appears through exploration, obeys its date and forces
 test('answering the signal creates a costly supernatural institution and an actionable country panel', () => {
     const c = campaign();
     const { GameState, GamePageView, App, WestRussiaEndings } = c;
-    GameState.game.currentTurn = 6;
-    for (const key of ['report', 'shortwaveReceivers', 'nightLights', 'zeroListen', 'zeroReply']) complete(c, key);
-    assert.equal(App.getFocusAdvanceAvailability('wr_one_zeroBroadcast').enabled, false);
-    GameState.game.currentTurn = 9;
+    for (const key of ['report', 'assembly', 'zeroListen', 'zeroReply']) complete(c, key);
+    assert.equal(App.getFocusAdvanceAvailability('wr_one_zeroBroadcast').enabled, true);
     complete(c, 'zeroBroadcast');
     const state = GameState.getGameModifiers().routeState;
     assert.equal(state.id, 'ONE_zero_broadcast');
@@ -70,23 +66,24 @@ test('answering the signal creates a costly supernatural institution and an acti
     const html = GamePageView.renderRouteAction();
     assert.match(html, /战时征集/);
     assert.match(html, /executeRouteAction/);
-    assert.match(html, /财政|收入/);
-    assert.equal(WestRussiaEndings.getById(state.id).goalNodes, 12);
+    assert.match(html, /已生效/);
+    assert.doesNotMatch(html, /施政目标|\/3 次|控制.*省/);
+    assert.equal(WestRussiaEndings.getById(state.id).goalNodes, undefined);
 });
 
-test('territorial gains complete a route milestone and carry its identity into victory and the campaign epilogue', () => {
+test('route identity reaches victory without territory milestones or optional action requirements', () => {
     const c = campaign();
     const { GameState, MapData, WestRussiaRouteActions } = c;
     const modifiers = GameState.getGameModifiers();
     WestRussiaRouteActions.settlement('ONE_zero_sealed', 'ONE', modifiers);
-    modifiers.routeState.uses = 3;
+    assert.equal(modifiers.routeState.uses, 0);
     MapData.nodes.forEach(node => { node.factionId = 'ONE'; });
     GameState.notify();
-    assert.equal(modifiers.routeState.objectiveComplete, true);
+    assert.equal(modifiers.routeState.objectiveComplete, undefined);
     const winner = GameState.checkVictory();
     assert.equal(winner.routeTitle, '白海守灯人');
-    assert.match(winner.routeText, /专属施政执行 3 次/);
+    assert.match(winner.routeText, /封存异常电报/);
     const stories = GameState.getCampaignStories();
-    assert.ok(stories.some(story => story.id === 'wr_route_ONE_zero_sealed'));
+    assert.ok(!stories.some(story => story.id.startsWith('wr_route_')));
     assert.equal(stories.find(story => story.id === 'wr_ending').title, '白海守灯人');
 });

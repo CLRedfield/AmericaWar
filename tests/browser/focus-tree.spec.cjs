@@ -5,7 +5,7 @@ const compareScreenshots = process.env.FOCUS_COMPARE === '1';
 const factions = [
     { id: 'WRF', count: 154, entry: 'wr_wrf_cadres_commit', parent: 'wr_wrf_zhukov_congress' },
     { id: 'KOM', count: 168, entry: 'wr_kom_right_commit', parent: 'wr_kom_assembly' },
-    { id: 'SAM', count: 159, entry: 'wr_sam_officers_commit', parent: 'wr_sam_officerRegister' }
+    { id: 'SAM', count: 159, entry: 'wr_sam_officers_commit', parent: 'wr_sam_assembly' }
 ];
 const rightChoices = [0, 1, 2, 3].map(index => `wr_kom_right_${index}_choice`);
 const card = (page, id) => page.locator(`.focus-card[data-focus-id="${id}"]`);

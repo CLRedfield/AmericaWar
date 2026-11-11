@@ -140,7 +140,9 @@ test('West Russia provides a connected province map and complete, distinct facti
         for (const focus of focuses) {
             assert.ok(!campaignFocusIds.has(focus.id));
             campaignFocusIds.add(focus.id);
-            assert.ok(focus.effects.length && focus.description);
+            assert.ok(focus.effects.length, focus.id + ' has a concrete effect');
+            assert.equal(typeof focus.description, 'string');
+            assert.ok(focus.description || focus.category === 'politics', focus.id + ' only omits redundant political prose');
             for (const id of focus.requiredControl || []) assert.ok(MapData.getNode(id), id + ' exists');
             const parents = [...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()];
             for (const parent of parents) {
@@ -195,9 +197,9 @@ test('political branch choices support nested succession, multiple candidates an
     assert.ok(right.every(focus => focus.mutuallyExclusive.length === 3));
 
     const union = GameState.getFocusById('wr_tat_union_commit', 'TAT');
-    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion']), false);
-    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion', 'wr_tat_openContracts']), true);
-    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_dockCrewSchool', 'wr_tat_riverBook']), true);
+    assert.equal(GameState.areFocusPrerequisitesMet(union, []), false);
+    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly']), true,
+        'choosing the union government does not require economic contracts or crew training');
 });
 
 test('West Russia draws every prerequisite downward and routes links between cards', () => {
@@ -274,7 +276,7 @@ test('West Russia draws every prerequisite downward and routes links between car
         }
     }
     assert.equal(silhouettes.size, GameState.factions.length);
-    assert.equal(crossBranchLinks, 375, 'the signal investigation links both the shortwave and night-light chapters');
+    assert.equal(crossBranchLinks, 413, 'conditional economic and military projects retain their cross-branch connections');
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {
@@ -318,7 +320,7 @@ test('preparation permits friendly movement and blocks cross-border orders throu
     assert.ok(SimultaneousTurns.addOrder(friendly));
     assert.equal(SimultaneousTurns.buildAiPlan('KOM').orders.some(order => order.kind === 'attack'), false);
 
-    const wartime = GameState.getFocusById('wr_wrf_zhukov_wartime');
+    const wartime = GameState.getFocusById('wr_wrf_whiteSeaRenewal');
     assert.equal(GameState.getFocusStatus(wartime), 'phase-blocked');
     assert.equal(app.getFocusAdvanceAvailability(wartime.id).reason, '战斗期开放');
     assert.equal(GameAI.aiAdvanceFocus('WRF', wartime, null, { free: true }), false);
@@ -326,7 +328,7 @@ test('preparation permits friendly movement and blocks cross-border orders throu
     const localPlan = SimultaneousTurns.snapshotLocalPlan(true);
     // The host must check the target owner even when an incoming packet claims a friendly move.
     localPlan.orders.push({ ...attack, kind: 'move' });
-    const foreignWartimeId = 'wr_kom_centre_wartime';
+    const foreignWartimeId = GameState.getFocusTree('KOM').find(focus => focus.wartime && focus.category !== 'politics').id;
     localPlan.completedFocuses.push(wartime.id, foreignWartimeId);
     localPlan.focusProgress[wartime.id] = 2;
     localPlan.focusProgress[foreignWartimeId] = 2;

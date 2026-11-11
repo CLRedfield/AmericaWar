@@ -101,23 +101,6 @@ const WestRussiaRouteActions = (() => {
             && (kind !== 'supply' && kind !== 'breakthrough' || node.id !== capital?.id && connected(capital, node, factionId)))
             .sort((a, b) => a.troops - b.troops || a.id.localeCompare(b.id))[0];
     }
-    function checkGoal(factionId, modifiers, ending) {
-        modifiers ||= context(factionId).modifiers;
-        const state = modifiers?.routeState;
-        ending ||= lookup(state?.id);
-        if (!ending) return false;
-        if (!state || state.objectiveComplete || state.uses < 3) return false;
-        const required = Math.max(12, finite(ending.goalNodes || ending.objective?.goalNodes));
-        if (ownNodes(factionId).length < required) return false;
-        state.objectiveComplete = true;
-        state.achieved = true;
-        state.objectiveTurn = GameState.game.currentTurn;
-        const label = ending.badge || `施政纪念 · ${ending.name || ending.title || state.id}`;
-        const badges = modifiers.badges || (modifiers.badges = []);
-        if (!badges.includes(label)) badges.push(label);
-        GameState.addLog(`${GameState.getFactionName(factionId)} 完成施政目标「${ending.name || ending.title || state.id}」：行动执行 ${state.uses} 次，掌握 ${ownNodes(factionId).length} 处省份。这是一段施政纪念，战役继续。`, 'system', false);
-        return true;
-    }
     function settlement(id, factionId, modifiers) {
         const ending = lookup(id);
         if (!ending || ending.factionId && ending.factionId !== factionId) return null;
@@ -131,7 +114,7 @@ const WestRussiaRouteActions = (() => {
         modifiers.routeState = {
             id, uses: 0, enteredTurn: GameState.game.currentTurn,
             lastUsedTurn: previous?.lastUsedTurn ?? null,
-            passiveEffects, objectiveComplete: false, achieved: false
+            passiveEffects
         };
         return modifiers.routeState;
     }
@@ -168,16 +151,13 @@ const WestRussiaRouteActions = (() => {
         return {
             ...action, kind, endingId: ending.id, endingName: ending.name || ending.title,
             nodeId: target?.id || null, enabled: !reason, canExecute: !reason, reason,
-            cooldownRemaining: remaining, uses: ctx.state.uses || 0,
-            goalNodes: Math.max(12, finite(ending.goalNodes || ending.objective?.goalNodes)),
-            objectiveComplete: !!ctx.state.objectiveComplete
+            cooldownRemaining: remaining, uses: ctx.state.uses || 0
         };
     }
     function execute(factionId = localId(), nodeId, options = {}) {
         const ctx = context(factionId, options);
         const action = describe(factionId, nodeId ?? (ctx.ai ? null : GameState.game.selectedNodeId), options);
         if (!action?.enabled) return { ok: false, reason: action?.reason || '尚未确立施政路线' };
-        const ending = lookup(action.endingId);
         const target = action.nodeId ? MapData.getNode(action.nodeId) : null;
         const capital = capitals(factionId);
         const resources = ctx.resources;
@@ -224,7 +204,6 @@ const WestRussiaRouteActions = (() => {
         }
         ctx.state.uses = (ctx.state.uses || 0) + 1;
         ctx.state.lastUsedTurn = GameState.game.currentTurn;
-        checkGoal(factionId, ctx.modifiers, ending);
         GameState.addLog(`${GameState.getFactionName(factionId)} 执行「${action.name}」：${detail}。`, 'system', false);
         return { ok: true, action: action.kind, detail, uses: ctx.state.uses };
     }
@@ -237,7 +216,7 @@ const WestRussiaRouteActions = (() => {
         const target = actions[kind].targeted ? chooseTarget(kind, factionId) : null;
         return execute(factionId, target?.id || null, { ai: true });
     }
-    return { settlement, describe, execute, autoAct, checkGoal, actions, getEnding: lookup };
+    return { settlement, describe, execute, autoAct, actions, getEnding: lookup };
 })();
 
 window.WestRussiaRouteActions = WestRussiaRouteActions;

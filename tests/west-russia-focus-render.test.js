@@ -145,7 +145,7 @@ function segmentIntersectsRect(segment, { left, top, width, height }) {
 test('all West Russia views retain the actual prerequisite edges and optional alternatives', () => {
     const client = gameClient();
     const { GameState, WestRussiaFocusLayout } = client;
-    GameState.game.completedFocuses.push('wr_one_shortwaveReceivers');
+    GameState.game.completedFocuses.push('wr_one_assembly');
     for (const faction of GameState.factions) {
         const tree = GameState.getFocusTree(faction.id);
         const full = render(client, faction.id, tree[0].id);
@@ -170,7 +170,7 @@ test('all West Russia views retain the actual prerequisite edges and optional al
 test('all factions expose every mutex relation and highlight exactly the selected focus conflicts', () => {
     const client = gameClient();
     const { GameState } = client;
-    GameState.game.completedFocuses.push('wr_one_shortwaveReceivers');
+    GameState.game.completedFocuses.push('wr_one_assembly');
     let checkedPairs = 0;
     for (const faction of GameState.factions) {
         const tree = GameState.getFocusTree(faction.id);

@@ -34,8 +34,8 @@ test('all 91 political settlements have a distinct reversible programme with a r
             assert.ok(ending.effects.some(beneficial), ending.id + ' has a benefit');
             assert.ok(ending.effects.some(effect => !beneficial(effect)), ending.id + ' has a cost');
             const ownNodes = WestRussiaGeography.nodes.filter(node => node.factionId === profile.faction.id);
-            assert.equal(ending.goalNodes, Math.max(12, ownNodes.length + 3));
-            assert.ok(ending.goal.includes(String(ending.goalNodes)));
+            assert.equal(Object.hasOwn(ending, 'goalNodes'), false, ending.id + ' has no territory quota');
+            assert.equal(Object.hasOwn(ending, 'goal'), false, ending.id + ' has no required national-action quota');
             ending.effects.filter(effect => effect.tag).forEach(effect => {
                 assert.ok(ownNodes.some(node => node.tags.includes(effect.tag)), `${ending.id} starts with an applicable ${effect.tag} province`);
             });
@@ -55,9 +55,39 @@ test('settlements replace institutions through one engine effect, and expose the
         assert.equal(focus.routeOutcome.id, focus.effects[1].id);
         assert.equal(choice.routeOutcome.id, focus.routeOutcome.id);
         assert.equal(choice.routeDecision, true);
-        assert.ok(focus.description.includes(focus.routeOutcome.tradeoff));
+        assert.equal(focus.progressRequired, 1, focus.id + ' takes one political step');
+        assert.ok(!focus.description.includes(focus.routeOutcome.payoff), focus.id + ' leaves numeric effects to the effect panel');
+        assert.ok(!focus.description.includes(focus.routeOutcome.tradeoff), focus.id + ' does not repeat the tradeoff panel');
         assert.equal(WestRussiaEndings.getById(focus.effects[1].id).title, focus.routeOutcome.title);
     });
+});
+
+test('political decisions need only earlier political decisions and take one step each', () => {
+    const { GameState } = campaign();
+    let settlements = 0;
+    for (const [factionId, tree] of Object.entries(GameState.focusTrees)) {
+        const byId = new Map(tree.map(focus => [focus.id, focus]));
+        const political = tree.filter(focus => focus.category === 'politics');
+        assert.ok(political.length, factionId + ' retains political choices');
+        for (const focus of political) {
+            assert.equal(focus.progressRequired, 1, focus.id + ' takes one step');
+            assert.ok(!focus.wartime, focus.id + ' is open during preparation');
+            assert.ok(!focus.notBeforeTurn, focus.id + ' has no date requirement');
+            assert.ok(!focus.requiredControl?.length, focus.id + ' has no territory requirement');
+            const parents = [...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()];
+            for (const parent of parents) assert.equal(byId.get(parent).category, 'politics',
+                focus.id + ' does not wait for economic or military projects');
+            if (focus.secretReveal) assert.equal(byId.get(focus.secretReveal).category, 'politics');
+            if (focus.id.endsWith('_settlement')) settlements++;
+        }
+        const assembly = byId.get(`wr_${factionId.toLowerCase()}_assembly`);
+        assert.deepEqual(Array.from(assembly.prerequisites), [`wr_${factionId.toLowerCase()}_report`]);
+        for (const focus of tree) {
+            if (focus.id.endsWith('_integration')) assert.equal(focus.category, 'industry');
+            if (focus.id.endsWith('_reserves')) assert.equal(focus.category, 'military');
+        }
+    }
+    assert.equal(settlements, 91, 'all existing ordinary political endings remain political');
 });
 
 test('all West Russia ideologies have noticeable strengths and costs, without altering American ideologies', () => {

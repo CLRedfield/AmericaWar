@@ -742,12 +742,6 @@ const GameState = {
         }));
         entries.push(...events.filter(event => !event.wartime));
         if (this.isWarOpen()) entries.push(dispatches.smuta, ...events.filter(event => event.wartime));
-        const routeState = this.getFactionRouteState(factionId);
-        const outcome = typeof WestRussiaEndings !== 'undefined' && WestRussiaEndings.getById(routeState?.id);
-        if (routeState?.objectiveComplete && outcome) entries.push({
-            id: `wr_route_${outcome.id}`, category: '施政纪念', title: outcome.title,
-            text: `${outcome.playstyle} 这条道路已完成 ${routeState.uses} 次专属施政，控制 ${this.getFactionNodes(factionId).length} 省。${outcome.payoff} 承担的代价：${outcome.tradeoff}`
-        });
         if (game.winner) entries.push({
             ...dispatches.ending,
             title: game.winner.routeTitle || dispatches.ending.title,
@@ -991,17 +985,6 @@ const GameState = {
     notify() {
         this.refreshFactionStatus(false);
         this.recalculatePlayerResources();
-        if (this.getScenario().id === 'west-russia' && typeof WestRussiaRouteActions !== 'undefined') {
-            const player = this.getPlayerFactionId();
-            const modifiers = this.getGameModifiers();
-            if (modifiers.routeState) WestRussiaRouteActions.checkGoal(player, modifiers);
-            Object.entries(this.game.aiModifiers || {}).forEach(([id, values]) => {
-                if (id !== player && values.routeState) WestRussiaRouteActions.checkGoal(id, values);
-            });
-            Object.entries(this.game.humanStates || {}).forEach(([id, values]) => {
-                if (id !== player && values.modifiers?.routeState) WestRussiaRouteActions.checkGoal(id, values.modifiers);
-            });
-        }
         this.listeners.forEach(listener => listener(this));
     },
 
@@ -1580,7 +1563,7 @@ const GameState = {
             const outcome = typeof WestRussiaEndings !== 'undefined' && WestRussiaEndings.getById(routeState?.id);
             if (outcome) {
                 winner.routeTitle = outcome.title;
-                winner.routeText = `${outcome.playstyle} 专属施政执行 ${routeState.uses || 0} 次。${outcome.payoff} 统一后仍须承担：${outcome.tradeoff}`;
+                winner.routeText = `${outcome.playstyle} 收益：${outcome.payoff}。代价：${outcome.tradeoff}。`;
             }
             this.game.winner = winner;
             this.game.gameOver = true;

@@ -18,31 +18,31 @@ const WestRussiaEndings = (() => {
     const terrain = (tag, amount) => e('taggedDefense', amount, { tag });
 
     const mechanics = {
-        civic: { name: '公开听证', playstyle: '组织公共听证，用财政投入换取行政能力与议政空间',
+        civic: { name: '公开听证', playstyle: '花钱换政治点，适合发展国策',
             payoff: '政治收入 +1.1／回合、政治上限 +6', tradeoff: '全局进攻 -7%',
             effects: [voice(1.1), cap(6), attack(-0.07)] },
-        arsenal: { name: '统筹生产', playstyle: '集中投资工业，把资金投入受控节点的扩产',
+        arsenal: { name: '统筹生产', playstyle: '赚钱扩产，养兵更贵',
             payoff: '固定财政收入 +1.8／回合、建设政治消耗 -1', tradeoff: '维护费率 +3.5%',
             effects: [cash(1.8), action('build', -1), upkeep(0.035)] },
-        breakthrough: { name: '纵深突击', playstyle: '集中兵力连续攻取节点，以缴获补充进攻梯队',
+        breakthrough: { name: '纵深突击', playstyle: '进攻补兵，防守较弱',
             payoff: '全局进攻 +14%、每次攻占补兵 +1', tradeoff: '全局防御 -5%、维护费率 +5.5%',
             effects: [attack(0.14), rally(1), defend(-0.05), upkeep(0.055)] },
-        fortress: { name: '纵深筑垒', playstyle: '经营防区与预备队，以守住节点换取反击窗口',
+        fortress: { name: '纵深筑垒', playstyle: '守得住，但进攻较弱',
             payoff: '全局防御 +18%、免维护兵力 +3', tradeoff: '全局进攻 -9%',
             effects: [defend(0.18), free(3), attack(-0.09)] },
-        commerce: { name: '特许贸易', playstyle: '围绕商道、资源节点和现金流组织战争',
+        commerce: { name: '特许贸易', playstyle: '靠贸易赚钱，征兵更贵',
             payoff: '固定财政收入 +2.4／回合、每次攻占缴获 +3', tradeoff: '征兵资金单价 +0.25',
             effects: [cash(2.4), loot(3), recruit(0.25)] },
-        levies: { name: '战时征集', playstyle: '牺牲常态行政和财政，把有限资源提前转成兵力',
+        levies: { name: '战时征集', playstyle: '快速增兵，但财政吃紧',
             payoff: '每次征兵人数 +2、征兵政治消耗 -1', tradeoff: '政治收入 -0.7／回合、维护费率 +4%',
             effects: [levy(2), action('recruit', -1), voice(-0.7), upkeep(0.04)] },
-        welfare: { name: '社会复员', playstyle: '用复员和社会救济压低常备军负担，保存危机中的行政能力',
+        welfare: { name: '社会复员', playstyle: '少养兵省钱，扩军较慢',
             payoff: '免维护兵力 +5、迁都危机补偿 +4', tradeoff: '征兵资金单价 +0.35',
             effects: [free(5), crisis(4), recruit(0.35)] },
-        supply: { name: '轮换补给', playstyle: '把维护预算换成机动空间，以轮换代替永久堆兵',
+        supply: { name: '轮换补给', playstyle: '便宜调兵，建设较贵',
             payoff: '维护费率 -7.5%、移动政治消耗 -1', tradeoff: '建设政治消耗 +1',
             effects: [upkeep(-0.075), action('move', -1), action('build', 1)] },
-        councils: { name: '工厂大会', playstyle: '以工厂议事和基层动员建设分散的生产与征兵网络',
+        councils: { name: '工厂大会', playstyle: '征兵建设更便宜，收入较少',
             payoff: '每次征兵人数 +1、政治收入 +0.6／回合、建设政治消耗 -1', tradeoff: '固定财政收入 -0.8／回合',
             effects: [levy(1), voice(0.6), action('build', -1), cash(-0.8)] }
     };
@@ -252,14 +252,13 @@ const WestRussiaEndings = (() => {
             ]
         }
     };
-    const startingNodes = { WRF: 14, KOM: 7, VYA: 10, SAM: 12, PRM: 10, ONE: 3, GOR: 5, VOL: 11, GEO: 6, TAT: 8, BSH: 7 };
     const outcomes = new Map();
     const actionNames = { build: '建设', move: '移动', recruit: '征兵', focus: '国策' };
-    const effectNames = { moneyIncome: '财政收入／回合', ppIncome: '政治收入／回合',
-        ppCapBonus: '政治上限', globalAttack: '全局进攻', globalDefense: '全局防御',
-        maintenanceRate: '维护费率', recruitAmount: '每次征兵人数', recruitCost: '征兵资金单价',
-        freeTroops: '免维护兵力', crisisPP: '迁都危机补偿', captureMoney: '每次攻占缴获',
-        captureTroops: '每次攻占补兵', taggedDefense: '防御', taggedIncome: '节点收入／回合' };
+    const effectNames = { moneyIncome: '每回合金钱', ppIncome: '每回合PP',
+        ppCapBonus: 'PP上限', globalAttack: '进攻', globalDefense: '防御',
+        maintenanceRate: '养兵费率', recruitAmount: '征兵人数', recruitCost: '每兵价格',
+        freeTroops: '免维护兵', crisisPP: '丢首都时PP', captureMoney: '占领得钱',
+        captureTroops: '占领补兵', taggedDefense: '防御', taggedIncome: '每省收入' };
     const percentages = new Set(['globalAttack', 'globalDefense', 'maintenanceRate', 'taggedDefense']);
     const costTypes = new Set(['recruitCost', 'maintenanceRate', 'actionCost']);
     function summarize(effects) {
@@ -272,7 +271,7 @@ const WestRussiaEndings = (() => {
         });
         const combined = [...totals.values()].filter(item => item.amount !== 0);
         const describe = item => {
-            const name = item.type === 'actionCost' ? `${actionNames[item.action]}基础政治消耗`
+            const name = item.type === 'actionCost' ? `${actionNames[item.action]}花费PP`
                 : (item.tag || '') + effectNames[item.type];
             const number = percentages.has(item.type) ? Math.round(item.amount * 1000) / 10 : item.amount;
             return `${name} ${number > 0 ? '+' : ''}${number}${percentages.has(item.type) ? '%' : ''}`;
@@ -285,7 +284,6 @@ const WestRussiaEndings = (() => {
         Object.entries(routes).forEach(([routeId, arms]) => arms.forEach(([title, mechanic, playstyle, payoff, effects], arm) => {
             const rule = mechanics[mechanic];
             const id = `${factionId}_${routeId}_${arm}`;
-            const goalNodes = Math.max(startingNodes[factionId] + 3, 12);
             const summary = summarize([...rule.effects, ...effects]);
             outcomes.set(id, {
                 id, factionId, routeId, arm, title, mechanic,
@@ -293,9 +291,6 @@ const WestRussiaEndings = (() => {
                 playstyle: `${playstyle}：${rule.playstyle}。`,
                 payoff: summary.payoff,
                 tradeoff: summary.tradeoff,
-                signature: payoff,
-                goal: `完成 3 次「${rule.name}」，并控制至少 ${goalNodes} 个省份。`,
-                goalNodes,
                 effects: summary.effects
             });
         }));
@@ -304,26 +299,26 @@ const WestRussiaEndings = (() => {
     // Ideology is a second, independent layer. It changes the economy and combat model,
     // while route institutions distinguish two countries that share the same ideology.
     const ideologyDesigns = {
-        wr_staff: ['以军校和预备役支撑阵地作战；中央军务挤占民事收入。', [defend(0.1), free(3), cash(-0.8)]],
-        wr_councils: ['基层动员和工厂建设更容易，但共同财政需要让利。', [levy(1), action('build', -1), voice(0.6), cash(-0.8)]],
-        wr_parliament: ['公共议事提供持续政治资源；发动进攻需要更昂贵的授权。', [voice(1.2), cap(6), attack(-0.07)]],
-        wr_crown: ['王冠协调省级防区和危机接管；地方协商减慢扩军。', [defend(0.1), crisis(3), recruit(0.2)]],
-        wr_directorate: ['军政机关擅长进攻与机动；维持指挥系统需要更多军费。', [attack(0.1), action('move', -1), upkeep(0.04)]],
-        wr_market: ['合约政府靠现金和缴获动员；征兵资金单价高于其他制度。', [cash(2.4), loot(3), recruit(0.4)]],
-        wr_guard: ['联防减轻守备负担并加强防线；跨境攻势受到限制。', [defend(0.14), upkeep(-0.035), attack(-0.09)]],
-        wr_parish: ['堂区网络压低维护费并抵御迁都危机；现役征募较贵。', [crisis(5), upkeep(-0.055), recruit(0.3)]],
-        wr_coercion: ['强制征发快速增加兵员，却持续损害财政与行政组织。', [levy(2), attack(0.1), voice(-1.1), cash(-1.2), upkeep(0.045)]],
-        wr_red_army: ['纵深进攻与攻占补兵形成战争循环；阵地和维护预算承压。', [attack(0.18), rally(1), defend(-0.07), upkeep(0.065)]],
-        wr_public_republic: ['公开竞争创造最大的议政空间；征兵须承担额外政治成本。', [voice(1.8), cap(9), action('recruit', 1), attack(-0.06)]],
-        wr_charter_crown: ['宪章兼顾议政与防御，但限制军方扩大征集。', [voice(1), defend(0.1), cap(4), recruit(0.3)]],
-        wr_developmental_military: ['发展主义为工业和征兵倾斜信用，维持体系需要高维护支出。', [cash(2.6), action('build', -1), recruit(-0.35), upkeep(0.07)]],
-        wr_civic_restoration: ['复权行政保护迁都后的公共机构；军队扩张让位于恢复民政。', [voice(1.1), crisis(6), free(3), attack(-0.08)]],
-        wr_armed_neutrality: ['中立区拥有最强防御与廉价守备，却难以承担主动攻势。', [defend(0.23), upkeep(-0.055), attack(-0.17)]],
-        wr_armored_command: ['装甲突破依靠攻占补兵持续前进；维护与防守是明确弱点。', [attack(0.21), rally(2), upkeep(0.085), defend(-0.08)]],
-        wr_cooperative_credit: ['合作信用保证分散财政与低维护；集中征兵需要更多协商。', [cash(1.7), upkeep(-0.045), cap(5), action('recruit', 1)]],
-        wr_parish_federation: ['堂区联邦保留大量后方兵力和迁都保障；进攻能力偏弱。', [crisis(6), free(5), voice(0.5), attack(-0.1)]],
-        wr_multilingual_republic: ['多语行政扩大征募与议政基础，但需要持续支付公共服务成本。', [voice(1), levy(1), cap(6), cash(-0.6)]],
-        wr_fiscal_federation: ['地方留税扩大财政和议政空间；中央军队的进攻受到约束。', [cap(10), cash(1.8), free(3), attack(-0.1)]]
+        wr_staff: ['守军更强，收入较少。', [defend(0.1), free(3), cash(-0.8)]],
+        wr_councils: ['征兵建设更容易，收入较少。', [levy(1), action('build', -1), voice(0.6), cash(-0.8)]],
+        wr_parliament: ['政治点更多，进攻较弱。', [voice(1.2), cap(6), attack(-0.07)]],
+        wr_crown: ['防守更强，征兵较贵。', [defend(0.1), crisis(3), recruit(0.2)]],
+        wr_directorate: ['进攻调兵更强，养兵较贵。', [attack(0.1), action('move', -1), upkeep(0.04)]],
+        wr_market: ['赚钱更多，征兵较贵。', [cash(2.4), loot(3), recruit(0.4)]],
+        wr_guard: ['守得更稳，进攻较弱。', [defend(0.14), upkeep(-0.035), attack(-0.09)]],
+        wr_parish: ['养兵更便宜，征兵较贵。', [crisis(5), upkeep(-0.055), recruit(0.3)]],
+        wr_coercion: ['增兵进攻更强，财政和政治点吃紧。', [levy(2), attack(0.1), voice(-1.1), cash(-1.2), upkeep(0.045)]],
+        wr_red_army: ['越打兵越多，防守和养兵承压。', [attack(0.18), rally(1), defend(-0.07), upkeep(0.065)]],
+        wr_public_republic: ['政治点充足，征兵更费政治点。', [voice(1.8), cap(9), action('recruit', 1), attack(-0.06)]],
+        wr_charter_crown: ['政治点与防守兼顾，征兵较贵。', [voice(1), defend(0.1), cap(4), recruit(0.3)]],
+        wr_developmental_military: ['扩产征兵更便宜，养兵较贵。', [cash(2.6), action('build', -1), recruit(-0.35), upkeep(0.07)]],
+        wr_civic_restoration: ['政治点与救济更强，进攻较弱。', [voice(1.1), crisis(6), free(3), attack(-0.08)]],
+        wr_armed_neutrality: ['重防守、低维护，主动进攻很弱。', [defend(0.23), upkeep(-0.055), attack(-0.17)]],
+        wr_armored_command: ['突击与占领补兵最强，维护很贵。', [attack(0.21), rally(2), upkeep(0.085), defend(-0.08)]],
+        wr_cooperative_credit: ['赚钱省维护，征兵多花政治点。', [cash(1.7), upkeep(-0.045), cap(5), action('recruit', 1)]],
+        wr_parish_federation: ['后方稳定、免维护兵多，进攻较弱。', [crisis(6), free(5), voice(0.5), attack(-0.1)]],
+        wr_multilingual_republic: ['政治点与征兵更多，收入较少。', [voice(1), levy(1), cap(6), cash(-0.6)]],
+        wr_fiscal_federation: ['钱和政治点更多，进攻较弱。', [cap(10), cash(1.8), free(3), attack(-0.1)]]
     };
 
     return {

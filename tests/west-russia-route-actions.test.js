@@ -201,26 +201,48 @@ test('route action counters and passive snapshots survive a human planning snaps
     assert.match(routes.describe('WRF').reason, /冷却/);
 });
 
-test('three actions and territory goal award a single commemorative achievement without winning the war', () => {
+test('settlement institutions apply immediately with zero actions and only one province', () => {
     const ctx = client();
     const { GameState, MapData, WestRussiaRouteActions: routes } = ctx;
-    const ending = adopt(ctx, 'civic');
-    const needed = Math.max(12, ending.goalNodes);
-    const own = MapData.getFactionNodes('WRF').length;
-    MapData.nodes.filter(node => node.factionId !== 'WRF').slice(0, needed - own)
-        .forEach(node => { node.factionId = 'WRF'; });
-    for (let i = 0; i < 3; i += 1) {
-        GameState.game.playerResources.pp = 10;
-        assert.equal(routes.execute('WRF').ok, true);
-        GameState.game.currentTurn += 3;
-    }
+    const capitalId = GameState.getCapitalNodeId('WRF');
+    MapData.getFactionNodes('WRF').filter(node => node.id !== capitalId)
+        .forEach(node => { node.factionId = 'KOM'; });
+    const previousIncome = GameState.getGameModifiers().ppIncome;
+    adopt(ctx, 'civic');
     const modifiers = GameState.getGameModifiers();
-    assert.equal(modifiers.routeState.achieved, true);
-    assert.equal(modifiers.routeState.objectiveComplete, true);
-    const badgeCount = modifiers.badges.length;
-    assert.equal(routes.checkGoal('WRF', modifiers), false);
-    assert.equal(modifiers.badges.length, badgeCount);
+    assert.equal(MapData.getFactionNodes('WRF').length, 1);
+    assert.equal(modifiers.routeState.uses, 0);
+    assert.equal(modifiers.ppIncome, previousIncome + 1.1, 'the complete institutional income is active immediately');
+    assert.equal(modifiers.globalAttack, -0.07, 'the institutional tradeoff also starts immediately');
+    assert.equal(modifiers.crisisPP, 2, 'faction-specific institutions need no action or territory threshold');
+    assert.equal(modifiers.badges.length, 0, 'no extra achievement layer is created');
+    assert.equal('objectiveComplete' in modifiers.routeState, false);
+    assert.equal('achieved' in modifiers.routeState, false);
     assert.equal(GameState.game.gameOver, false);
+    assert.equal(GameState.game.winner, null);
+});
+
+test('national action usage is a record, with no unlock threshold or mandatory objective', () => {
+    const ctx = client();
+    const { GameState, MapData, WestRussiaRouteActions: routes } = ctx;
+    const capitalId = GameState.getCapitalNodeId('WRF');
+    MapData.getFactionNodes('WRF').filter(node => node.id !== capitalId)
+        .forEach(node => { node.factionId = 'KOM'; });
+    adopt(ctx, 'civic');
+    GameState.game.playerResources.pp = 10;
+    const initial = routes.describe('WRF');
+    assert.equal(initial.uses, 0);
+    assert.equal(initial.enabled, true, 'the optional action is available before its first use');
+    assert.equal('goalNodes' in initial, false);
+    assert.equal(routes.execute('WRF').ok, true);
+    assert.equal(GameState.getGameModifiers().routeState.uses, 1);
+    assert.equal(GameState.game.playerResources.pp, 16);
+    GameState.game.currentTurn += initial.cooldown;
+    GameState.getGameModifiers().routeState.uses = 100;
+    assert.equal(routes.describe('WRF').enabled, true, 'past use count does not unlock or block the action');
+    assert.equal(routes.execute('WRF').ok, true);
+    assert.equal(GameState.getGameModifiers().routeState.uses, 101);
+    assert.equal(GameState.getGameModifiers().badges.length, 0);
     assert.equal(GameState.game.winner, null);
 });
 

@@ -170,7 +170,10 @@ test('overview refits its written canvas transform and stage dimensions when wid
     const narrow = assertFitted(client.current);
     assert.ok(narrow < initial, 'Narrower viewport must reduce the overview scale');
 
-    client.resize(1300, 240);
+    // Force height to become the limiting dimension even when the campaign's
+    // chapter arrangement is wider than it used to be.
+    const constrainedHeight = Math.max(1, Math.floor(measurements(client.current).height / 2));
+    client.resize(1300, constrainedHeight);
     const short = assertFitted(client.current);
     assert.ok(short < narrow, 'Shorter viewport must fit the height as well as the width');
 
