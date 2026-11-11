@@ -28,7 +28,7 @@
             f('usa_caesar_cult', '凯撒个人崇拜', '军政府', 1, 7, 8, '军报与广播把统帅塑造成救国的化身。', [E.crisis(3), E.pp(4)], ['usa_caesar_personal']),
             f('usa_american_empire', '美利坚帝国', '军政府', 1, 8, 10, '麦克阿瑟加冕，联邦成为一座军营帝国。', [E.gAtk(0.08), E.capMoney(4), E.allCapT(4), E.ideo('american_caesarism', '美利坚帝国', '美帝国'), E.badge('美利坚帝国')], ['usa_caesar_cult']),
             f('usa_war_directorate', '战争委员会', '军政府', 3, 7, 8, '把行政、情报、补给并入一张命令表。', [E.allCapT(2), E.actionCost('move', -1)], ['usa_military_board']),
-            f('usa_army_state', '军队国家', '军政府', 3, 8, 10, '承认军队是联邦生存期间最稳定的国家骨架。', [E.allCapT(3), E.gAtk(0.05), E.capT(4), E.ideo('military_junta', '美利坚军政府', '军政府'), E.badge('军队国家')], ['usa_war_directorate']),
+            f('usa_army_state', '军队国家', '军政府', 3, 8, 10, '军队成为国家骨架，六支常备部队免维护，并以军需统筹扩大征募。', [E.allCapT(3), E.gAtk(0.05), E.capT(4), E.freeT(6), E.recruitAmount(1), E.maint(-0.03), E.ideo('military_junta', '美利坚军政府', '军政府'), E.badge('军队国家')], ['usa_war_directorate']),
             f('usa_caesar_state', '凯撒之国', '军政府', 2, 9, 10, '无论个人凯撒还是军政委员会，联邦都成了军营国家。', [E.gAtk(0.05), E.allCapT(3)], [], { prerequisiteAny: [['usa_american_empire'], ['usa_army_state']] }),
 
             // ===================== 合众国之翼·线 B：民主修复·民主胜利｜国会穹顶 =====================

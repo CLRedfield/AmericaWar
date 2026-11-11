@@ -408,6 +408,7 @@ const SimultaneousTurns = {
 
     performAiStrategicActions(factionId, difficulty) {
         if (!window.GameAI) return;
+        if (typeof WestRussiaRouteActions !== 'undefined') WestRussiaRouteActions.autoAct(factionId);
         const resources = GameAI.computeFactionResources(factionId);
         const profile = GameAI.getDifficultyProfile(difficulty, factionId);
         const savedActionCount = GameState.game.actionCountThisTurn || 0;

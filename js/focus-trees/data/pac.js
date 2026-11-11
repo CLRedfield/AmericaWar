@@ -62,7 +62,7 @@
             f('PAC_dream_factory', '太平洋梦工厂', '好莱坞', 9, 6, 9, '把整个西海岸变成一座制造梦想与共识的工厂。', [E.pp(4), E.ppIncome(1), E.crisis(3), E.ideo('entertainment_state', '太平洋梦工厂国', '梦工厂国')], ['PAC_propaganda_network']),
             // 赫斯特臂
             f('PAC_media_monopoly', '黄色新闻垄断', '好莱坞', 10, 5, 8, '兼并报刊与电台，垄断舆论。', [E.pp(3), E.damage(1, 2)], ['PAC_hearst_press']),
-            f('PAC_western_states', '西部合众国', '好莱坞', 10, 6, 9, '赫斯特以媒体扶植强人，建立西部合众国。', [E.pp(4), E.damage(1, 3), E.gAtk(0.05), E.ideo('fascism', '西部合众国', '西部合众国')], ['PAC_media_monopoly']),
+            f('PAC_western_states', '西部合众国', '好莱坞', 10, 6, 9, '赫斯特以报业税收和战时动员维持强人统治，让媒体攻势能接上真实军需。', [E.pp(4), E.damage(1, 3), E.gAtk(0.05), E.moneyIncome(4), E.ppIncome(1.5), E.actionCost('move', -1), E.capMoney(2), E.ppCap(10), E.ideo('fascism', '西部合众国', '西部合众国')], ['PAC_media_monopoly']),
 
             // ===================== 线 D：太平洋海权/诺顿｜形状＝之字 ＋ 诺顿/日本子分叉 =====================
             f('PAC_imperial_path', '太平洋海权派', '太平洋帝国', 13, 2, 6, '把太平洋国塑造成面向海外的海权强国。', [E.tagT('港口', 1), E.gAtk(0.05)], ['PAC_west_convention'], meOthers('PAC_imperial_path')),
@@ -92,7 +92,7 @@
             f('PAC_sacred_union', '太平洋神圣同盟', '神秘主义', 16, 7, 9, '罗里奇的圣域同盟成为国家信仰。', [E.ppCap(3), E.ppIncome(1), E.allCapT(2), E.ideo('pacific_spiritualism', '太平洋神圣同盟', '神圣同盟')], ['PAC_roerich_arts']),
             // 哈伯德臂
             f('PAC_paranormal_division', '超自然调查局', '神秘主义', 18, 6, 8, '成立调查超自然与UFO的秘密部门。', [E.crisis(3), E.damage(1, 2)], ['PAC_hubbard_order']),
-            f('PAC_spiritual_order', '太平洋灵性教团', '神秘主义', 18, 7, 9, '哈伯德教团把信徒动员为狂热的战时力量。', [E.freeT(4), E.crisis(4), E.ideo('pacific_spiritualism', '太平洋神圣同盟', '神圣同盟')], ['PAC_paranormal_division']),
+            f('PAC_spiritual_order', '太平洋灵性教团', '神秘主义', 18, 7, 9, '教团将信徒互助网络变成战时动员体系，以信徒军与持续组织力支持远征。', [E.freeT(6), E.crisis(4), E.recruitAmount(2), E.ppIncome(1), E.gAtk(0.10), E.ideo('pacific_spiritualism', '太平洋神圣同盟', '神圣同盟')], ['PAC_paranormal_division']),
             // 合流（顶部三叉冠收束）
             f('PAC_great_awakening', '大觉醒', '神秘主义', 17, 8, 10, '无论圣域还是教团，西海岸都进入一场精神总动员。', [E.ppCap(3), E.gDef(0.05), E.allCapT(3)], [], { prerequisiteAny: [['PAC_sacred_union'], ['PAC_spiritual_order']] }),
 

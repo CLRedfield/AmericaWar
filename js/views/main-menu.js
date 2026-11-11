@@ -29,57 +29,64 @@ const MainMenuView = {
             <div class="view-main-menu animate-fade-in">
                 ${this.renderBackdrop(scenario)}
                 <div class="main-menu-content">
-                    <h1 class="main-menu-title">裂旗战争</h1>
-                    <div class="main-menu-subtitle">Shattered States</div>
+                    <header class="menu-identity">
+                        <div class="menu-kicker"><span aria-hidden="true">SS /</span> 战略指挥部</div>
+                        <h1 class="main-menu-title">裂旗战争</h1>
+                        <div class="main-menu-subtitle">SHATTERED STATES</div>
+                        <p class="menu-identity-copy">一片破碎的国土。<br>一个尚未写定的未来。</p>
+                        <div class="menu-identity-rule" aria-hidden="true"></div>
+                        <div class="menu-dossier-caption">CAMPAIGN ARCHIVES <span>作战档案 / 02</span></div>
+                    </header>
 
-                    <div class="menu-scenarios" role="group" aria-label="选择战役">
-                        ${Object.values(GameState.scenarios).map(item => `
-                            <button class="menu-scenario" aria-pressed="${item.id === scenario.id}"
-                                onclick="window.app.selectScenario('${item.id}')">
-                                <small>${item.subtitle}</small>
-                                <strong>${item.name}</strong>
+                    <section class="menu-operations" aria-label="战役与开始选项">
+                        <div class="menu-section-heading"><span>01 / 选择战役</span><span>THEATRE</span></div>
+                        <div class="menu-scenarios" role="group" aria-label="选择战役">
+                            ${Object.values(GameState.scenarios).map((item, index) => `
+                                <button class="menu-scenario" aria-pressed="${item.id === scenario.id}"
+                                    onclick="window.app.selectScenario('${item.id}')">
+                                    <span class="menu-scenario-number" aria-hidden="true">0${index + 1}</span>
+                                    <span class="menu-scenario-copy"><small>${item.subtitle}</small><strong>${item.name}</strong></span>
+                                    <span class="menu-scenario-check" aria-hidden="true">${item.id === scenario.id ? '●' : '○'}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                        <p class="menu-scenario-description">${scenario.description}</p>
+
+                        <div class="menu-name-row">
+                            <label>
+                                <span>指挥官姓名</span>
+                                <input type="text" maxlength="16" value="${escapeHtml(myName)}"
+                                    onchange="window.app.setPlayerName(this.value)"
+                                    placeholder="输入你的指挥官昵称">
+                            </label>
+                            <label class="menu-turn-field">
+                                <span>每回合时间</span>
+                                <select aria-label="每回合时间" onchange="window.app.setMenuTurnLimit(this.value)">
+                                    ${GameState.turnLimitOptions.map(option => `
+                                        <option value="${option}" ${option === window.app.menuTurnLimit ? 'selected' : ''}>${GameState.formatTurnLimitOption(option)}</option>
+                                    `).join('')}
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="menu-section-heading menu-command-heading"><span>02 / 下达命令</span><span>COMMAND</span></div>
+                        <div class="main-menu-actions">
+                            <button class="btn btn-primary menu-command menu-command-primary" ${connecting ? 'disabled' : ''} onclick="window.app.startLocalLobby()">
+                                <span class="menu-command-number" aria-hidden="true">I</span><span>${connecting ? '加载中…' : '单机沙盒（本地房间）'}</span><span class="menu-command-arrow" aria-hidden="true">↗</span>
                             </button>
-                        `).join('')}
-                    </div>
-                    <p class="menu-scenario-description">${scenario.description}</p>
-
-                    <div class="menu-name-row">
-                        <label>
-                            <span>玩家昵称</span>
-                            <input type="text" maxlength="16" value="${escapeHtml(myName)}"
-                                onchange="window.app.setPlayerName(this.value)"
-                                placeholder="输入你的指挥官昵称">
-                        </label>
-                        <label class="menu-turn-field">
-                            <span>每回合时间</span>
-                            <select onchange="window.app.setMenuTurnLimit(this.value)">
-                                ${GameState.turnLimitOptions.map(option => `
-                                    <option value="${option}" ${option === window.app.menuTurnLimit ? 'selected' : ''}>${GameState.formatTurnLimitOption(option)}</option>
-                                `).join('')}
-                            </select>
-                        </label>
-                    </div>
-
-                    <div class="main-menu-actions">
-                        <button class="btn btn-primary" ${connecting ? 'disabled' : ''} onclick="window.app.startLocalLobby()">
-                            ${connecting ? '加载中…' : '单机沙盒（本地房间）'}
-                        </button>
-                        <button class="btn btn-primary" ${connecting ? 'disabled' : ''} onclick="window.app.openCreateRoomDialog()">
-                            创建联机房间
-                        </button>
-                        <button class="btn btn-primary" ${connecting ? 'disabled' : ''} onclick="window.app.openJoinRoomDialog()">
-                            通过房间码加入
-                        </button>
-                        <button class="btn btn-primary btn-tutorial" onclick="window.app.openTutorial()">
-                            📖 新手教程
-                        </button>
-                    </div>
-
-                    ${status ? `<div class="menu-status text-muted">${escapeHtml(status)}</div>` : ''}
-
-                    <div style="margin-top: var(--spacing-8); color: var(--color-text-muted); font-size: 0.875rem;">
-                        v0.7.4 · 双战役
-                    </div>
+                            <button class="btn btn-outline menu-command" ${connecting ? 'disabled' : ''} onclick="window.app.openCreateRoomDialog()">
+                                <span class="menu-command-number" aria-hidden="true">II</span><span>创建联机房间</span><span class="menu-command-arrow" aria-hidden="true">→</span>
+                            </button>
+                            <button class="btn btn-outline menu-command" ${connecting ? 'disabled' : ''} onclick="window.app.openJoinRoomDialog()">
+                                <span class="menu-command-number" aria-hidden="true">III</span><span>通过房间码加入</span><span class="menu-command-arrow" aria-hidden="true">→</span>
+                            </button>
+                            <button class="btn btn-outline menu-command btn-tutorial" onclick="window.app.openTutorial()">
+                                <span class="menu-command-number" aria-hidden="true">IV</span><span>新手教程</span><span class="menu-command-arrow" aria-hidden="true">→</span>
+                            </button>
+                        </div>
+                        ${status ? `<div class="menu-status text-muted" role="status">${escapeHtml(status)}</div>` : ''}
+                        <footer class="menu-edition"><span>双战役 · 回合同步战略</span><span>SHATTERED STATES</span></footer>
+                    </section>
                 </div>
             </div>
         `;
@@ -151,14 +158,14 @@ const MainMenuView = {
                 <section class="modal-panel compact-modal room-dialog">
                     <header class="modal-header">
                         <h3>${title}</h3>
-                        <button class="modal-close" onclick="window.app.closeRoomDialog()" ${d.busy ? 'disabled' : ''}>×</button>
+                        <button class="modal-close" aria-label="关闭房间对话框" onclick="window.app.closeRoomDialog()" ${d.busy ? 'disabled' : ''}>×</button>
                     </header>
                     <div class="modal-body room-dialog-body">
                         <div class="room-dialog-field-label">联机方式</div>
                         <div class="room-trans-options">${transportCards}</div>
                         ${serverField}
                         ${codeField}
-                        ${d.error ? `<div class="room-dialog-error">⚠ ${escapeHtml(d.error)}</div>` : ''}
+                        ${d.error ? `<div class="room-dialog-error" role="alert">${escapeHtml(d.error)}</div>` : ''}
                         ${d.busy && d.transport === 'emqx' ? `<div class="room-dialog-hint">正在连接 EMQX，首次加载约需几秒…</div>` : ''}
                     </div>
                     <footer class="modal-actions">

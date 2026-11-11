@@ -705,7 +705,18 @@ const GameState = {
     },
 
     isFocusStageOpen(focus) {
-        return !focus.wartime || this.isWarOpen();
+        return (!focus.wartime || this.isWarOpen()) && this.game.currentTurn >= (focus.notBeforeTurn || 0);
+    },
+
+    isFocusRevealed(focus) {
+        return !focus.secretReveal || this.game.completedFocuses.includes(focus.secretReveal);
+    },
+
+    getFactionRouteState(factionId = this.getPlayerFactionId()) {
+        if (this.getScenario().id !== 'west-russia') return null;
+        const modifiers = factionId === this.getPlayerFactionId() ? this.getGameModifiers()
+            : this.game.humanStates?.[factionId]?.modifiers || this.game.aiModifiers?.[factionId];
+        return modifiers?.routeState || null;
     },
 
     getCampaignStage() {
@@ -732,7 +743,9 @@ const GameState = {
         entries.push(...events.filter(event => !event.wartime));
         if (this.isWarOpen()) entries.push(dispatches.smuta, ...events.filter(event => event.wartime));
         if (game.winner) entries.push({
-            ...dispatches.ending, text: dispatches.ending.text.replace('{winner}', this.getFactionName(game.winner.factionId))
+            ...dispatches.ending,
+            title: game.winner.routeTitle || dispatches.ending.title,
+            text: dispatches.ending.text.replace('{winner}', this.getFactionName(game.winner.factionId)) + (game.winner.routeText ? `\n\n${game.winner.routeText}` : '')
         });
         return entries.filter(Boolean);
     },
@@ -1381,6 +1394,19 @@ const GameState = {
         return this.focusTrees[factionId] || this.focusTrees.default;
     },
 
+    getVisibleFocusTree(factionId = this.getPlayerFactionId()) {
+        const tree = this.getFocusTree(factionId);
+        const hidden = tree.filter(focus => !this.isFocusRevealed(focus));
+        if (!hidden.length) return tree;
+        this._visibleFocusCache ||= new WeakMap();
+        const key = hidden.map(focus => focus.id).join('|');
+        const cached = this._visibleFocusCache.get(tree);
+        if (cached?.key === key) return cached.tree;
+        const visible = tree.filter(focus => this.isFocusRevealed(focus));
+        this._visibleFocusCache.set(tree, { key, tree: visible });
+        return visible;
+    },
+
     getFocusById(focusId, factionId = this.getPlayerFactionId()) {
         return this.getFocusTree(factionId).find(focus => focus.id === focusId);
     },
@@ -1492,7 +1518,7 @@ const GameState = {
             if (faction.id === playerFactionId) {
                 const lastSeen = this.game.lastCapitalNodeIds[faction.id];
                 if (lastSeen && lastSeen !== nextCapitalId && lastSeen === faction.capitalNodeId) {
-                    const crisisPP = this.getGameModifiers().crisisPP || 0;
+                    const crisisPP = this.getEffectiveCrisisPP();
                     if (crisisPP > 0) {
                         this.game.playerResources.pp = Math.min(this.getEffectivePPCap(), this.game.playerResources.pp + crisisPP);
                         if (shouldLog) this.addLog(`紧急集会触发：${this.getFactionName(faction.id)} 失去原首都，士气号召带来 +${crisisPP} PP。`, 'system', false);
@@ -1533,6 +1559,12 @@ const GameState = {
         }
 
         if (winner) {
+            const routeState = this.getFactionRouteState(winner.factionId);
+            const outcome = typeof WestRussiaEndings !== 'undefined' && WestRussiaEndings.getById(routeState?.id);
+            if (outcome) {
+                winner.routeTitle = outcome.title;
+                winner.routeText = `${outcome.playstyle} 收益：${outcome.payoff}。代价：${outcome.tradeoff}。`;
+            }
             this.game.winner = winner;
             this.game.gameOver = true;
             this.game.showEndGameModal = true;

@@ -5,7 +5,7 @@ const compareScreenshots = process.env.FOCUS_COMPARE === '1';
 const factions = [
     { id: 'WRF', count: 154, entry: 'wr_wrf_cadres_commit', parent: 'wr_wrf_zhukov_congress' },
     { id: 'KOM', count: 168, entry: 'wr_kom_right_commit', parent: 'wr_kom_assembly' },
-    { id: 'SAM', count: 159, entry: 'wr_sam_officers_commit', parent: 'wr_sam_officerRegister' }
+    { id: 'SAM', count: 159, entry: 'wr_sam_officers_commit', parent: 'wr_sam_assembly' }
 ];
 const rightChoices = [0, 1, 2, 3].map(index => `wr_kom_right_${index}_choice`);
 const card = (page, id) => page.locator(`.focus-card[data-focus-id="${id}"]`);
@@ -21,19 +21,41 @@ test.beforeEach(async ({ browser }, testInfo) => {
     });
 });
 
-async function openTree(page, faction) {
+async function openTree(page, faction, scenario = 'west-russia') {
     await page.goto('./', { waitUntil: 'domcontentloaded' });
-    await page.locator('.menu-scenario').filter({ hasText: '西俄罗斯 · 大动乱' }).click();
+    await page.locator('.menu-scenario').filter({ hasText: scenario === 'west-russia' ? '西俄罗斯 · 大动乱' : '美国内战' }).click();
     await page.getByLabel('每回合时间', { exact: true }).selectOption({ label: '不限时' });
     await page.getByRole('button', { name: '单机沙盒（本地房间）', exact: true }).click();
-    if (faction !== 'WRF') {
+    if (faction !== (scenario === 'west-russia' ? 'WRF' : 'USA')) {
         await page.locator('.slot-row').filter({ hasText: `${faction} ·` })
             .getByRole('button', { name: '换到这里', exact: true }).click();
     }
     await page.getByRole('button', { name: '开始游戏', exact: true }).click();
     await page.getByRole('button', { name: '国策', exact: true }).click();
     await expect(page.locator('.focus-tree-canvas')).toBeVisible();
-    await expect(page.locator('[data-focus-zoom-label]')).toHaveText('82%');
+    if (scenario === 'west-russia') await expect(page.locator('[data-focus-zoom-label]')).toHaveText('82%');
+}
+
+async function checkUnifiedCards(page, testInfo, name) {
+    const metrics = await page.locator('.focus-card').evaluateAll(nodes => ({
+        cards: nodes.length,
+        legacyEmblems: nodes.filter(node => node.querySelector('.focus-emblem, .focus-plaque')).length,
+        invalid: nodes.filter(node => {
+            const header = node.querySelector('.focus-branch');
+            return node.offsetWidth !== 190 || node.offsetHeight !== 150
+                || !node.classList.contains('focus-unified-card')
+                || !node.querySelector('.focus-title') || !node.querySelector('.focus-status-pill')
+                || !node.querySelector('.focus-progress-mini') || !node.querySelector('.focus-cost')
+                || !header || header.offsetHeight < 24 || header.offsetWidth < node.clientWidth - 2
+                || getComputedStyle(header).backgroundColor === 'rgba(0, 0, 0, 0)';
+        }).map(node => node.dataset.focusId),
+        branchColors: [...new Set(nodes.map(node => getComputedStyle(node.querySelector('.focus-branch')).backgroundColor))]
+    }));
+    await attachJson(testInfo, name, metrics);
+    expect(metrics.cards).toBeGreaterThan(100);
+    expect(metrics.legacyEmblems).toBe(0);
+    expect(metrics.invalid).toEqual([]);
+    expect(metrics.branchColors.length).toBeGreaterThanOrEqual(4);
 }
 
 async function readViewport(page) {
@@ -74,7 +96,7 @@ async function attachJson(testInfo, name, data) {
     await testInfo.attach(name, { body: Buffer.from(JSON.stringify(data, null, 2)), contentType: 'application/json' });
 }
 
-async function checkRenderedGeometry(page, testInfo, name) {
+async function checkRenderedGeometry(page, testInfo, name, expectedBridges = 0) {
     const result = await page.locator('.focus-tree-canvas').evaluate(canvas => {
         const cards = [...canvas.querySelectorAll('.focus-card')].map(element => ({
             id: element.dataset.focusId, rect: element.getBoundingClientRect()
@@ -99,19 +121,38 @@ async function checkRenderedGeometry(page, testInfo, name) {
         }
         return { cards: cards.length, overlaps, detachedEndpoints,
             paths: canvas.querySelectorAll('path[data-focus-from]').length,
-            crossBranchPaths: canvas.querySelectorAll('.focus-link-cross').length };
+            crossBranchPaths: canvas.querySelectorAll('.focus-link-cross').length,
+            invalidPoliticalBridges: [...canvas.querySelectorAll('.focus-link-cross')].filter(link => {
+                const from = link.dataset.focusFrom || '', to = link.dataset.focusTo || '';
+                return !(to.endsWith('_commit') || to === 'wr_one_zeroListen')
+                    || !(from.endsWith('_assembly') || from.endsWith('_congress'));
+            }).map(link => [link.dataset.focusFrom, link.dataset.focusTo]),
+            invalidExternalBadges: [...canvas.querySelectorAll('.focus-card')].filter(node => {
+                const external = (node.dataset.focusExternalIds || '').split(/\s+/).filter(Boolean);
+                const drawn = new Set([...canvas.querySelectorAll('path[data-focus-from]')]
+                    .filter(link => link.dataset.focusTo === node.dataset.focusId).map(link => link.dataset.focusFrom));
+                const referenced = external.filter(id => !drawn.has(id));
+                const badge = node.querySelector('.focus-external-label');
+                return Number(node.dataset.focusExternalCount || 0) !== external.length
+                    || (referenced.length > 0 && (!badge || !badge.textContent.includes(String(referenced.length))))
+                    || (referenced.length === 0 && Boolean(badge));
+            }).map(node => node.dataset.focusId) };
     });
     await attachJson(testInfo, name, result);
     expect(result.overlaps).toEqual([]);
     expect(result.detachedEndpoints).toEqual([]);
     expect(result.paths).toBeGreaterThan(0);
+    expect(result.crossBranchPaths).toBe(expectedBridges);
+    expect(result.invalidPoliticalBridges).toEqual([]);
+    expect(result.invalidExternalBadges).toEqual([]);
 }
 
 for (const faction of factions) {
     test(`${faction.id}: full tree, overview, branch and cross-branch round trip`, async ({ page }, testInfo) => {
         await openTree(page, faction.id);
         await expect(page.locator('.focus-card')).toHaveCount(faction.count);
-        await checkRenderedGeometry(page, testInfo, `${faction.id}-full-geometry`);
+        await checkUnifiedCards(page, testInfo, `${faction.id}-unified-cards`);
+        await checkRenderedGeometry(page, testInfo, `${faction.id}-full-geometry`, 4);
         await snapshot(page, testInfo, `${faction.id}-full`);
 
         await page.getByRole('button', { name: '全局图', exact: true }).click();
@@ -141,6 +182,12 @@ for (const faction of factions) {
         await expect(page.getByLabel('跳转国策支线')).toHaveValue(faction.entry);
     });
 }
+
+test('USA: the American campaign shares full-size branch-colored cards with West Russia', async ({ page }, testInfo) => {
+    await openTree(page, 'USA', 'america');
+    await checkUnifiedCards(page, testInfo, 'USA-unified-cards');
+    await snapshot(page, testInfo, 'USA-unified-cards');
+});
 
 test('KOM: button zoom, wheel anchor, selection scroll retention and background drag', async ({ page }, testInfo) => {
     await openTree(page, 'KOM');

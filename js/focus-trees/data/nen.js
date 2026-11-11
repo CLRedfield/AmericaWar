@@ -28,7 +28,7 @@
             f('NEN_state_compacts', '州际契约', '自由州', 1, 7, 8, '把各州战争义务写成公开契约。', [E.maint(-0.03), E.actionCost('focus', -1)], ['NEN_town_democracy']),
             f('NEN_republic_of_towns', '镇会共和国', '自由州', 1, 8, 9, '以地方自治定义新英格兰政体。', [E.ppCap(3), E.pp(5), E.tagD('港口', 0.10), E.ideo('wartime_democracy', '新英格兰', '新英格兰')], ['NEN_state_compacts']),
             f('NEN_peace_testimony', '和平见证', '自由州', 3, 7, 8, '以和平见证组织非攻防御。', [E.ppIncome(1), E.freeT(3)], ['NEN_quaker_pacifism']),
-            f('NEN_quaker_commonwealth', '贵格共同体', '自由州', 3, 8, 9, '把贵格和平传统升格为共同体国家。', [E.ppCap(2), E.gDef(0.05), E.freeT(2), E.ideo('quaker_commonwealth', '新英格兰公谊邦', '公谊邦')], ['NEN_peace_testimony']),
+            f('NEN_quaker_commonwealth', '贵格共同体', '自由州', 3, 8, 9, '贵格社群以互助账房与节俭军需守护共同体，继续反对冒进战争。', [E.ppCap(2), E.gDef(0.05), E.freeT(2), E.moneyIncome(2), E.maint(-0.05), E.recruitCost(-1), E.ideo('quaker_commonwealth', '新英格兰公谊邦', '公谊邦')], ['NEN_peace_testimony']),
             f('NEN_free_commonwealth', '自由共同体', '自由州', 2, 9, 11, '无论镇会还是贵格，新英格兰都凝成一个自由共同体。', [E.ppCap(3), E.tagD('港口', 0.05), E.allCapT(2), E.badge('自由共同体')], [], { prerequisiteAny: [['NEN_republic_of_towns'], ['NEN_quaker_commonwealth']] }),
 
             // ===================== 线 B：商贸委员会（航运/An-Cap）｜形状＝码头天平 =====================
@@ -62,9 +62,9 @@
             f('NEN_canadian_protectorate', '加拿大保护', '保护协定', 15, 6, 7, '正式接受加拿大-英联邦的保护框架。', [E.tagD('港口', 0.10), E.allCapT(2)], ['NEN_dominion_charter'], { mutuallyExclusive: ['NEN_restored_monarchy'] }),
             f('NEN_restored_monarchy', '复辟君主', '保护协定', 17, 6, 7, '在新英格兰复辟一个立宪君主。', [E.ppCap(2), E.allCapT(2)], ['NEN_dominion_charter'], { mutuallyExclusive: ['NEN_canadian_protectorate'] }),
             f('NEN_import_controls', '进口管制', '保护协定', 15, 7, 8, '以进口配额换取战略物资。', [E.moneyIncome(1), E.tagInc('港口', 1)], ['NEN_canadian_protectorate']),
-            f('NEN_shielded_commonwealth', '受保护共同体', '保护协定', 15, 8, 9, '把保护协定转化为长期安全框架。', [E.ppIncome(1), E.allCapT(3), E.tagD('港口', 0.10), E.ideo('security_state', '新英格兰戒严国', '戒严国')], ['NEN_import_controls']),
+            f('NEN_shielded_commonwealth', '受保护共同体', '保护协定', 15, 8, 9, '把保护协定落实为港口供给与常备驻军，以受护贸易维持长期防务。', [E.ppIncome(1), E.allCapT(3), E.tagD('港口', 0.10), E.moneyIncome(2), E.tagInc('港口', 1), E.freeT(5), E.recruitCost(-1), E.ideo('security_state', '新英格兰戒严国', '戒严国')], ['NEN_import_controls']),
             f('NEN_crown_council', '王室议事会', '保护协定', 17, 7, 8, '设立王室议事会主持复辟政体。', [E.ppCap(2), E.money(10)], ['NEN_restored_monarchy']),
-            f('NEN_new_england_crown', '新英格兰王冠', '保护协定', 17, 8, 9, '为新英格兰加冕一个立宪君主。', [E.ppCap(3), E.gDef(0.05), E.allCapT(2), E.ideo('new_england_monarchy', '新英格兰王国', '新英格兰王国')], ['NEN_crown_council']),
+            f('NEN_new_england_crown', '新英格兰王冠', '保护协定', 17, 8, 9, '王室特许税收支持议事会和领地征召，让王冠成为稳定的动员中心。', [E.ppCap(3), E.gDef(0.05), E.allCapT(2), E.ppIncome(1.5), E.moneyIncome(2), E.recruitAmount(1), E.freeT(3), E.ideo('new_england_monarchy', '新英格兰王国', '新英格兰王国')], ['NEN_crown_council']),
             f('NEN_protected_realm', '受护王国', '保护协定', 16, 9, 11, '无论保护领还是王冠，新英格兰都成为受护的王国。', [E.allCapT(2), E.tagD('港口', 0.05), E.gDef(0.05), E.badge('受护王国')], [], { prerequisiteAny: [['NEN_shielded_commonwealth'], ['NEN_new_england_crown']] }),
 
             // ===================== 线 D：普罗维登斯学社（洛夫克拉夫特）｜形状＝触手星 =====================

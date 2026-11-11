@@ -164,7 +164,7 @@
             f('CSA_armored_corps', '装甲军', '美国赤军', 27, 6, 8, '底特律工人组成赤军装甲军。', [E.nodeI('DET', 1), E.capT(3)], ['CSA_rapid_columns']),
             f('CSA_marine_command', '陆战司令部', '美国赤军', 29, 5, 8, '把陆战队纳入统一登陆指挥。', [E.tagT('港口', 1), E.allT(1)], ['CSA_amphibious_assault']),
             // 戟柄汇流（支线 capstone）
-            f('CSA_american_red_army', '美国赤军', '美国赤军', 27, 7, 10, '巴特勒把三支劲旅合编成统一的美国赤军。', [E.gAtk(0.05), E.allCapT(3), E.capT(4), E.ideo('military_junta')], [], { prerequisiteAny: [['CSA_workers_army'], ['CSA_armored_corps'], ['CSA_marine_command']] }),
+            f('CSA_american_red_army', '美国赤军', '美国赤军', 27, 7, 10, '把各路劲旅编成统一赤军，以军官学校、军需配给与统一调度支撑持续进军。', [E.gAtk(0.05), E.allCapT(3), E.capT(4), E.freeT(8), E.actionCost('move', -1), E.recruitCost(-1), E.ppIncome(1), E.ideo('military_junta')], [], { prerequisiteAny: [['CSA_workers_army'], ['CSA_armored_corps'], ['CSA_marine_command']] }),
             f('CSA_partisan_command', '游击司令部', '美国赤军', 25, 6, 8, '工人军团抽出精锐编成敌后游击队。', [E.damage(1, 2), E.actionCost('move', -1)], ['CSA_workers_army']),
             f('CSA_red_air_corps', '红色航空队', '美国赤军', 29, 6, 8, '把民用机队改成赤军航空队，支援登陆。', [E.tagT('港口', 1), E.gAtk(0.05)], ['CSA_marine_command']),
             f('CSA_red_officer_schools', '红军军官学校', '美国赤军', 27, 8, 9, '赤卫队不再只是民兵，而是革命军官阶层。', [E.gAtk(0.05), E.allCapT(2)], ['CSA_american_red_army']),

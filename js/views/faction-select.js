@@ -5,14 +5,14 @@ const FactionSelectView = {
         const selectedFaction = factions.find(f => f.id === selectedId);
 
         let factionListHtml = factions.map(f => `
-            <div class="faction-item ${f.id === selectedId ? 'active' : ''}" 
+            <button type="button" class="faction-item ${f.id === selectedId ? 'active' : ''}" aria-pressed="${f.id === selectedId}"
                  onclick="window.app.selectFaction('${f.id}')">
-                <div class="faction-color-indicator" style="background-color: ${f.color}; color: ${f.color}"></div>
-                <div class="faction-item-label">
-                    <div class="faction-item-name">${f.name}</div>
-                    <div class="faction-item-sub">${f.shortName} · ${f.id}</div>
-                </div>
-            </div>
+                <span class="faction-color-indicator" style="background-color: ${f.color}; color: ${f.color}" aria-hidden="true"></span>
+                <span class="faction-item-label">
+                    <span class="faction-item-name">${f.name}</span>
+                    <span class="faction-item-sub">${f.shortName} · ${f.id}</span>
+                </span>
+            </button>
         `).join('');
 
         let difficultyStars = '★'.repeat(selectedFaction.difficulty) + '☆'.repeat(5 - selectedFaction.difficulty);
@@ -23,7 +23,7 @@ const FactionSelectView = {
             <div class="view-faction-select animate-fade-in">
                 <div class="faction-select-header">
                     <h2>选择势力</h2>
-                    <div class="text-muted">选择你要带领的合众国碎片</div>
+                    <div class="text-muted">选择你将带领的势力，书写下一份国家档案</div>
                 </div>
                 
                 <div class="glass-panel faction-layout">

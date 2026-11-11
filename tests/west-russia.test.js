@@ -140,7 +140,9 @@ test('West Russia provides a connected province map and complete, distinct facti
         for (const focus of focuses) {
             assert.ok(!campaignFocusIds.has(focus.id));
             campaignFocusIds.add(focus.id);
-            assert.ok(focus.effects.length && focus.description);
+            assert.ok(focus.effects.length, focus.id + ' has a concrete effect');
+            assert.equal(typeof focus.description, 'string');
+            assert.ok(focus.description || focus.category === 'politics', focus.id + ' only omits redundant political prose');
             for (const id of focus.requiredControl || []) assert.ok(MapData.getNode(id), id + ' exists');
             const parents = [...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()];
             for (const parent of parents) {
@@ -161,8 +163,8 @@ test('West Russia provides a connected province map and complete, distinct facti
         assertReachableFocuses(focuses, byId);
     }
     assert.equal(topologies.size, GameState.factions.length);
-    assert.equal(campaignFocusIds.size, 1716);
-    assert.equal(campaignIdeologies.size, 20);
+    assert.equal(campaignFocusIds.size, 1720, '1716 existing focuses plus four connected northern signal focuses');
+    assert.equal(campaignIdeologies.size, 21, '20 political ideologies plus the fictional zero-tide ideology');
     const openingFrontiers = new Set(MapData.connections.map(([a, b]) => (
         [MapData.getNode(a).factionId, MapData.getNode(b).factionId].sort().join('-')
     )));
@@ -195,30 +197,89 @@ test('political branch choices support nested succession, multiple candidates an
     assert.ok(right.every(focus => focus.mutuallyExclusive.length === 3));
 
     const union = GameState.getFocusById('wr_tat_union_commit', 'TAT');
-    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion']), false);
-    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_loadingUnion', 'wr_tat_openContracts']), true);
-    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly', 'wr_tat_dockCrewSchool', 'wr_tat_riverBook']), true);
+    assert.equal(GameState.areFocusPrerequisitesMet(union, []), false);
+    assert.equal(GameState.areFocusPrerequisitesMet(union, ['wr_tat_assembly']), true,
+        'choosing the union government does not require economic contracts or crew training');
 });
 
-test('West Russia draws every prerequisite downward and routes links between cards', () => {
+test('West Russia forms a connected political crown and compact wings without losing prerequisites', () => {
     const { GameState, WestRussiaFocusLayout } = gameClient();
     GameState.initLocalLobby('west-russia');
     const silhouettes = new Set();
+    const politicalShapes = new Set();
     let crossBranchLinks = 0;
+    let politicalBridges = 0;
+    let allPrerequisites = 0;
     for (const { id: factionId } of GameState.factions) {
         const tree = GameState.getFocusTree(factionId);
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const layout = WestRussiaFocusLayout.build(tree, factionId);
-        const { sections, positions, links, references, cardWidth, cardHeight } = layout;
+        const { sections, positions, links, allLinks, externalLinks, references, cardWidth, cardHeight } = layout;
+        assert.equal(layout.structure, 'political-crown');
+        assert.equal(cardWidth, 190, factionId + ': the same card width as the American campaign');
+        assert.equal(cardHeight, 150, factionId + ': the same card height as the American campaign');
         const branchCount = new Set(tree.map(focus => focus.branch)).size;
         assert.equal(sections.length, branchCount);
         assert.equal(new Set(sections.map(section => section.name)).size, branchCount);
         assert.equal(Object.keys(positions).length, tree.length);
+        const panels = sections.map(section => {
+            const cards = section.positions.map(({ id }) => positions[id]);
+            return { name: section.name, left: Math.min(...cards.map(card => card.left)),
+                right: Math.max(...cards.map(card => card.left + cardWidth)),
+                top: Math.min(...cards.map(card => card.top)), bottom: Math.max(...cards.map(card => card.bottomY)) };
+        });
+        assert.ok(new Set(panels.map(panel => panel.top)).size >= 3,
+            factionId + ': the opening, political choices and supporting wings have distinct stages');
+        for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) {
+            const a = panels[i], b = panels[j];
+            assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
+                `${factionId}: ${a.name} and ${b.name} keep separate branch panels instead of interleaving`);
+        }
         silhouettes.add(tree.map(({ id }) => `${positions[id].column},${positions[id].row}`).join('|'));
+
+        const prefix = 'wr_' + factionId.toLowerCase() + '_';
+        const assembly = positions[prefix + 'assembly'];
+        const political = sections.filter(section => section.entryId.endsWith('_commit'));
+        assert.equal(political.length, 4);
+        for (const section of political) {
+            assert.equal(section.region, 'politics');
+            assert.ok(section.shape, section.name + ': describes its actual branch shape');
+            politicalShapes.add(section.shape);
+            const entry = byId.get(section.entryId);
+            const parentId = entry.prerequisites[0];
+            const parent = positions[parentId];
+            const entryPosition = positions[entry.id];
+            assert.ok(entryPosition.row > assembly.row, entry.id + ': follows the shared political opening');
+            if (parentId.endsWith('_congress')) {
+                assert.equal(entryPosition.row, parent.row + 1, entry.id + ': succession grows directly from its parent congress');
+            }
+            const stem = entry.id.replace(/_commit$/, '');
+            const choices = tree.filter(focus => focus.branch === section.name && /_\d+_choice$/.test(focus.id));
+            assert.ok(choices.length >= 2, section.name + ': keeps a visible policy fork');
+            const columns = choices.map(focus => positions[focus.id].column);
+            assert.equal(new Set(columns).size, choices.length, section.name + ': choices have separate arms');
+            const wartime = positions[stem + '_wartime'];
+            assert.ok(wartime.column > Math.min(...columns) && wartime.column < Math.max(...columns),
+                section.name + ': the political spine sits between its policy arms');
+            const rulebook = positions[stem + '_rulebook'];
+            const settlements = tree.filter(focus => focus.branch === section.name && /_\d+_settlement$/.test(focus.id));
+            assert.ok(settlements.every(focus => positions[focus.id].row < rulebook.row),
+                section.name + ': alternative policy arms visibly converge below their governments');
+        }
 
         const parents = new Map(tree.map(focus => [focus.id, new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()])]));
         const byLink = new Map(links.map(link => [link.from + '|' + link.to, link]));
-        assert.equal(byLink.size, [...parents.values()].reduce((sum, group) => sum + group.size, 0));
+        const allByLink = new Map(allLinks.map(link => [link.from + '|' + link.to, link]));
+        const externalByLink = new Map(externalLinks.map(link => [link.from + '|' + link.to, link]));
+        const actualCount = [...parents.values()].reduce((sum, group) => sum + group.size, 0);
+        allPrerequisites += actualCount;
+        assert.equal(allByLink.size, actualCount, factionId + ': no logical prerequisite is deleted');
+        const localLinkCount = links.filter(link => !link.crossBranch).length;
+        assert.equal(localLinkCount + externalByLink.size, allByLink.size,
+            factionId + ': every dependency remains a local line or a named external reference');
+        assert.ok(links.filter(link => link.crossBranch).every(link => link.bridge),
+            factionId + ': only explicit political bridges receive cross-branch paths');
+        assert.ok(externalLinks.every(link => link.crossBranch), factionId + ': external metadata keeps the cross-branch dependencies');
         let local = 0;
         let tight = 0;
         for (const [index, focus] of tree.entries()) {
@@ -231,16 +292,29 @@ test('West Russia draws every prerequisite downward and routes links between car
                     `${focus.id} overlaps ${other.id}`);
             }
             for (const parentId of parents.get(focus.id)) {
-                const link = byLink.get(parentId + '|' + focus.id);
-                assert.ok(link, `${parentId} → ${focus.id} is drawn`);
-                assert.equal(link.optional, !focus.prerequisites.includes(parentId));
-                const parent = positions[parentId];
-                assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward`);
-                if (link.crossBranch) {
-                    assert.notEqual(byId.get(parentId).branch, focus.branch);
+                const key = parentId + '|' + focus.id;
+                const actual = allByLink.get(key);
+                assert.ok(actual, `${parentId} → ${focus.id} retains its dependency metadata`);
+                assert.equal(actual.optional, !focus.prerequisites.includes(parentId));
+                if (byId.get(parentId).branch !== focus.branch) {
+                    assert.ok(externalByLink.has(key), `${parentId} → ${focus.id} remains an external reference`);
                     assert.ok(references.get(parentId).after.includes(focus.id));
+                    assert.ok(references.get(focus.id).before.includes(parentId));
                     crossBranchLinks++;
-                } else {
+                    const bridge = focus.category === 'politics' && byId.get(parentId).category === 'politics'
+                        && (focus.id.endsWith('_commit') || focus.id === 'wr_one_zeroListen')
+                        && (parentId.endsWith('_assembly') || parentId.endsWith('_congress'));
+                    assert.equal(byLink.has(key), bridge, `${parentId} → ${focus.id}: only a political hierarchy bridge is drawn`);
+                    if (!bridge) continue;
+                    assert.equal(byLink.get(key).bridge, true);
+                    politicalBridges++;
+                }
+                const link = byLink.get(key);
+                assert.ok(link, `${parentId} → ${focus.id} retains its visible connection`);
+                assert.equal(link.optional, actual.optional);
+                const parent = positions[parentId];
+                assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward locally`);
+                if (!link.crossBranch) {
                     local++;
                     if (card.row - parent.row === 1) tight++;
                 }
@@ -264,17 +338,20 @@ test('West Russia draws every prerequisite downward and routes links between car
         }
         assert.ok(tight / local >= .95, `${factionId} keeps its local runs compact`);
 
-        const political = sections.find(section => section.entryId.endsWith('_commit'));
-        const isolated = WestRussiaFocusLayout.build(tree, factionId, political.name);
+        const isolatedSection = political[0];
+        const isolated = WestRussiaFocusLayout.build(tree, factionId, isolatedSection.name);
         assert.equal(isolated.sections.length, 1);
-        assert.equal(Object.keys(isolated.positions).length, political.positions.length);
+        assert.equal(Object.keys(isolated.positions).length, isolatedSection.positions.length);
         assert.ok(isolated.links.every(link => !link.crossBranch));
-        for (const { id } of political.positions) {
+        for (const { id } of isolatedSection.positions) {
             assert.deepEqual(isolated.references.get(id), references.get(id));
         }
     }
     assert.equal(silhouettes.size, GameState.factions.length);
-    assert.equal(crossBranchLinks, 373);
+    assert.ok(politicalShapes.size >= 3, 'Political chapters retain different real fork and cabinet structures');
+    assert.equal(allPrerequisites, 2030, 'all original logical dependencies remain intact');
+    assert.equal(crossBranchLinks, 391, 'opening projects share their own branch; all external prerequisites remain references');
+    assert.equal(politicalBridges, 45, 'all route entries and the northern signal chain visibly connect to their actual political parents');
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {
@@ -318,7 +395,7 @@ test('preparation permits friendly movement and blocks cross-border orders throu
     assert.ok(SimultaneousTurns.addOrder(friendly));
     assert.equal(SimultaneousTurns.buildAiPlan('KOM').orders.some(order => order.kind === 'attack'), false);
 
-    const wartime = GameState.getFocusById('wr_wrf_zhukov_wartime');
+    const wartime = GameState.getFocusById('wr_wrf_whiteSeaRenewal');
     assert.equal(GameState.getFocusStatus(wartime), 'phase-blocked');
     assert.equal(app.getFocusAdvanceAvailability(wartime.id).reason, '战斗期开放');
     assert.equal(GameAI.aiAdvanceFocus('WRF', wartime, null, { free: true }), false);
@@ -326,7 +403,7 @@ test('preparation permits friendly movement and blocks cross-border orders throu
     const localPlan = SimultaneousTurns.snapshotLocalPlan(true);
     // The host must check the target owner even when an incoming packet claims a friendly move.
     localPlan.orders.push({ ...attack, kind: 'move' });
-    const foreignWartimeId = 'wr_kom_centre_wartime';
+    const foreignWartimeId = GameState.getFocusTree('KOM').find(focus => focus.wartime && focus.category !== 'politics').id;
     localPlan.completedFocuses.push(wartime.id, foreignWartimeId);
     localPlan.focusProgress[wartime.id] = 2;
     localPlan.focusProgress[foreignWartimeId] = 2;
@@ -391,7 +468,9 @@ test('completing a political route changes the ideology, country name and ongoin
     GameState.addAiToSlot('WRF', 'very_easy');
     GameState.startGameSession();
     assert.equal(GameState.getIdeology().id, 'wr_parliament');
-    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0.5);
+    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0);
+    assert.equal(GameState.getIdeologyBonus('ppIncome'), 1.2);
+    assert.equal(GameState.getIdeologyBonus('globalAttack'), -0.07);
     GameState.game.currentTurn = 4;
     const research = [
         'report', 'repair', 'assembly', 'centre_commit', 'centre_hearing', 'centre_congress', 'centre_wartime',
@@ -406,9 +485,11 @@ test('completing a political route changes the ideology, country name and ongoin
         assert.ok(GameState.game.completedFocuses.includes(focus.id), focus.id);
     }
     assert.equal(GameState.getIdeology().id, 'wr_public_republic');
-    assert.equal(GameState.getIdeologyBonus('ppIncome'), 0.85);
+    assert.equal(GameState.getIdeologyBonus('ppIncome'), 1.8);
     assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0);
-    assert.equal(GameState.getIdeologyBonus('globalDefense'), -0.015);
+    assert.equal(GameState.getIdeologyBonus('globalDefense'), 0);
+    assert.equal(GameState.getIdeologyBonus('globalAttack'), -0.06);
+    assert.equal(GameState.getIdeologyActionCostDelta('recruit'), 1);
     assert.equal(GameState.getFaction('KOM').name, '西俄罗斯共和国');
     assert.equal(GameState.getFactionName('KOM'), '科米共和政府');
     assert.equal(GameState.getFocusStatus(GameState.getFocusById('wr_kom_centre_1_choice')), 'mutually-blocked');

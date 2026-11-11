@@ -87,7 +87,7 @@
             f('TEX_war_on_mexico', '对墨战争派', '孤星共和', 26, 6, 7, '主张直接对墨西哥开战夺取边境。', [E.gAtk(0.05), E.capTroop(1)], ['TEX_lone_star_council'], { mutuallyExclusive: ['TEX_border_restoration'] }),
             f('TEX_old_republic_borders', '旧共和国疆界', '孤星共和', 21, 7, 8, '逐步收复旧共和国的疆界。', [E.allCapT(2), E.tagInc('油田', 1)], ['TEX_border_restoration']),
             f('TEX_mexico_campaign', '墨西哥战役', '孤星共和', 27, 7, 8, '发动跨境的墨西哥战役。', [E.gAtk(0.05), E.capMoney(3)], ['TEX_war_on_mexico']),
-            f('TEX_lone_star_irredenta', '孤星收复主义', '孤星共和', 22, 8, 9, '把收复旧疆界写成国家信条。', [E.allCapT(2), E.recruitAmount(1), E.ideo('lone_star_nationalism', '德克萨斯共和国', '孤星共和国')], ['TEX_old_republic_borders']),
+            f('TEX_lone_star_irredenta', '孤星收复主义', '孤星共和', 22, 8, 9, '旧疆边民加入收复军，以地方军需支援机动推进，而非无限扩大征服目标。', [E.allCapT(2), E.recruitAmount(1), E.actionCost('move', -1), E.capTroop(1), E.freeT(4), E.recruitCost(-1), E.ideo('lone_star_nationalism', '德克萨斯共和国', '孤星共和国')], ['TEX_old_republic_borders']),
             f('TEX_greater_texas', '大德克萨斯', '孤星共和', 26, 8, 9, '宣布德州是所有讲英语和西班牙语牛仔的国家。', [E.gAtk(0.05), E.capTroop(1), E.tagMoney('油田', 8), E.ideo('expansionism', '大德克萨斯帝国', '大德州')], ['TEX_mexico_campaign']),
             f('TEX_lone_star_destiny', '孤星天命', '孤星共和', 24, 9, 11, '无论收复还是征服，孤星共和国都走向昭昭天命。', [E.gAtk(0.05), E.allCapT(3), E.badge('孤星天命')], [], { prerequisiteAny: [['TEX_lone_star_irredenta'], ['TEX_greater_texas']] }),
 
