@@ -167,6 +167,57 @@ test('all West Russia views retain the actual prerequisite edges and optional al
     }
 });
 
+test('both campaigns use the same full-size colored card contract and political routes have distinct colors', () => {
+    const client = gameClient();
+    const { GameState, GamePageView } = client;
+    const requiredParts = ['focus-branch', 'focus-title', 'focus-card-row', 'focus-status-pill',
+        'focus-progress-mini', 'focus-card-bottom', 'focus-cost'];
+    for (const scenario of ['america', 'west-russia']) {
+        GameState.initLocalLobby(scenario);
+        GameState.startGameSession();
+        if (scenario === 'west-russia') GameState.game.completedFocuses.push('wr_one_assembly');
+        for (const faction of GameState.factions) {
+            const tree = GameState.getVisibleFocusTree(faction.id);
+            const rendered = cards(render(client, faction.id, tree[0].id));
+            assert.equal(rendered.size, tree.length, faction.id + ': all visible cards remain present');
+            const colors = new Map();
+            for (const focus of tree) {
+                const card = rendered.get(focus.id);
+                assert.ok(hasClass(card, 'focus-unified-card'), focus.id + ': shares the full-card renderer');
+                assert.match(card.attrs.style, /width: 190px/);
+                assert.match(card.attrs.style, /height: 150px/);
+                assert.ok(card.attrs['aria-label'], focus.id + ': retains its accessible name');
+                assert.equal(card.attrs['aria-pressed'], String(focus.id === tree[0].id));
+                for (const part of requiredParts) assert.match(card.contents, new RegExp('class="' + part + '(?:[ "]|$)'),
+                    focus.id + ': ' + part + ' remains available');
+                assert.doesNotMatch(card.contents, /focus-emblem|focus-plaque/);
+                const color = card.attrs.style.match(/--branch-color:\s*([^;]+)/)?.[1];
+                assert.ok(color, focus.id + ': carries its branch color');
+                if (colors.has(focus.branch)) assert.equal(colors.get(focus.branch), color, focus.branch + ': stable color');
+                colors.set(focus.branch, color);
+            }
+            assert.ok(new Set(colors.values()).size >= 4, faction.id + ': separates the main branches by color');
+            if (scenario === 'america') {
+                const layout = GamePageView.getFocusTreeLayout(tree);
+                const connectorHtml = GamePageView.renderFocusConnectors(tree, layout, tree[0].id);
+                const drawn = [...connectorHtml.matchAll(/<path\b([^>]*)\/?\s*>/g)]
+                    .map(([, opening]) => attributes(opening))
+                    .filter(attrs => (attrs.class || '').split(/\s+/).includes('focus-link'));
+                const visible = new Set(tree.map(focus => focus.id));
+                const actualDependencies = tree.reduce((total, focus) => total + new Set([
+                    ...(focus.prerequisites || []), ...(focus.prerequisiteAny || []).flat()
+                ].filter(id => visible.has(id))).size, 0);
+                assert.equal(drawn.length, actualDependencies, faction.id + ': all actual American prerequisites remain drawn');
+            }
+            if (scenario === 'west-russia') {
+                const roots = tree.filter(focus => focus.id.endsWith('_commit'));
+                const routeColors = roots.map(focus => colors.get(focus.branch));
+                assert.equal(new Set(routeColors).size, 4, faction.id + ': four political routes use four colors');
+            }
+        }
+    }
+});
+
 test('all factions expose every mutex relation and highlight exactly the selected focus conflicts', () => {
     const client = gameClient();
     const { GameState } = client;
@@ -290,11 +341,11 @@ test('a non-transitive mutex chain and an intervening unrelated card do not beco
     const node = (id, exclusive) => ({ ...sample, id, mutuallyExclusive: exclusive, prerequisites: [], prerequisiteAny: [] });
     const tree = [node('a', ['b']), node('b', ['a', 'c']), node('c', ['b'])];
     const positions = Object.fromEntries(['a', 'b', 'c'].map((id, column) => {
-        const left = 30 + column * 194;
-        const top = 148;
-        return [id, { left, top, topY: top, bottomY: top + 72, centerX: left + 77, centerY: top + 36, column, row: 1 }];
+        const left = 30 + column * 230;
+        const top = 228;
+        return [id, { left, top, topY: top, bottomY: top + 150, centerX: left + 95, centerY: top + 75, column, row: 1 }];
     }));
-    const layout = { positions, links: [], cardWidth: 154, cardHeight: 72, width: 602, height: 250 };
+    const layout = { positions, links: [], cardWidth: 190, cardHeight: 150, width: 710, height: 410 };
     const html = GamePageView.renderCampaignFocusLinks(tree, layout, 'a');
     assert.equal(mutualGroups(html).length, 0, 'A-B and B-C do not imply A-C or a three-way choice');
 

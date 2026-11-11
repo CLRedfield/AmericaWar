@@ -1518,7 +1518,7 @@ const GameState = {
             if (faction.id === playerFactionId) {
                 const lastSeen = this.game.lastCapitalNodeIds[faction.id];
                 if (lastSeen && lastSeen !== nextCapitalId && lastSeen === faction.capitalNodeId) {
-                    const crisisPP = this.getGameModifiers().crisisPP || 0;
+                    const crisisPP = this.getEffectiveCrisisPP();
                     if (crisisPP > 0) {
                         this.game.playerResources.pp = Math.min(this.getEffectivePPCap(), this.game.playerResources.pp + crisisPP);
                         if (shouldLog) this.addLog(`紧急集会触发：${this.getFactionName(faction.id)} 失去原首都，士气号召带来 +${crisisPP} PP。`, 'system', false);

@@ -1324,6 +1324,44 @@ const GamePageView = {
             civil: '#a6b994', diplomacy: '#b5a4ce', integration: '#cfac74' })[category];
     },
 
+    focusBranchColor(focus, factionId = GameState.game.focusViewFactionId || GameState.getPlayerFactionId()) {
+        if (!focus.category) return this.branchColor(focus.branch);
+        const tree = GameState.getFocusTree(factionId);
+        if (focus.category === 'politics') {
+            // Discrete colors make neighboring political choices visibly different.
+            const branches = [...new Set(tree.filter(item => item.category === 'politics').map(item => item.branch))];
+            const colors = ['#867552', '#427998', '#85639d', '#a05f5d', '#648a60', '#438b83', '#a57b47'];
+            return colors[Math.max(0, branches.indexOf(focus.branch)) % colors.length];
+        }
+        const colors = {
+            industry: ['#548e86', '#6b8f72', '#568f98'], military: ['#a5675d', '#a8774c', '#967164'],
+            logistics: ['#547f9c', '#5d8d9b', '#617f9b'], civil: ['#6f8d60', '#7c9367', '#608b77'],
+            diplomacy: ['#8d6c9c', '#79709d', '#996c91'], integration: ['#9b854f', '#ab8b58', '#908455']
+        }[focus.category] || ['#7c8b86'];
+        const branches = [...new Set(tree.filter(item => item.category === focus.category).map(item => item.branch))];
+        return colors[Math.max(0, branches.indexOf(focus.branch)) % colors.length];
+    },
+
+    focusBranchTextColor(color) {
+        let rgb;
+        const hex = color.match(/^#([0-9a-f]{6})$/i);
+        const hsl = color.match(/^hsl\(\s*([\d.]+),\s*([\d.]+)%[,]?\s*([\d.]+)%\s*\)$/);
+        if (hex) rgb = [0, 2, 4].map(index => parseInt(hex[1].slice(index, index + 2), 16) / 255);
+        else if (hsl) {
+            const hue = Number(hsl[1]) / 60;
+            const saturation = Number(hsl[2]) / 100;
+            const lightness = Number(hsl[3]) / 100;
+            const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+            const x = chroma * (1 - Math.abs(hue % 2 - 1));
+            const m = lightness - chroma / 2;
+            rgb = [[chroma, x, 0], [x, chroma, 0], [0, chroma, x], [0, x, chroma], [x, 0, chroma], [chroma, 0, x]][Math.floor(hue) % 6].map(value => value + m);
+        }
+        if (!rgb) return '#fff9ed';
+        const linear = rgb.map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+        const luminance = linear[0] * .2126 + linear[1] * .7152 + linear[2] * .0722;
+        return luminance > .19 ? '#101710' : '#fff9ed';
+    },
+
     renderFocusOverviewNodes(tree, layout, selectedFocus) {
         const completed = new Set(GameState.game.completedFocuses);
         return `
@@ -1332,14 +1370,14 @@ const GamePageView = {
                     const { left, top } = layout.positions[focus.id];
                     const mutualTarget = selectedFocus?.mutuallyExclusive?.includes(focus.id);
                     return `<rect class="${completed.has(focus.id) ? 'done' : ''} ${mutualTarget ? 'focus-overview-mutual-target' : ''}" x="${left + 9}" y="${top + 8}" width="${layout.cardWidth - 18}"
-                        height="${layout.cardHeight - 16}" rx="8" fill="${this.focusChapterColor(focus.category)}" />`;
+                        height="${layout.cardHeight - 16}" rx="8" fill="${this.focusBranchColor(focus)}" />`;
                 }).join('')}
             </svg>
             ${layout.sections.map(chapter => {
                 const { left, top } = layout.positions[chapter.entryId];
                 return `<button type="button" class="focus-chapter-jump ${chapter.name === selectedFocus?.branch ? 'current' : ''}"
                     data-focus-chapter="${chapter.entryId}" aria-label="${escapeHtml(chapter.name)}"
-                    style="left: ${left}px; top: ${top}px; width: ${layout.cardWidth}px; height: ${layout.cardHeight}px; --chapter-color: ${this.focusChapterColor(chapter.category)}"
+                    style="left: ${left}px; top: ${top}px; width: ${layout.cardWidth}px; height: ${layout.cardHeight}px; --chapter-color: ${this.focusBranchColor(tree.find(focus => focus.id === chapter.entryId))}"
                     onclick="window.app.jumpToCampaignFocus('${chapter.entryId}')"><span>${escapeHtml(chapter.name)}</span></button>`;
             }).join('')}
         `;
@@ -1352,7 +1390,7 @@ const GamePageView = {
         tree.forEach(focus => { (byBranch[focus.branch] = byBranch[focus.branch] || []).push(focus); });
         Object.entries(byBranch).forEach(([branch, nodes]) => {
             if (!branch || nodes.length < 3) return;
-            const color = this.branchColor(branch);
+            const color = this.focusBranchColor(nodes[0]);
             let minL = Infinity, minT = Infinity, maxR = -Infinity, maxB = -Infinity;
             nodes.forEach(n => {
                 const p = layout.positions[n.id];
@@ -1510,7 +1548,7 @@ const GamePageView = {
             const active = from === selectedFocusId || to === selectedFocusId;
             const classes = ['focus-link', optional ? 'focus-link-any' : '', crossBranch ? 'focus-link-cross' : '',
                 completed.has(from) ? 'focus-link-met' : '', active ? 'focus-link-active' : ''].join(' ');
-            const color = crossBranch ? '#8eaebf' : this.focusChapterColor(byId.get(to).category);
+            const color = crossBranch ? '#91a69b' : this.focusBranchColor(byId.get(to));
             (active ? selected : lines).push(`<path class="${classes}" style="--focus-link-color: ${color}"
                 data-focus-from="${from}" data-focus-to="${to}" d="${path}" />`);
         }
@@ -1523,6 +1561,7 @@ const GamePageView = {
                 <text class="focus-mutual-label" x="${group.labelX}" y="${group.labelY}">${group.label}</text>` : ''}
             </g>`).join('');
         return `<svg class="focus-connector-layer" width="${layout.width}" height="${layout.height}" aria-hidden="true">
+            ${this.renderFocusLaneBands(tree, layout)}
             ${lines.join('')}${selected.join('')}${mutualGroups}
         </svg>`;
     },
@@ -1573,53 +1612,33 @@ const GamePageView = {
         const position = layout.positions[focus.id];
         const progressPercent = Math.round(progress.ratio * 100);
         const classes = `${stateClass} ${selected ? 'selected' : ''} ${mobileHidden ? 'mobile-focus-hidden' : ''}`;
-        if (layout.links) return this.renderCampaignFocusCard(focus, position, classes, statusText, progressPercent, mutualTarget);
         const actionCost = isPlayerView ? window.app.getActionCost('focus').ppCost : '只读';
-        const color = this.branchColor(focus.branch);
-
-        return `
-            <button class="focus-card ${classes}" data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch || '')}"
-                style="left: ${position.left}px; top: ${position.top}px; --branch-color: ${color};"
-                onclick="window.app.selectFocus('${focus.id}')">
-                <div class="focus-branch">${focus.branch}</div>
-                <div class="focus-title">${focus.name}</div>
-                <div class="focus-card-row">
-                    <span class="focus-status-pill">${statusText}</span>
-                    <span>${progress.current}/${progress.required}</span>
-                </div>
-                <div class="focus-progress-mini" aria-label="国策推进进度">
-                    <span style="width: ${progressPercent}%"></span>
-                </div>
-                <div class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</div>
-            </button>
-        `;
-    },
-
-    renderCampaignFocusCard(focus, position, classes, status, progress, mutualTarget = false) {
-        const glyph = {
-            politics: 'M3 8 12 3l9 5H3Zm2 11h14M7 10v7m5-7v7m5-7v7',
-            military: 'm4 11 8-6 8 6M4 17l8-6 8 6',
-            industry: 'M3 20V9l6 4V9l6 4 1-8h4l1 15H3Zm4-4v1m5-1v1m5-1v1',
-            logistics: 'M7 4v16M17 4v16M5 7h14M5 12h14M5 17h14',
-            civil: 'M12 6v14M4 5c4 0 6 1 8 3 2-2 4-3 8-3v12c-4 0-6 1-8 3-2-2-4-3-8-3V5Z',
-            diplomacy: 'm12 3 9 9-9 9-9-9 9-9Zm-4 9h8m-4-4v8',
-            integration: 'M12 3v5m0 8v5M3 12h5m8 0h5M8 8h8v8H8z'
-        }[focus.category];
+        const color = this.focusBranchColor(focus, viewFactionId);
         const mutuals = focus.mutuallyExclusive || [];
-        const label = escapeHtml(`${focus.name} · ${focus.branch} · ${status}`
+        const label = escapeHtml(`${focus.name} · ${focus.branch} · ${statusText}`
             + (mutuals.length ? ` · 与 ${mutuals.length} 项国策互斥` : '')
             + (mutualTarget ? ' · 与当前选中国策互斥' : ''));
+
         return `
-            <button class="focus-card focus-emblem-card ${classes} ${mutualTarget ? 'focus-mutual-target' : ''}" data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch)}"
+            <button type="button" class="focus-card focus-unified-card ${classes} ${mutualTarget ? 'focus-mutual-target' : ''}"
+                data-focus-id="${focus.id}" data-branch="${escapeHtml(focus.branch || '')}" data-focus-category="${escapeHtml(focus.category || 'politics')}"
                 data-focus-mutual-ids="${mutuals.join(' ')}" data-focus-mutual-selected="${mutualTarget}"
-                aria-label="${label}" title="${label}"
-                style="left: ${position.left}px; top: ${position.top}px; --branch-color: ${this.focusChapterColor(focus.category)}; --focus-progress: ${progress}%"
+                aria-label="${label}" aria-pressed="${selected}" title="${label}"
+                style="left: ${position.left}px; top: ${position.top}px; width: ${layout.cardWidth}px; height: ${layout.cardHeight}px; --branch-color: ${color}; --branch-text-color: ${this.focusBranchTextColor(color)};"
                 onclick="window.app.selectFocus('${focus.id}')">
-                <span class="focus-emblem" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><path d="${glyph}" /></svg>
+                <span class="focus-branch"><span>${escapeHtml(focus.branch || '国策')}</span></span>
+                <span class="focus-title">${escapeHtml(focus.name)}</span>
+                <span class="focus-card-row">
+                    <span class="focus-status-pill">${statusText}</span>
+                    <span class="focus-card-progress">${progress.current}/${progress.required}</span>
                 </span>
-                ${mutuals.length ? `<span class="focus-choice-label" aria-hidden="true">互斥 ${mutuals.length}</span>` : ''}
-                <span class="focus-plaque"><span>${escapeHtml(focus.name)}</span></span>
+                <span class="focus-progress-mini" aria-label="国策推进进度">
+                    <span style="width: ${progressPercent}%"></span>
+                </span>
+                <span class="focus-card-bottom">
+                    <span class="focus-cost">${isPlayerView ? `推进 ${actionCost} PP` : '看海只读'}</span>
+                    ${mutuals.length ? `<span class="focus-choice-label" aria-hidden="true">互斥 ${mutuals.length}</span>` : ''}
+                </span>
             </button>
         `;
     },

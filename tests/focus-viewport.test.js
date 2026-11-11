@@ -57,8 +57,8 @@ function createClient() {
         const card = selected ? {
             offsetLeft: Number(selected.match(/left: ([\d.]+)px/)[1]),
             offsetTop: Number(selected.match(/top: ([\d.]+)px/)[1]),
-            offsetWidth: 154,
-            offsetHeight: 72
+            offsetWidth: Number(selected.match(/width: ([\d.]+)px/)?.[1] || 190),
+            offsetHeight: Number(selected.match(/height: ([\d.]+)px/)?.[1] || 150)
         } : null;
         const scroller = {
             isConnected: true,
@@ -166,7 +166,10 @@ test('overview refits its written canvas transform and stage dimensions when wid
     client.openOverview();
     const initial = assertFitted(client.current);
 
-    client.resize(760, 650);
+    // Force width to become the limiting dimension regardless of the current
+    // branch panel arrangement's aspect ratio.
+    const constrainedWidth = Math.max(1, Math.floor(measurements(client.current).width / 2));
+    client.resize(constrainedWidth, 650);
     const narrow = assertFitted(client.current);
     assert.ok(narrow < initial, 'Narrower viewport must reduce the overview scale');
 

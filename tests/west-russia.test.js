@@ -212,10 +212,23 @@ test('West Russia draws every prerequisite downward and routes links between car
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const layout = WestRussiaFocusLayout.build(tree, factionId);
         const { sections, positions, links, references, cardWidth, cardHeight } = layout;
+        assert.equal(cardWidth, 190, factionId + ': the same card width as the American campaign');
+        assert.equal(cardHeight, 150, factionId + ': the same card height as the American campaign');
         const branchCount = new Set(tree.map(focus => focus.branch)).size;
         assert.equal(sections.length, branchCount);
         assert.equal(new Set(sections.map(section => section.name)).size, branchCount);
         assert.equal(Object.keys(positions).length, tree.length);
+        const panels = sections.map(section => {
+            const cards = section.positions.map(({ id }) => positions[id]);
+            return { name: section.name, left: Math.min(...cards.map(card => card.left)),
+                right: Math.max(...cards.map(card => card.left + cardWidth)),
+                top: Math.min(...cards.map(card => card.top)), bottom: Math.max(...cards.map(card => card.bottomY)) };
+        });
+        for (let i = 0; i < panels.length; i++) for (let j = i + 1; j < panels.length; j++) {
+            const a = panels[i], b = panels[j];
+            assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
+                `${factionId}: ${a.name} and ${b.name} keep separate branch panels instead of interleaving`);
+        }
         silhouettes.add(tree.map(({ id }) => `${positions[id].column},${positions[id].row}`).join('|'));
 
         const parents = new Map(tree.map(focus => [focus.id, new Set([...focus.prerequisites, ...(focus.prerequisiteAny || []).flat()])]));
@@ -276,7 +289,7 @@ test('West Russia draws every prerequisite downward and routes links between car
         }
     }
     assert.equal(silhouettes.size, GameState.factions.length);
-    assert.equal(crossBranchLinks, 413, 'conditional economic and military projects retain their cross-branch connections');
+    assert.equal(crossBranchLinks, 391, 'opening projects now share their own economic or military branch; all prerequisite edges remain drawn');
 });
 
 test('a conquest focus becomes available after taking its province and applies the local project', () => {

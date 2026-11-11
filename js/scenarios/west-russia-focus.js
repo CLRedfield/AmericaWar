@@ -109,6 +109,11 @@ const buildWestRussiaFocus = (() => {
 
     function openingChapter(profile, design) {
         const [opening, repair, roster, assembly, frontier] = profile.opening;
+        // Opening projects belong with the work they start. Keeping them in
+        // the same chapter as late political follow-ups made the old chapter
+        // boxes stretch across the entire tree and interleave with every route.
+        const firstIndustry = design.chapters.find(section => section.category === 'industry')?.title || '经济恢复';
+        const firstMilitary = design.chapters.find(section => section.category === 'military')?.title || '军事整备';
         return {
             title: design.council.title,
             category: 'politics',
@@ -116,13 +121,13 @@ const buildWestRussiaFocus = (() => {
                 { key: 'report', name: opening, lane: 1, description: profile.faction.description,
                     effects: grant('pp', 1), steps: 1 },
                 { key: 'repair', name: repair, lane: 0, description: '集中首都的修造人员，恢复第一批产能。',
-                    effects: grant('capitalIndustry', 1), requires: ['report'], steps: 1, branch: '经济恢复', category: 'industry' },
+                    effects: grant('capitalIndustry', 1), requires: ['report'], steps: 1, branch: firstIndustry, category: 'industry' },
                 { key: 'roster', name: roster, lane: 2, description: '登记还能立即归队的人员与装备。',
-                    effects: grant('capitalTroops', 2), requires: ['report'], steps: 1, branch: '军事整备', category: 'military' },
+                    effects: grant('capitalTroops', 2), requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' },
                 { key: 'assembly', name: assembly, lane: 1, description: '选择国家的政治方向。',
                     effects: grant('pp', 2), requires: ['report'], steps: 1 },
                 { key: 'frontier', name: frontier, lane: 3, description: '检查路障、通讯与民用撤离路线。',
-                    effects: [{ type: 'taggedDefense', amount: 0.04, tag: design.frontier }], requires: ['report'], steps: 1, branch: '军事整备', category: 'military' }
+                    effects: [{ type: 'taggedDefense', amount: 0.04, tag: design.frontier }], requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' }
             ]
         };
     }

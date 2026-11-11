@@ -21,19 +21,41 @@ test.beforeEach(async ({ browser }, testInfo) => {
     });
 });
 
-async function openTree(page, faction) {
+async function openTree(page, faction, scenario = 'west-russia') {
     await page.goto('./', { waitUntil: 'domcontentloaded' });
-    await page.locator('.menu-scenario').filter({ hasText: '西俄罗斯 · 大动乱' }).click();
+    await page.locator('.menu-scenario').filter({ hasText: scenario === 'west-russia' ? '西俄罗斯 · 大动乱' : '美国内战' }).click();
     await page.getByLabel('每回合时间', { exact: true }).selectOption({ label: '不限时' });
     await page.getByRole('button', { name: '单机沙盒（本地房间）', exact: true }).click();
-    if (faction !== 'WRF') {
+    if (faction !== (scenario === 'west-russia' ? 'WRF' : 'USA')) {
         await page.locator('.slot-row').filter({ hasText: `${faction} ·` })
             .getByRole('button', { name: '换到这里', exact: true }).click();
     }
     await page.getByRole('button', { name: '开始游戏', exact: true }).click();
     await page.getByRole('button', { name: '国策', exact: true }).click();
     await expect(page.locator('.focus-tree-canvas')).toBeVisible();
-    await expect(page.locator('[data-focus-zoom-label]')).toHaveText('82%');
+    if (scenario === 'west-russia') await expect(page.locator('[data-focus-zoom-label]')).toHaveText('82%');
+}
+
+async function checkUnifiedCards(page, testInfo, name) {
+    const metrics = await page.locator('.focus-card').evaluateAll(nodes => ({
+        cards: nodes.length,
+        legacyEmblems: nodes.filter(node => node.querySelector('.focus-emblem, .focus-plaque')).length,
+        invalid: nodes.filter(node => {
+            const header = node.querySelector('.focus-branch');
+            return node.offsetWidth !== 190 || node.offsetHeight !== 150
+                || !node.classList.contains('focus-unified-card')
+                || !node.querySelector('.focus-title') || !node.querySelector('.focus-status-pill')
+                || !node.querySelector('.focus-progress-mini') || !node.querySelector('.focus-cost')
+                || !header || header.offsetHeight < 24 || header.offsetWidth < node.clientWidth - 2
+                || getComputedStyle(header).backgroundColor === 'rgba(0, 0, 0, 0)';
+        }).map(node => node.dataset.focusId),
+        branchColors: [...new Set(nodes.map(node => getComputedStyle(node.querySelector('.focus-branch')).backgroundColor))]
+    }));
+    await attachJson(testInfo, name, metrics);
+    expect(metrics.cards).toBeGreaterThan(100);
+    expect(metrics.legacyEmblems).toBe(0);
+    expect(metrics.invalid).toEqual([]);
+    expect(metrics.branchColors.length).toBeGreaterThanOrEqual(4);
 }
 
 async function readViewport(page) {
@@ -111,6 +133,7 @@ for (const faction of factions) {
     test(`${faction.id}: full tree, overview, branch and cross-branch round trip`, async ({ page }, testInfo) => {
         await openTree(page, faction.id);
         await expect(page.locator('.focus-card')).toHaveCount(faction.count);
+        await checkUnifiedCards(page, testInfo, `${faction.id}-unified-cards`);
         await checkRenderedGeometry(page, testInfo, `${faction.id}-full-geometry`);
         await snapshot(page, testInfo, `${faction.id}-full`);
 
@@ -141,6 +164,12 @@ for (const faction of factions) {
         await expect(page.getByLabel('跳转国策支线')).toHaveValue(faction.entry);
     });
 }
+
+test('USA: the American campaign shares full-size branch-colored cards with West Russia', async ({ page }, testInfo) => {
+    await openTree(page, 'USA', 'america');
+    await checkUnifiedCards(page, testInfo, 'USA-unified-cards');
+    await snapshot(page, testInfo, 'USA-unified-cards');
+});
 
 test('KOM: button zoom, wheel anchor, selection scroll retention and background drag', async ({ page }, testInfo) => {
     await openTree(page, 'KOM');

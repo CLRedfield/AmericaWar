@@ -4158,43 +4158,8 @@ button.focus-condition:focus-visible {
     stroke-opacity: 1;
 }
 
-.focus-west-russia .focus-emblem-card {
-    width: 154px;
-    height: 72px;
-    grid-template-rows: 37px 35px;
-    justify-items: center;
-    gap: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    opacity: 1;
-    transform: none;
-}
 
-.focus-emblem {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    width: 38px;
-    height: 38px;
-    place-items: center;
-    border: 1px solid color-mix(in srgb, var(--branch-color) 63%, #25303a);
-    border-radius: 50%;
-    color: var(--branch-color);
-    background: radial-gradient(circle at 42% 25%, #36424a, #1a242d 71%);
-    box-shadow: inset 0 0 0 3px #14212a, 0 3px 6px #05090daa;
-}
 
-.focus-emblem svg {
-    width: 22px;
-    height: 22px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.55;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
 
 .focus-choice-label {
     position: absolute;
@@ -4238,74 +4203,15 @@ button.focus-condition:focus-visible {
     stroke-width: 2.4;
 }
 
-.focus-plaque {
-    position: relative;
-    display: grid;
-    width: 100%;
-    height: 100%;
-    place-items: center;
-    padding: 2px 5px 3px;
-    border: 1px solid #5d6668;
-    border-radius: 4px;
-    background: linear-gradient(180deg, #2a343c, #182029);
-    color: #e8e3d5;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.15;
-    text-align: center;
-}
 
-.focus-plaque > span {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-}
 
-.focus-plaque::after {
-    position: absolute;
-    right: 3px;
-    bottom: 2px;
-    left: 3px;
-    height: 2px;
-    background: linear-gradient(90deg, #d6af65 var(--focus-progress), transparent var(--focus-progress));
-    content: "";
-}
 
-.focus-emblem-card.available .focus-plaque {
-    border-color: #af925f;
-}
 
-.focus-emblem-card.done .focus-plaque {
-    border-color: #76af9a;
-    background: linear-gradient(180deg, #294642, #1b302e);
-}
 
-.focus-emblem-card.blocked .focus-plaque {
-    border-color: #8d5453;
-}
 
-.focus-emblem-card:is(.selected, :hover, :focus-visible) .focus-plaque {
-    border-color: #f0ce88;
-    background: linear-gradient(180deg, #514332, #302b27);
-    box-shadow: 0 0 0 1px #e3b96c40;
-}
 
-.focus-emblem-card.focus-mutual-target .focus-plaque {
-    border-color: #ef9e8f;
-    background: linear-gradient(180deg, #553133, #342126);
-    box-shadow: 0 0 0 1px #d97b6c80;
-}
 
-.focus-emblem-card.focus-mutual-target .focus-choice-label {
-    border-color: #f4ac99;
-    background: #713b37;
-    color: #fff0e9;
-}
 
-.focus-west-russia .focus-emblem-card::before {
-    content: none;
-}
 
 .focus-modal-overview .focus-modal-body {
     grid-template-columns: minmax(0, 1fr);
@@ -4783,10 +4689,119 @@ button.focus-condition:focus-visible {
 .focus-card { background: #252c29; box-shadow: 0 2px 6px #0004; }
 .focus-card:is(:hover, .selected) { background: #373c30; border-color: #c7b27d; }
 .focus-card.done { background: #2b3a30; border-color: #93ac8e; }
-.focus-emblem { background: #2d342c; box-shadow: inset 0 0 0 3px #20271f, 0 2px 3px #0005; }
-.focus-plaque { background: #2b312c; border-color: #717866; box-shadow: 0 2px 3px #0004; }
-.focus-emblem-card.done .focus-plaque { background: #2f3c30; border-color: #98b393; }
-.focus-emblem-card:is(.selected, :hover, :focus-visible) .focus-plaque { background: #4a4532; border-color: #d5bf87; box-shadow: 0 0 0 1px #c7b27d55; }
-.focus-emblem-card.focus-mutual-target .focus-plaque { background: #49332e; border-color: #ce8d7e; }
 .focus-detail-actions { background: #252c29; padding-bottom: 8px; }
 .route-outcome-preview .focus-effect-list { margin-top: 14px; font-size: .75rem; line-height: 1.7; }
+
+
+/* Both campaigns use the same readable, color-block focus cards. */
+.focus-tree-canvas .focus-unified-card {
+    display: grid;
+    grid-template-rows: 34px minmax(30px, 1fr) 20px 4px 19px;
+    gap: 5px;
+    padding: 0 10px 8px;
+    border: 1px solid color-mix(in srgb, var(--branch-color) 58%, #3b453e);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--branch-color) 14%, #222b28);
+    box-shadow: 0 2px 5px #0005;
+    opacity: 1;
+    transform: none;
+    overflow: hidden;
+    color: #e8eee6;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.focus-unified-card::before { content: none; }
+.focus-unified-card .focus-branch {
+    display: flex;
+    align-items: center;
+    width: calc(100% + 20px);
+    min-width: 0;
+    margin: 0 -10px;
+    padding: 5px 9px;
+    background: var(--branch-color);
+    border-bottom: 1px solid #ffffff20;
+    color: var(--branch-text-color, #fff9ed);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: normal;
+    letter-spacing: .02em;
+}
+.focus-unified-card .focus-branch > span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+.focus-unified-card .focus-title {
+    align-self: center;
+    min-height: 0;
+    color: #e8eee6;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+}
+.focus-unified-card .focus-card-row {
+    width: 100%;
+    min-height: 0;
+    font-size: 10px;
+    color: #c2cec1;
+    font-variant-numeric: tabular-nums;
+}
+.focus-unified-card .focus-status-pill {
+    min-height: 18px;
+    padding: 1px 5px;
+    border-color: #a3b19b55;
+    background: #101a1440;
+    color: #c9d2c6;
+    font-size: 10px;
+    line-height: 1.2;
+}
+.focus-unified-card .focus-progress-mini {
+    width: 100%;
+    height: 4px;
+    border-radius: 1px;
+    background: #09110c66;
+}
+.focus-unified-card .focus-progress-mini > span { background: var(--branch-color); border-radius: 1px; }
+.focus-unified-card .focus-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
+    gap: 5px;
+}
+.focus-unified-card .focus-cost { margin: 0; color: #c0cab8; font-size: 10px; line-height: 1.2; }
+.focus-unified-card .focus-choice-label {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    min-height: 17px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    border-color: #b7766c;
+    background: #552e2d;
+    color: #f5c0b4;
+    font-size: 9px;
+    line-height: 1.2;
+}
+.focus-unified-card.available .focus-status-pill { border-color: #92b97d; color: #d3edc3; }
+.focus-unified-card.done .focus-status-pill { border-color: #8ebf9e; background: #31503d; color: #e3f6e9; }
+.focus-unified-card.blocked .focus-status-pill { border-color: #bc8378; color: #efb9ad; }
+.focus-unified-card.pp-blocked .focus-status-pill { color: #e8c58a; }
+.focus-unified-card:is(.selected, :hover, :focus-visible) {
+    border-color: #ebd598;
+    box-shadow: 0 0 0 2px #ebd59880, 0 2px 7px #0006;
+    transform: none;
+}
+.focus-unified-card:focus-visible { outline: 2px solid #f4e4ba; outline-offset: 3px; }
+.focus-unified-card.focus-mutual-target {
+    border-color: #e5a08f;
+    box-shadow: 0 0 0 2px #c77e71b3;
+}
+.focus-unified-card.focus-mutual-target .focus-choice-label { border-color: #ffd4c8; background: #8b4a3e; color: #fff0e8; }
+.focus-west-russia .focus-lane-band { opacity: .075; }
+.focus-west-russia .focus-lane-label { font-size: 14px; opacity: .8; }
+@media (prefers-reduced-motion: reduce) {
+    .focus-unified-card { transition: none; }
+}
