@@ -1833,7 +1833,7 @@ const App = {
         if (!this.canLocalPlayerAct()) return { enabled: false, reason: '计划已经提交，先撤回才能修改', ...actionMeta };
         if (completed.includes(focus.id)) return { enabled: false, reason: '国策已完成', ...actionMeta };
         if (GameState.isFocusBlockedByMutual(focus, completed)) return { enabled: false, reason: '互斥国策已完成', ...actionMeta };
-        if (!GameState.isFocusStageOpen(focus)) return { enabled: false, reason: '战斗期开放', ...actionMeta };
+        if (!GameState.isFocusStageOpen(focus)) return { enabled: false, reason: focus.notBeforeTurn && GameState.game.currentTurn < focus.notBeforeTurn ? `第 ${focus.notBeforeTurn} 回合开放` : '战斗期开放', ...actionMeta };
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return { enabled: false, reason: '前置国策未满足', ...actionMeta };
         if (!GameState.hasFocusTerritory(focus, playerFactionId)) return { enabled: false, reason: '需控制所列省区', ...actionMeta };
         if (resources.pp < actionMeta.ppCost) return { enabled: false, reason: `缺少 ${actionMeta.ppCost - resources.pp} PP`, ...actionMeta };
@@ -1943,6 +1943,10 @@ const App = {
     },
 
     applyFocusEffect(effect, factionId, capital) {
+        if (effect.type === 'routeSettlement') {
+            WestRussiaRouteActions.settlement(effect.id, factionId, GameState.getGameModifiers());
+            return;
+        }
         if (effect.type === 'money') {
             GameState.game.playerResources.money += effect.amount;
             return;
@@ -2174,6 +2178,13 @@ const App = {
         }
     },
 
+    executeRouteAction() {
+        if (!this.canLocalPlayerAct()) return;
+        const result = WestRussiaRouteActions.execute(GameState.getPlayerFactionId(), GameState.game.selectedNodeId);
+        if (!result.ok && result.reason) GameState.addLog(result.reason, 'system', false);
+        GameState.notify();
+    },
+
     setDiplomacy(factionId, relation) {
         if (!GameState.game.diplomacy[factionId]) return;
 
@@ -2204,7 +2215,7 @@ const App = {
             this.focusTreeScroll = null;
         }
 
-        const tree = GameState.getFocusTree(viewFactionId);
+        const tree = GameState.getVisibleFocusTree(viewFactionId);
         if (viewFactionId === playerFactionId) {
             const selectedFocus = GameState.getFocusById(GameState.game.selectedFocusId, viewFactionId);
             if (!selectedFocus && tree.length) {

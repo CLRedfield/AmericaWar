@@ -165,6 +165,7 @@ const GameAI = {
         };
 
         this.isThinking = true;
+        if (typeof WestRussiaRouteActions !== 'undefined') WestRussiaRouteActions.autoAct(factionId);
         // 强化 AI 每回合直接完成 1 个国策；其余 normal/hard AI 仍只免费推进 1 步。
         if (!this.aiCompleteBuffedFocusForTurn(factionId)) {
             this.aiAdvanceFreeFocusForTurn(factionId, difficulty);
@@ -535,7 +536,8 @@ const GameAI = {
         let score = progress * 8;
 
         (focus.effects || []).forEach(effect => {
-            if (effect.type === 'money') score += effect.amount * 0.6;
+            if (effect.type === 'routeSettlement') score += 22;
+            else if (effect.type === 'money') score += effect.amount * 0.6;
             else if (effect.type === 'pp') score += effect.amount * 1.4;
             else if (effect.type === 'capitalTroops') score += effect.amount * (situation.capitalThreat > 0 ? 6 : 3);
             else if (effect.type === 'allTroops') score += effect.amount * Math.max(3, situation.frontNodes.length * 3);
@@ -609,6 +611,10 @@ const GameAI = {
     applyAiFocusEffect(effect, factionId, capitalNode) {
         const resources = this.computeFactionResources(factionId);
         const modifiers = this.getAiModifiers(factionId);
+        if (effect.type === 'routeSettlement') {
+            WestRussiaRouteActions.settlement(effect.id, factionId, modifiers);
+            return;
+        }
         if (effect.type === 'money') resources.money += effect.amount;
         else if (effect.type === 'pp') resources.pp = Math.min(this.getAiPPCap(factionId), resources.pp + effect.amount);
         else if (effect.type === 'actionCost') {

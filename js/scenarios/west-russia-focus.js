@@ -20,7 +20,7 @@ const buildWestRussiaFocus = (() => {
         relief: [effect('pp', 3), effect('crisisPP', 2), effect('money', 8), effect('maintenanceRate', -0.035)]
     };
 
-    function politicalChapter(route, plans, rootRoutes) {
+    function politicalChapter(profile, route, plans, rootRoutes) {
         const plan = plans[route.id] || {};
         const nodes = [];
         const center = route.policies.length;
@@ -54,14 +54,17 @@ const buildWestRussiaFocus = (() => {
         const lateChoice = plan.cabinet === 'coalition';
         const parallelWork = plan.cabinet === 'parallel';
         const settlements = route.policies.map((policy, arm) => {
+            const outcome = typeof WestRussiaEndings !== 'undefined'
+                ? WestRussiaEndings.get(profile.faction.id, route.id, arm) : null;
             const lane = arm * 2 + 1;
             const suffix = part => arm + '_' + part;
             const armKey = part => key(suffix(part));
             const reward = doctrines[policy.doctrine];
             const eligibility = [wartime, plan.eligibility?.[arm]].filter(Boolean);
             const rivals = route.policies.map((_, index) => index).filter(index => index !== arm);
-            add(suffix('choice'), policy.title, lane, policy.platform, [reward[0]], eligibility,
-                { excludes: lateChoice ? [] : rivals.map(index => key(index + '_choice')), steps: 1 });
+            add(suffix('choice'), policy.title, lane, policy.platform + (outcome ? '\n终局：「' + outcome.title + '」。' + outcome.playstyle : ''), [reward[0]], eligibility,
+                { excludes: lateChoice ? [] : rivals.map(index => key(index + '_choice')), steps: 1,
+                    routeOutcome: outcome, routeDecision: true });
             add(suffix('measure'), policy.measure, lane, '通过「' + policy.measure + '」，确立这条路线的常设制度。',
                 [reward[1]], [armKey('choice')]);
             add(suffix('project'), policy.project, parallelWork ? lane + 1 : lane,
@@ -70,12 +73,20 @@ const buildWestRussiaFocus = (() => {
             const charterParents = [armKey('project'), ...(parallelWork ? [armKey('measure')] : [])];
             add(suffix('charter'), policy.title + '施政纲领', lane, '公布执行细则和各地代表的权限。',
                 grant('ppCapBonus', 4), charterParents);
-            add(suffix('settlement'), policy.stateName, lane, '以新国号组织下一阶段治理。',
-                [reward[3], { type: 'ideology', id: policy.ideology, name: policy.stateName, shortName: policy.shortName }],
+            add(suffix('settlement'), policy.stateName, lane, outcome
+                ? '终局：「' + outcome.title + '」。' + outcome.playstyle + '\n收益：' + outcome.payoff + '\n代价：' + outcome.tradeoff
+                : '以新国号组织下一阶段治理。',
+                [
+                    ...(!outcome ? [reward[3]] : []),
+                    { type: 'ideology', id: policy.ideology, name: policy.stateName, shortName: policy.shortName },
+                    ...(outcome ? [{ type: 'routeSettlement', id: outcome.id }] : [])
+                ],
                 [armKey('charter')], {
                     steps: 3,
                     excludes: lateChoice ? rivals.map(index => key(index + '_settlement')) : [],
-                    story: { title: policy.endingTitle, text: policy.ending }
+                    story: { title: outcome ? outcome.title : policy.endingTitle,
+                        text: policy.ending + (outcome ? '\n\n' + outcome.playstyle + '\n新的国家行动：「' + outcome.actionName + '」。\n' + outcome.goal : '') },
+                    routeOutcome: outcome
                 });
             return armKey('settlement');
         });
@@ -119,8 +130,9 @@ const buildWestRussiaFocus = (() => {
     }
 
     return function buildFocusTree(profile, design) {
+        if (typeof WestRussiaSecrets !== 'undefined') design = WestRussiaSecrets.extend(profile, design);
         const rootRoutes = profile.routes.filter(route => !design.routes[route.id]?.parent).map(route => route.id);
-        const political = profile.routes.map(route => politicalChapter(route, design.routes, rootRoutes));
+        const political = profile.routes.map(route => politicalChapter(profile, route, design.routes, rootRoutes));
         const sections = [openingChapter(profile, design), design.chapters[0], ...political, ...design.chapters.slice(1)];
         const prefix = 'wr_' + profile.faction.id.toLowerCase() + '_';
         const id = key => prefix + key;
@@ -159,6 +171,10 @@ const buildWestRussiaFocus = (() => {
             if (node.war || required.some(parent => parent.wartime)
                 || (anyGroups.length && anyGroups.every(group => group.some(parent => parent.wartime)))) focus.wartime = true;
             if (node.story) focus.story = node.story;
+            if (node.routeOutcome) focus.routeOutcome = node.routeOutcome;
+            if (node.routeDecision) focus.routeDecision = true;
+            if (node.notBeforeTurn != null) focus.notBeforeTurn = node.notBeforeTurn;
+            if (node.secretReveal) focus.secretReveal = node.secretReveal;
             built.set(key, focus);
             visiting.delete(key);
             return focus;

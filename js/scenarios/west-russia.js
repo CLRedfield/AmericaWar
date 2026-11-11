@@ -25,6 +25,9 @@
     };
     Object.entries(ideologies).forEach(([id, item]) => { GameState.ideologies[id] = { id, ...item }; });
 
+    WestRussiaEndings.registerIdeologies();
+    WestRussiaSecrets.registerIdeologies();
+
     const faction = (id, name, shortName, capital, color, ideologyId, difficulty, money, pp, playstyleTags, description) => ({
         id, name, shortName, capitalNodeId: `WR_${capital}`, color, ideology: ideologyId,
         startingStats: { money, pp }, difficulty, playstyleTags, description

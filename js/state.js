@@ -705,7 +705,18 @@ const GameState = {
     },
 
     isFocusStageOpen(focus) {
-        return !focus.wartime || this.isWarOpen();
+        return (!focus.wartime || this.isWarOpen()) && this.game.currentTurn >= (focus.notBeforeTurn || 0);
+    },
+
+    isFocusRevealed(focus) {
+        return !focus.secretReveal || this.game.completedFocuses.includes(focus.secretReveal);
+    },
+
+    getFactionRouteState(factionId = this.getPlayerFactionId()) {
+        if (this.getScenario().id !== 'west-russia') return null;
+        const modifiers = factionId === this.getPlayerFactionId() ? this.getGameModifiers()
+            : this.game.humanStates?.[factionId]?.modifiers || this.game.aiModifiers?.[factionId];
+        return modifiers?.routeState || null;
     },
 
     getCampaignStage() {
@@ -731,8 +742,16 @@ const GameState = {
         }));
         entries.push(...events.filter(event => !event.wartime));
         if (this.isWarOpen()) entries.push(dispatches.smuta, ...events.filter(event => event.wartime));
+        const routeState = this.getFactionRouteState(factionId);
+        const outcome = typeof WestRussiaEndings !== 'undefined' && WestRussiaEndings.getById(routeState?.id);
+        if (routeState?.objectiveComplete && outcome) entries.push({
+            id: `wr_route_${outcome.id}`, category: '施政纪念', title: outcome.title,
+            text: `${outcome.playstyle} 这条道路已完成 ${routeState.uses} 次专属施政，控制 ${this.getFactionNodes(factionId).length} 省。${outcome.payoff} 承担的代价：${outcome.tradeoff}`
+        });
         if (game.winner) entries.push({
-            ...dispatches.ending, text: dispatches.ending.text.replace('{winner}', this.getFactionName(game.winner.factionId))
+            ...dispatches.ending,
+            title: game.winner.routeTitle || dispatches.ending.title,
+            text: dispatches.ending.text.replace('{winner}', this.getFactionName(game.winner.factionId)) + (game.winner.routeText ? `\n\n${game.winner.routeText}` : '')
         });
         return entries.filter(Boolean);
     },
@@ -972,6 +991,17 @@ const GameState = {
     notify() {
         this.refreshFactionStatus(false);
         this.recalculatePlayerResources();
+        if (this.getScenario().id === 'west-russia' && typeof WestRussiaRouteActions !== 'undefined') {
+            const player = this.getPlayerFactionId();
+            const modifiers = this.getGameModifiers();
+            if (modifiers.routeState) WestRussiaRouteActions.checkGoal(player, modifiers);
+            Object.entries(this.game.aiModifiers || {}).forEach(([id, values]) => {
+                if (id !== player && values.routeState) WestRussiaRouteActions.checkGoal(id, values);
+            });
+            Object.entries(this.game.humanStates || {}).forEach(([id, values]) => {
+                if (id !== player && values.modifiers?.routeState) WestRussiaRouteActions.checkGoal(id, values.modifiers);
+            });
+        }
         this.listeners.forEach(listener => listener(this));
     },
 
@@ -1381,6 +1411,19 @@ const GameState = {
         return this.focusTrees[factionId] || this.focusTrees.default;
     },
 
+    getVisibleFocusTree(factionId = this.getPlayerFactionId()) {
+        const tree = this.getFocusTree(factionId);
+        const hidden = tree.filter(focus => !this.isFocusRevealed(focus));
+        if (!hidden.length) return tree;
+        this._visibleFocusCache ||= new WeakMap();
+        const key = hidden.map(focus => focus.id).join('|');
+        const cached = this._visibleFocusCache.get(tree);
+        if (cached?.key === key) return cached.tree;
+        const visible = tree.filter(focus => this.isFocusRevealed(focus));
+        this._visibleFocusCache.set(tree, { key, tree: visible });
+        return visible;
+    },
+
     getFocusById(focusId, factionId = this.getPlayerFactionId()) {
         return this.getFocusTree(factionId).find(focus => focus.id === focusId);
     },
@@ -1533,6 +1576,12 @@ const GameState = {
         }
 
         if (winner) {
+            const routeState = this.getFactionRouteState(winner.factionId);
+            const outcome = typeof WestRussiaEndings !== 'undefined' && WestRussiaEndings.getById(routeState?.id);
+            if (outcome) {
+                winner.routeTitle = outcome.title;
+                winner.routeText = `${outcome.playstyle} 专属施政执行 ${routeState.uses || 0} 次。${outcome.payoff} 统一后仍须承担：${outcome.tradeoff}`;
+            }
             this.game.winner = winner;
             this.game.gameOver = true;
             this.game.showEndGameModal = true;

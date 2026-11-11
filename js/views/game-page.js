@@ -486,9 +486,47 @@ const GamePageView = {
                     </div>
                     ${node ? this.renderSelectedNode(node) : this.renderDefaultActionState()}
                     ${this.renderFocusActionSummary()}
+                    ${this.renderRouteAction()}
                 </section>
             </aside>
         `;
+    },
+
+    renderRouteAction() {
+        if (GameState.getScenario().id !== 'west-russia') return '';
+        const factionId = GameState.getPlayerFactionId();
+        const state = GameState.getGameModifiers().routeState;
+        if (!state) return `<div class="route-action-card"><span class="route-eyebrow">国家道路</span><p>政治分支决定制度、代价与专属国家行动。选择分支前，可在国策详情对比终局。</p></div>`;
+        const outcome = WestRussiaEndings.getById(state.id);
+        if (!outcome) return '';
+        const action = WestRussiaRouteActions.describe(factionId, GameState.game.selectedNodeId);
+        if (!action) return '';
+        const nodes = MapData.getFactionNodes(factionId).length;
+        const required = Math.max(12, outcome.goalNodes || 12);
+        const fulfilled = state.objectiveComplete || (state.uses || 0) >= 3 && nodes >= required;
+        return `<section class="route-action-card" data-route-id="${escapeHtml(state.id)}">
+            <span class="route-eyebrow">${fulfilled ? '制度成就已达成' : '国家道路 · 已确立'}</span>
+            <h4>${escapeHtml(outcome.title)}</h4>
+            <p>${escapeHtml(outcome.playstyle)}</p>
+            <div class="route-tradeoff"><strong>代价</strong> ${escapeHtml(outcome.tradeoff)}</div>
+            <div class="route-goal">施政 ${state.uses || 0}/3 次 · 控制 ${nodes}/${required} 省</div>
+            <div class="route-power"><strong>${escapeHtml(action.name || '国家行动')}</strong><p>${escapeHtml(action.description || '')}</p>
+                <small>$${formatMoney(action.moneyCost || 0)} · ${action.ppCost || 0} PP · 冷却 ${action.cooldown || 0} 回合</small>
+                <button class="btn btn-primary" ${action.enabled ? '' : 'disabled'} onclick="window.app.executeRouteAction()">${escapeHtml(action.name || '执行国家行动')}</button>
+                ${action.reason ? `<small class="route-action-reason">${escapeHtml(action.reason)}</small>` : ''}
+            </div>
+        </section>`;
+    },
+
+    renderRouteOutcome(outcome) {
+        if (!outcome) return '';
+        return `<div class="focus-detail-block route-outcome-preview">
+            <span>路线终局 · ${escapeHtml(outcome.title)}</span>
+            <p>${escapeHtml(outcome.playstyle)}</p>
+            <dl><dt>制度收益</dt><dd>${escapeHtml(outcome.payoff)}</dd><dt>必须承担</dt><dd>${escapeHtml(outcome.tradeoff)}</dd><dt>施政目标</dt><dd>${escapeHtml(outcome.goal)}</dd></dl>
+            <ul class="focus-effect-list">${(outcome.effects || []).map(effect => `<li>${escapeHtml(this.formatIdeologyBonus(effect))}</li>`).join('')}</ul>
+            <small>确立新制度时替换上一套终局修正和国家行动。</small>
+        </div>`;
     },
 
     renderFocusActionSummary() {
@@ -1023,7 +1061,7 @@ const GamePageView = {
     renderFocusTreeModal() {
         const viewFactionId = GameState.game.focusViewFactionId || GameState.getPlayerFactionId();
         const isPlayerView = viewFactionId === GameState.getPlayerFactionId();
-        const tree = GameState.getFocusTree(viewFactionId);
+        const tree = GameState.getVisibleFocusTree(viewFactionId);
         const completed = GameState.game.completedFocuses;
         const completedInTree = tree.filter(focus => completed.includes(focus.id)).length;
         const observed = this.getObservedFactionResources(viewFactionId);
@@ -1659,6 +1697,7 @@ const GamePageView = {
                 </div>
                 ${controlHtml}
                 ${mutualHtml}
+                ${this.renderRouteOutcome(focus.routeOutcome)}
                 ${successors.length ? `
                     <div class="focus-detail-block">
                         <span>跨支线后续</span>
@@ -1713,6 +1752,10 @@ const GamePageView = {
     },
 
     renderFocusEffect(effect, focus = null, factionId = GameState.getPlayerFactionId()) {
+        if (effect.type === 'routeSettlement') {
+            const ending = WestRussiaEndings.getById(effect.id);
+            return ending ? `确立「${escapeHtml(ending.title)}」；${escapeHtml(ending.payoff)}；代价：${escapeHtml(ending.tradeoff)}` : '确立路线制度';
+        }
         const signed = effect.amount > 0 ? `+${effect.amount}` : String(effect.amount);
         const percent = (val) => `${val > 0 ? '+' : ''}${Math.round(val * 100)}%`;
         const getComparisonPair = (current, delta, clamp = value => value) => {
@@ -2013,6 +2056,7 @@ const GamePageView = {
                         <h3>${faction.name}</h3>
                         <div class="winner-mark-sub">${faction.shortName}</div>
                         <p class="text-muted">${winner.text}</p>
+                        ${winner.routeTitle ? `<div class="route-outcome-preview"><h4>${escapeHtml(winner.routeTitle)}</h4><p>${escapeHtml(winner.routeText)}</p></div>` : ''}
                     </div>
                     <footer class="modal-actions">
                         ${GameState.getCampaignStories().some(item => item.id === 'wr_ending') ? `
