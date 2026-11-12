@@ -12,12 +12,36 @@ const GamePageView = {
                 ${this.renderLeftFactionPanel()}
                 <main class="game-map-container">
                     ${MapView.render()}
+                    ${this.renderMarchModeBanner()}
                     ${this.renderCampaignBriefing()}
                 </main>
                 ${this.renderRightActionPanel()}
                 ${this.renderBottomLogPanel()}
                 ${this.renderMobileSelectedNodeChip()}
                 ${this.renderMobilePanelDock()}
+            </div>
+        `;
+    },
+
+    renderMarchModeBanner() {
+        if (GameState.game.currentAction !== 'move') return '';
+        const source = MapData.getNode(GameState.game.selectedNodeId);
+        const playerFactionId = GameState.getPlayerFactionId();
+        if (!source || source.factionId !== playerFactionId) return '';
+        const movable = GameState.getNodeMovableTroops(source);
+        if (movable < 1 || !window.app.getActionAvailability('move', source.id).enabled) return '';
+        const moveCount = MapData.getMoveTargets(source.id, playerFactionId).length;
+        const attackCount = MapData.getAttackTargets(source.id, playerFactionId).length;
+        const hint = GameState.isWarOpen()
+            ? `点击蓝框己方省区调兵（${moveCount}）或红框敌方省区进攻（${attackCount}）`
+            : `战备期 · 点击蓝框相邻省区调动部队（${moveCount}）`;
+        return `
+            <div class="march-mode-banner" role="status" aria-live="polite">
+                <div class="march-mode-banner-copy">
+                    <strong>行军规划 · ${escapeHtml(source.name)}（可动 ${movable} 支）</strong>
+                    <small>${hint}</small>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="window.app.activateMove()">退出行军</button>
             </div>
         `;
     },
@@ -75,24 +99,71 @@ const GamePageView = {
         `;
     },
 
+    getAttackLaunchersForTarget(targetId) {
+        const playerFactionId = GameState.getPlayerFactionId();
+        const target = MapData.getNode(targetId);
+        if (!target || target.factionId === playerFactionId || !GameState.isWarOpen()) return [];
+        return MapData.getNeighbors(targetId).filter(neighbor => (
+            neighbor.factionId === playerFactionId
+            && GameState.getNodeMovableTroops(neighbor) > 0
+            && window.app.getActionAvailability('move', neighbor.id).enabled
+            && MapData.getAttackTargets(neighbor.id, playerFactionId).some(item => item.id === targetId)
+        ));
+    },
+
     renderMobileSelectedNodeChip() {
         const node = MapData.getNode(GameState.game.selectedNodeId);
         if (!node) return '';
 
+        const playerFactionId = GameState.getPlayerFactionId();
         const faction = GameState.getFaction(node.factionId);
-        const isFriendly = node.factionId === GameState.getPlayerFactionId();
+        const isFriendly = node.factionId === playerFactionId;
         const movable = GameState.getNodeMovableTroops(node);
         const canOrder = isFriendly && movable > 0 && window.app.getActionAvailability('move', node.id).enabled;
         const isOrdering = canOrder && GameState.game.currentAction === 'move';
         const contextText = isOrdering
             ? (GameState.isWarOpen() ? '点相邻高亮省区，预览调兵或进攻' : '发育期 · 点击高亮省区调兵')
-            : `${faction.shortName} · 驻军 ${node.troops} · 可动 ${movable} · 工业 ${node.industry}`;
-        const primaryAction = canOrder
-            ? `<button class="btn btn-primary btn-sm" onclick="window.app.activateMove()">${isOrdering ? '退出行军' : '行军'}</button>`
-            : '';
+            : `${faction.shortName} · 驻军 ${node.troops}${isFriendly ? ` · 可动 ${movable}` : ''} · 工业 ${node.industry}`;
+
+        let quickRow = '';
+        if (isFriendly) {
+            const canRecruitSite = GameState.canRecruitAtNode(node.id, playerFactionId);
+            const recruitAvail = canRecruitSite ? window.app.getActionAvailability('recruit', node.id) : null;
+            const buildAvail = window.app.getActionAvailability('build', node.id);
+            quickRow = `
+                <div class="mobile-node-quick-strip">
+                    ${canRecruitSite ? `
+                        <button class="btn ${recruitAvail.enabled ? 'btn-primary' : 'btn-outline'} btn-sm"
+                            ${recruitAvail.enabled ? '' : 'disabled'}
+                            title="${escapeHtml(recruitAvail.reason || '')}"
+                            onclick="window.app.openAction('recruit')">征兵</button>
+                    ` : ''}
+                    <button class="btn ${buildAvail.enabled ? 'btn-primary' : 'btn-outline'} btn-sm"
+                        ${buildAvail.enabled ? '' : 'disabled'}
+                        title="${escapeHtml(buildAvail.reason || '')}"
+                        onclick="window.app.openAction('build')">建设</button>
+                    <button class="btn ${isOrdering ? 'btn-danger' : (canOrder ? 'btn-primary' : 'btn-outline')} btn-sm"
+                        ${canOrder ? '' : 'disabled'}
+                        onclick="window.app.activateMove()">${isOrdering ? '退出行军' : '行军/进攻'}</button>
+                    <button class="btn btn-outline btn-sm" onclick="window.app.setMobilePanel('actions')">详情</button>
+                </div>
+            `;
+        } else {
+            const launchers = this.getAttackLaunchersForTarget(node.id);
+            quickRow = `
+                <div class="mobile-node-quick-strip">
+                    ${launchers.slice(0, 2).map(src => `
+                        <button class="btn btn-danger btn-sm" onclick="window.app.attackFromNeighbor('${src.id}', '${node.id}')">
+                            从${escapeHtml(src.name)}进攻 (${GameState.getNodeMovableTroops(src)})
+                        </button>
+                    `).join('')}
+                    <button class="btn btn-outline btn-sm" onclick="window.app.setMobilePanel('actions')">详情</button>
+                </div>
+            `;
+        }
 
         return `
-            <div class="mobile-node-chip" style="--faction-color: ${faction.color}">
+            <div class="mobile-node-chip ${isOrdering ? 'is-ordering' : ''}" style="--faction-color: ${faction.color}">
                 <div class="mobile-node-chip-main">
                     <span>${node.abbr}</span>
                     <div>
@@ -100,10 +171,7 @@ const GamePageView = {
                         <small>${contextText}</small>
                     </div>
                 </div>
-                <div class="mobile-node-chip-actions">
-                    ${primaryAction}
-                    <button class="btn btn-outline btn-sm" onclick="window.app.setMobilePanel('actions')">详情</button>
-                </div>
+                ${quickRow}
             </div>
         `;
     },
@@ -111,15 +179,23 @@ const GamePageView = {
     renderMobilePanelDock() {
         const active = window.app.mobilePanel || 'none';
         const items = [
+            { id: 'none', label: '地图' },
             { id: 'actions', label: '行动' },
+            { id: 'focus', label: '国策', modal: true },
             { id: 'intel', label: '情报' },
-            { id: 'logs', label: '战报' },
-            { id: 'none', label: '地图' }
+            { id: 'logs', label: '战报' }
         ];
 
         return `
             <nav class="mobile-panel-dock" aria-label="手机端面板切换">
                 ${items.map(item => {
+                    if (item.modal) {
+                        return `
+                            <button class="${GameState.game.showFocusModal ? 'active' : ''}" onclick="window.app.openFocusModal()">
+                                ${item.label}
+                            </button>
+                        `;
+                    }
                     const panel = item.id === 'none' ? null : item.id;
                     return `
                         <button class="${active === item.id ? 'active' : ''}" onclick="window.app.setMobilePanel(${panel ? `'${panel}'` : 'null'})">
@@ -210,7 +286,7 @@ const GamePageView = {
                         <span class="top-stat-label">计时</span>
                         <span class="top-stat-value timer ${isLowTime ? 'danger' : ''}">${formatTimer(game.timerRemaining)}</span>
                     </div>
-                    <div class="top-stat-item mobile-core-stat">
+                    <div class="top-stat-item mobile-core-stat top-stat-interactive" title="点击查看财政收支与国家修正" onclick="window.app.openModifiersModal()">
                         <span class="top-stat-label">$</span>
                         <span class="top-stat-value ${resources.money < 0 ? 'negative-money' : ''}">
                             ${formatMoney(resources.money)}
@@ -218,12 +294,12 @@ const GamePageView = {
                         </span>
                     </div>
                     ${debtPenalty.threshold > 0 ? `
-                        <div class="top-stat-item debt-top-indicator mobile-core-stat">
+                        <div class="top-stat-item debt-top-indicator mobile-core-stat top-stat-interactive" onclick="window.app.openModifiersModal()">
                             <span class="top-stat-label">赤字</span>
                             <span class="top-stat-value negative-money">${debtPenalty.label}</span>
                         </div>
                     ` : ''}
-                    <div class="top-stat-item mobile-core-stat">
+                    <div class="top-stat-item mobile-core-stat top-stat-interactive" title="点击查看政治点收入与国家修正" onclick="window.app.openModifiersModal()">
                         <span class="top-stat-label">PP</span>
                         <span class="top-stat-value">
                             ${resources.pp}/${GameState.getEffectivePPCap()}
@@ -701,11 +777,24 @@ const GamePageView = {
                 </div>
                 ${GameState.game.currentAction === 'move' ? this.renderMoveTargets(node, moveTargets) : ''}
                 ${window.app.getActionAvailability('move', node.id).enabled ? this.renderAttackTargets(node, attackTargets) : ''}
-            ` : `
-                <div class="action-help-block hostile">
-                    敌方省区。选中相邻己方省区，再右键这里或使用行军模式规划进攻。
-                </div>
-            `}
+            ` : (() => {
+                const launchers = this.getAttackLaunchersForTarget(node.id);
+                return launchers.length ? `
+                    <div class="target-list attack-target-list attack-from-list">
+                        <span>从接壤省区发起进攻</span>
+                        ${launchers.map(src => `
+                            <button onclick="window.app.attackFromNeighbor('${src.id}', '${node.id}')">
+                                <strong>从 ${escapeHtml(src.name)} 出发</strong>
+                                <small>可动 ${GameState.getNodeMovableTroops(src)} 支</small>
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <div class="action-help-block hostile">
+                        敌方省区。选中相邻己方省区，再右键这里或使用行军模式规划进攻。
+                    </div>
+                `;
+            })()}
 
             <div class="neighbor-list">
                 <span>接壤省区 · 点击查看</span>
@@ -797,6 +886,12 @@ const GamePageView = {
                         onchange="window.app.setMoveDraftAmount(this.value)">
                     <input class="move-amount-input" type="number" min="1" max="${maxAmount}" value="${amount}" onchange="window.app.setMoveDraftAmount(this.value)">
                     <button class="mini-control-btn" onclick="window.app.adjustMoveDraftAmount(1)">+</button>
+                </div>
+                <div class="tactical-preset-row">
+                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('one')">1支</button>
+                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('half')">半数</button>
+                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('leaveOne')">留1守军</button>
+                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('all')">全部</button>
                 </div>
                 <div class="target-list move-target-list">
                     <span>移动目标</span>
@@ -910,6 +1005,12 @@ const GamePageView = {
                                     <button class="mini-control-btn" onclick="window.app.adjustRecruitDraftAmount(1)">+</button>
                                     <button class="mini-control-btn" onclick="window.app.selectMaxRecruitAmount()">最大</button>
                                 </div>
+                                <div class="tactical-preset-row">
+                                    <button type="button" class="preset-chip" onclick="window.app.setRecruitRatio(0)">1次</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setRecruitRatio(0.25)">25%</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setRecruitRatio(0.5)">半数</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setRecruitRatio(1)">满额</button>
+                                </div>
                                 <div class="recruit-slider-hint text-muted" data-recruit-cost>
                                     每人 $${formatMoney(actionMeta.costPerSoldier)}，本次共需 $${formatMoney(actionMeta.costMoney)}（PP 不随数量变化）
                                 </div>
@@ -934,6 +1035,12 @@ const GamePageView = {
                                     <button class="mini-control-btn" onclick="window.app.adjustDisbandDraftAmount(1)">+</button>
                                     <button class="mini-control-btn" onclick="window.app.selectMaxDisbandAmount()">最大</button>
                                 </div>
+                                <div class="tactical-preset-row">
+                                    <button type="button" class="preset-chip" onclick="window.app.setDisbandRatio(0)">1支</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setDisbandRatio(0.25)">25%</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setDisbandRatio(0.5)">半数</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setDisbandRatio(1)">全部</button>
+                                </div>
                                 <div class="recruit-slider-hint text-muted" data-disband-gain>
                                     立即获得 $${formatMoney(disbandDraft)}，并减少 ${disbandDraft} 支部队维护
                                 </div>
@@ -957,6 +1064,12 @@ const GamePageView = {
                                         onchange="window.app.setMoveDraftAmount(this.value)">
                                     <button class="mini-control-btn" onclick="window.app.adjustMoveDraftAmount(1)">+</button>
                                     <button class="mini-control-btn" onclick="window.app.selectMaxMoveAmount()">最大</button>
+                                </div>
+                                <div class="tactical-preset-row">
+                                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('one')">1支</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('half')">半数</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('leaveOne')">留1守军</button>
+                                    <button type="button" class="preset-chip" onclick="window.app.setMovePreset('all')">全部</button>
                                 </div>
                                 <div class="recruit-slider-hint text-muted" data-move-summary>
                                     ${node.name} → ${targetNode ? targetNode.name : ''}，调动 ${moveDraft} 支部队
@@ -1036,6 +1149,12 @@ const GamePageView = {
                             <input class="battle-amount-input" type="number" min="1" max="${maxAttackers}" value="${preview.attackerBase}" onchange="window.app.setBattleDraftAmount(this.value)">
                             <button class="mini-control-btn" onclick="window.app.adjustBattleDraftAmount(1)">+</button>
                             <button class="mini-control-btn" onclick="window.app.selectMaxBattleAmount()">最大</button>
+                        </div>
+                        <div class="tactical-preset-row">
+                            <button type="button" class="preset-chip" onclick="window.app.setBattlePreset('one')">1支</button>
+                            <button type="button" class="preset-chip" onclick="window.app.setBattlePreset('half')">半数</button>
+                            <button type="button" class="preset-chip" onclick="window.app.setBattlePreset('leaveOne')">留1守军</button>
+                            <button type="button" class="preset-chip" onclick="window.app.setBattlePreset('all')">全部</button>
                         </div>
                         <div class="recruit-slider-hint text-muted" data-battle-summary>${battleSummary}</div>
                     </div>
@@ -1736,41 +1855,54 @@ const GamePageView = {
             </div>
         ` : '';
 
+        const collapsed = Boolean(window.app && window.app.focusDetailCollapsed);
+
         return `
-            <aside class="focus-detail-panel" data-focus-detail-id="${focus.id}">
-                <div class="focus-detail-heading">
-                    <span>${focus.branch}</span>
-                    <h3>${focus.name}</h3>
-                    <p>${focus.description}</p>
-                    ${focus.wartime ? '<small class="focus-war-requirement">战斗期国策</small>' : ''}
-                </div>
-
-                ${this.renderFocusExternalPrerequisites(focus, viewFactionId)}
-                <div class="focus-detail-progress">
-                    <div>
-                        <span>推进进度</span>
-                        <strong>${progress.current}/${progress.required}</strong>
+            <aside class="focus-detail-panel ${collapsed ? 'is-sheet-collapsed' : ''}" data-focus-detail-id="${focus.id}">
+                <div class="mobile-focus-sheet-bar">
+                    <div class="mobile-focus-sheet-summary" onclick="window.app.toggleFocusDetailSheet()">
+                        <strong>${escapeHtml(focus.name)}</strong>
+                        <small>${escapeHtml(focus.branch || '国策')} · ${progress.current}/${progress.required}</small>
                     </div>
-                    <div class="focus-progress-large"><span style="width: ${Math.round(progress.ratio * 100)}%"></span></div>
+                    <button type="button" class="btn btn-outline btn-sm mobile-focus-sheet-toggle" onclick="window.app.toggleFocusDetailSheet()">
+                        ${collapsed ? '展开详情 ▲' : '收起 ▼'}
+                    </button>
                 </div>
+                <div class="focus-detail-body-content">
+                    <div class="focus-detail-heading">
+                        <span>${focus.branch}</span>
+                        <h3>${focus.name}</h3>
+                        <p>${focus.description}</p>
+                        ${focus.wartime ? '<small class="focus-war-requirement">战斗期国策</small>' : ''}
+                    </div>
 
-                <div class="focus-detail-block">
-                    <span>前置条件</span>
-                    ${prerequisiteHtml}
-                </div>
-                ${controlHtml}
-                ${mutualHtml}
-                ${this.renderRouteOutcome(focus.routeOutcome)}
-                ${successors.length ? `
+                    ${this.renderFocusExternalPrerequisites(focus, viewFactionId)}
+                    <div class="focus-detail-progress">
+                        <div>
+                            <span>推进进度</span>
+                            <strong>${progress.current}/${progress.required}</strong>
+                        </div>
+                        <div class="focus-progress-large"><span style="width: ${Math.round(progress.ratio * 100)}%"></span></div>
+                    </div>
+
                     <div class="focus-detail-block">
-                        <span>跨支线后续</span>
-                        <div class="focus-prereq-nodes">${successors.map(id => this.renderFocusLinkButton(id, viewFactionId)).join('')}</div>
+                        <span>前置条件</span>
+                        ${prerequisiteHtml}
                     </div>
-                ` : ''}
+                    ${controlHtml}
+                    ${mutualHtml}
+                    ${this.renderRouteOutcome(focus.routeOutcome)}
+                    ${successors.length ? `
+                        <div class="focus-detail-block">
+                            <span>跨支线后续</span>
+                            <div class="focus-prereq-nodes">${successors.map(id => this.renderFocusLinkButton(id, viewFactionId)).join('')}</div>
+                        </div>
+                    ` : ''}
 
-                <div class="focus-detail-block">
-                    <span>完成效果</span>
-                    <ul class="focus-effect-list">${effectsHtml || '<li>无直接效果</li>'}</ul>
+                    <div class="focus-detail-block">
+                        <span>完成效果</span>
+                        <ul class="focus-effect-list">${effectsHtml || '<li>无直接效果</li>'}</ul>
+                    </div>
                 </div>
 
                 <footer class="focus-detail-actions">

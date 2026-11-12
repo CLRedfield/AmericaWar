@@ -55,7 +55,7 @@ test('settlements replace all reversible institutions, preserve unrelated bonuse
     routes.settlement(first.id, 'WRF', GameState.getGameModifiers());
     assert.deepEqual(JSON.parse(JSON.stringify(GameState.getGameModifiers())), bonuses);
     adopt(ctx, 'supply');
-    assert.ok(Math.abs(GameState.getGameModifiers().globalAttack - 0.213) < 1e-9, 'old breakthrough +14% is removed; supply-specific +9% remains');
+    assert.ok(Math.abs(GameState.getGameModifiers().globalAttack - 0.243) < 1e-9, 'old breakthrough +23% is removed; supply-specific +12% remains');
     assert.equal(GameState.getGameModifiers().captureTroopsOnWin, 0);
     assert.equal(GameState.getGameModifiers().actionBaseCost.move, -1);
     const civic = adopt(ctx, 'civic');
@@ -212,9 +212,9 @@ test('settlement institutions apply immediately with zero actions and only one p
     const modifiers = GameState.getGameModifiers();
     assert.equal(MapData.getFactionNodes('WRF').length, 1);
     assert.equal(modifiers.routeState.uses, 0);
-    assert.equal(modifiers.ppIncome, previousIncome + 1.1, 'the complete institutional income is active immediately');
-    assert.equal(modifiers.globalAttack, -0.07, 'the institutional tradeoff also starts immediately');
-    assert.equal(modifiers.crisisPP, 2, 'faction-specific institutions need no action or territory threshold');
+    assert.equal(modifiers.ppIncome, previousIncome + 1.6, 'the complete institutional income is active immediately');
+    assert.equal(modifiers.globalAttack, -0.02, 'the institutional tradeoff also starts immediately');
+    assert.equal(modifiers.crisisPP, 3, 'faction-specific institutions need no action or territory threshold');
     assert.equal(modifiers.badges.length, 0, 'no extra achievement layer is created');
     assert.equal('objectiveComplete' in modifiers.routeState, false);
     assert.equal('achieved' in modifiers.routeState, false);

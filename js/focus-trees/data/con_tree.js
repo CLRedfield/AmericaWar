@@ -24,16 +24,16 @@
             f('CON_odp_old_constitution', '旧宪法至上', '宪政国', 0, 6, 7, '宣布原始宪法压倒一切战时权宜。', [E.pp(4), E.crisis(3)], ['CON_odp_county_courts']),
             f('CON_odp_agrarian_order', '农本秩序', '宪政国', 0, 7, 7, '把农业与小镇士绅奉为共和国的道德根基。', [E.moneyIncome(1), E.maint(-0.02)], ['CON_odp_old_constitution']),
             f('CON_odp_planter_gentry', '种植园士绅', '宪政国', 0, 8, 8, '让旧种植园主重新成为地方权力的脊梁。', [E.money(10), E.ppCap(2)], ['CON_odp_agrarian_order']),
-            f('CON_odp_restored_republic', '复归共和国', '宪政国', 0, 9, 9, '宣布摄政府只是过渡，宪政共和终将复归。', [E.ppCap(3), E.pp(5), E.actionCost('focus', -1), E.ideo('constitutional', '美利坚宪政国', '宪政国')], ['CON_odp_planter_gentry']),
+            f('CON_odp_restored_republic', '复归共和国', '宪政国', 0, 9, 9, '宣布摄政府只是过渡，宪政共和终将复归。', [E.ppCap(3), E.pp(5), E.actionCost('focus', -1), E.moneyIncome(2), E.freeT(4), E.recruitCost(-1), E.ideo('constitutional', '美利坚宪政国', '宪政国')], ['CON_odp_planter_gentry']),
             f('CON_disenfranchisement', '选举权剥夺', '宪政国', 1, 5, 7, '用人头税与识字测验把不可靠选民清出名册。', [E.maint(-0.02), E.crisis(3)], ['CON_solid_south']),
             // 指2：福特主义（x=2）
             f('CON_ford_industrial_party', '福特工业党', '宪政国', 2, 5, 7, '亨利·福特式的工业家集团登上战时内阁。', [E.capI(1), E.capBoost(1, 1)], ['CON_jacksonian_doctrine'], { mutuallyExclusive: ['CON_odp_county_courts', 'CON_klan_invisible_empire', 'CON_strongman_call'] }),
             f('CON_ford_machine_gov', '机器治国', '宪政国', 2, 6, 7, '用工程师与流水线逻辑接管行政。', [E.allI(1, 2), E.actionCost('build', -1)], ['CON_ford_industrial_party']),
             f('CON_ford_company_welfare', '公司福利', '宪政国', 2, 7, 7, '用厂办住房、医疗与工资换取工人忠诚。', [E.moneyIncome(1), E.maint(-0.02)], ['CON_ford_machine_gov']),
             f('CON_ford_sociological', '社会学部', '宪政国', 2, 8, 8, '福特社会学部深入工人生活，塑造顺从的劳动力。', [E.recruitAmount(1), E.freeT(2)], ['CON_ford_company_welfare']),
-            f('CON_ford_corporate_state', '福特统合国', '宪政国', 2, 9, 9, '让工程师与承包商财团成为日常政府。', [E.allI(1, 3), E.capI(1), E.ideo('fordism', '福特统合国', '福特统合国')], ['CON_ford_sociological']),
+            f('CON_ford_corporate_state', '福特统合国', '宪政国', 2, 9, 9, '让工程师与承包商财团成为日常政府。', [E.allI(1, 3), E.capI(1), E.moneyIncome(2), E.freeT(4), E.recruitAmount(1), E.ideo('fordism', '福特统合国', '福特统合国')], ['CON_ford_sociological']),
             // 横联：罗素参议员（x=1）
-            f('CON_russell_dixiecrat', '罗素迪克西联盟', '宪政国', 1, 10, 8, '理查德·罗素牵头，把法统派与工业派缝进同一个迪克西联盟。', [E.ppCap(2), E.money(10), E.ideo('dixiecrat', '迪克西联盟', '迪克西联盟')], [], { prerequisiteAny: [['CON_odp_agrarian_order'], ['CON_ford_company_welfare']] }),
+            f('CON_russell_dixiecrat', '罗素迪克西联盟', '宪政国', 1, 10, 8, '理查德·罗素牵头，把法统派与工业派缝进同一个迪克西联盟。', [E.ppCap(2), E.money(10), E.moneyIncome(2), E.freeT(5), E.recruitCost(-1), E.maint(-0.02), E.ideo('dixiecrat', '迪克西联盟', '迪克西联盟')], [], { prerequisiteAny: [['CON_odp_agrarian_order'], ['CON_ford_company_welfare']] }),
             // 指3：三K党（x=5 → 老/少壮 互斥）
             f('CON_klan_invisible_empire', '隐形帝国', '宪政国', 5, 5, 7, '把三K党重组为摄政府背后的隐形帝国。', [E.allT(1), E.crisis(2)], ['CON_jacksonian_doctrine'], { mutuallyExclusive: ['CON_odp_county_courts', 'CON_ford_industrial_party', 'CON_strongman_call'] }),
             f('CON_klan_grand_wizard', '大巫师集会', '宪政国', 5, 6, 7, '大巫师集会统一各地党团的纪律与暗号。', [E.pp(3), E.freeT(2)], ['CON_klan_invisible_empire']),
@@ -76,7 +76,7 @@
             f('CON_civil_rights_charter', '公民权利宪章', '黑人起义', 15, 5, 7, '颁布一份保障平等的公民权利宪章。', [E.ppIncome(1), E.pp(3)], ['CON_wilkins_democrats']),
             f('CON_black_ballot', '黑人选举权', '黑人起义', 15, 6, 7, '在战时仍保留选举与司法审查。', [E.ppCap(2), E.crisis(2)], ['CON_civil_rights_charter']),
             f('CON_freedmen_schools', '自由民学校', '黑人起义', 15, 7, 8, '兴办自由民学校，培养公民与技工。', [E.moneyIncome(1), E.ppIncome(1)], ['CON_black_ballot']),
-            f('CON_progressive_black_republic', '进步黑带共和', '黑人起义', 15, 8, 9, '把改革传统升格为进步民主的国家身份。', [E.ppCap(3), E.pp(5), E.ideo('progressive_democracy', '进步黑带共和国', '进步共和国')], ['CON_freedmen_schools']),
+            f('CON_progressive_black_republic', '进步黑带共和', '黑人起义', 15, 8, 9, '把改革传统升格为进步民主的国家身份。', [E.ppCap(3), E.pp(5), E.moneyIncome(2), E.freeT(5), E.recruitCost(-1), E.allI(1, 2), E.ideo('progressive_democracy', '进步黑带共和国', '进步共和国')], ['CON_freedmen_schools']),
             // 线C：加维 UNIA / 伊斯兰国度（x=19 → 互斥）
             f('CON_uplift_movement', '黑人提升运动', '黑人起义', 19, 4, 7, '黑人提升运动在自助与信仰之间寻找方向。', [E.pp(3), E.ppCap(2)], ['CON_black_draft'], { mutuallyExclusive: ['CON_dubois_socialists', 'CON_wilkins_democrats'] }),
             f('CON_garvey_unia', '加维UNIA', '黑人起义', 19, 5, 7, '马库斯·加维的 UNIA 主张返非建国。', [E.money(10), E.tagInc('港口', 1)], ['CON_uplift_movement'], { mutuallyExclusive: ['CON_noi_nation'] }),

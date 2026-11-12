@@ -19,8 +19,12 @@ node_modules/
 dist/
 build/
 
-# 截图等本地产物（如有）
+# 截图与导出等本地产物（如有）
 screenshots/
+exported-data/
+playwright-report/
+test-results/
+tests/browser/artifacts/
 
 # 不要把私人 firebase 配置覆盖（如果将来你拆分公开/私有配置可启用）
 # firebase-config.local.js

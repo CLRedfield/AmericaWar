@@ -468,9 +468,9 @@ test('completing a political route changes the ideology, country name and ongoin
     GameState.addAiToSlot('WRF', 'very_easy');
     GameState.startGameSession();
     assert.equal(GameState.getIdeology().id, 'wr_parliament');
-    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0);
-    assert.equal(GameState.getIdeologyBonus('ppIncome'), 1.2);
-    assert.equal(GameState.getIdeologyBonus('globalAttack'), -0.07);
+    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 2);
+    assert.equal(GameState.getIdeologyBonus('ppIncome'), 1.8);
+    assert.equal(GameState.getIdeologyBonus('globalAttack'), -0.02);
     GameState.game.currentTurn = 4;
     const research = [
         'report', 'repair', 'assembly', 'centre_commit', 'centre_hearing', 'centre_congress', 'centre_wartime',
@@ -485,11 +485,12 @@ test('completing a political route changes the ideology, country name and ongoin
         assert.ok(GameState.game.completedFocuses.includes(focus.id), focus.id);
     }
     assert.equal(GameState.getIdeology().id, 'wr_public_republic');
-    assert.equal(GameState.getIdeologyBonus('ppIncome'), 1.8);
-    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 0);
+    assert.equal(GameState.getIdeologyBonus('ppIncome'), 2.2);
+    assert.equal(GameState.getIdeologyBonus('moneyIncome'), 2.4);
     assert.equal(GameState.getIdeologyBonus('globalDefense'), 0);
-    assert.equal(GameState.getIdeologyBonus('globalAttack'), -0.06);
-    assert.equal(GameState.getIdeologyActionCostDelta('recruit'), 1);
+    assert.equal(GameState.getIdeologyBonus('globalAttack'), -0.02);
+    assert.equal(GameState.getIdeologyActionCostDelta('focus'), -1);
+    assert.equal(GameState.getIdeologyActionCostDelta('recruit'), 0);
     assert.equal(GameState.getFaction('KOM').name, '西俄罗斯共和国');
     assert.equal(GameState.getFactionName('KOM'), '科米共和政府');
     assert.equal(GameState.getFocusStatus(GameState.getFocusById('wr_kom_centre_1_choice')), 'mutually-blocked');

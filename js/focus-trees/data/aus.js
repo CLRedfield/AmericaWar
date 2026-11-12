@@ -107,7 +107,7 @@
             f('AUS_great_purge', '大清洗', '银军团', 16, 6, 8, '一场全国净化清除所有政治异己。', [E.damage(1, 3), E.crisis(3)], ['AUS_christian_commonwealth']),
             // 臂 capstone
             f('AUS_esoteric_order', '神秘教团', '银军团', 12, 7, 9, '教团掌握政权，以会众互助供养常备信徒军，保留神秘教团的封闭统治。', [E.crisis(4), E.ppCap(3), E.ppIncome(1), E.freeT(4), E.recruitAmount(2), E.gDef(0.08), E.ideo('esoteric_fascism', '银色教团国', '银色教团')], ['AUS_pyramid_mysteries', 'AUS_galahad_colleges']),
-            f('AUS_christian_militant_state', '基督教邦联国', '银军团', 16, 7, 9, '基督教邦联成为政教合一的战争国家。', [E.gAtk(0.05), E.allCapT(3), E.damage(1, 2), E.ideo('clerical_fascism', '美利坚基督教邦联', '基督教邦联')], ['AUS_silver_ranks', 'AUS_great_purge']),
+            f('AUS_christian_militant_state', '基督教邦联国', '银军团', 16, 7, 9, '基督教邦联成为政教合一的战争国家。', [E.gAtk(0.05), E.allCapT(3), E.damage(1, 2), E.moneyIncome(2), E.freeT(4), E.recruitCost(-1), E.ideo('clerical_fascism', '美利坚基督教邦联', '基督教邦联')], ['AUS_silver_ranks', 'AUS_great_purge']),
             // 顶点（线 C capstone，漏斗收束）
             f('AUS_silver_revolution', '银色革命', '银军团', 14, 8, 10, '皮利的"银色革命"把联盟国推入持续的全国净化。', [E.gAtk(0.08), E.allCapT(3), E.badge('银军团'), E.ideo('national_fascism', '银色联盟国', '银色联盟国')], [], { prerequisiteAny: [['AUS_esoteric_order'], ['AUS_christian_militant_state']] }),
             f('AUS_all_seeing_eye', '全视之眼', '银军团', 14, 9, 11, '金字塔之眼俯视全国，党、教、军合于皮利一人。', [E.ppCap(3), E.crisis(4), E.ppIncome(1)], ['AUS_silver_revolution']),

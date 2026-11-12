@@ -29,7 +29,7 @@
             f('WDC_desert_discipline', '荒漠纪律', '山地军政', 1, 7, 8, '以严格纪律维持稀薄补给线。', [E.allCapT(3), E.freeT(3)], ['WDC_personalist_command']),
             f('WDC_command_state', '司令部国家', '山地军政', 1, 8, 9, '军区以分驻补给站和参谋调度维系山地国家，使有限部队能够灵活转场。', [E.gDef(0.05), E.capT(4), E.freeT(4), E.ppIncome(1), E.maint(-0.04), E.ideo('military_junta', '落基山军政府', '军政府')], ['WDC_desert_discipline']),
             f('WDC_engineer_corps', '工程兵团', '山地军政', 3, 7, 8, '工程兵团修筑道路、水站与工事。', [E.allI(1, 2), E.actionCost('build', -1)], ['WDC_staff_technocracy']),
-            f('WDC_technocratic_command', '技术统帅部', '山地军政', 3, 8, 9, '由工程师与技术军官统治的统帅部。', [E.allI(1, 2), E.capBoost(1, 2), E.ideo('technocracy', '西部参谋统合区', '参谋统合区')], ['WDC_engineer_corps']),
+            f('WDC_technocratic_command', '技术统帅部', '山地军政', 3, 8, 9, '由工程师与技术军官统治的统帅部。', [E.allI(1, 2), E.capBoost(1, 2), E.moneyIncome(2), E.freeT(4), E.maint(-0.02), E.ideo('technocracy', '西部参谋统合区', '参谋统合区')], ['WDC_engineer_corps']),
             f('WDC_western_command_state', '西部军政', '山地军政', 2, 9, 11, '无论强人还是技术官僚，军区都凝成一套西部军政。', [E.gDef(0.05), E.capT(4), E.allCapT(2), E.badge('西部军政')], [], { prerequisiteAny: [['WDC_command_state'], ['WDC_technocratic_command']] }),
 
             // ===================== 线 B：德塞雷特（摩门神权）｜形状＝蜂巢 =====================
@@ -49,7 +49,7 @@
             f('WDC_militant_saints', '圣徒民兵', '德塞雷特', 10, 6, 7, '激进圣徒把信众武装成纳府军团。', [E.allT(1), E.freeT(3)], ['WDC_deseret_council'], { mutuallyExclusive: ['WDC_orthodox_church'] }),
             f('WDC_deseret_schools', '教会学校', '德塞雷特', 8, 7, 8, '兴办教会学校培养顺从而能干的信众。', [E.moneyIncome(1), E.ppCap(2)], ['WDC_orthodox_church']),
             f('WDC_nauvoo_legion', '纳府军团', '德塞雷特', 10, 7, 8, '重建纳府军团作为教会的武装。', [E.allT(1), E.gAtk(0.05)], ['WDC_militant_saints']),
-            f('WDC_state_of_deseret', '德塞雷特国', '德塞雷特', 9, 8, 11, '盐湖城建立政教合一的德塞雷特国。', [E.ppCap(3), E.gDef(0.05), E.allCapT(2), E.ideo('deseret', '德塞雷特神权国', '德塞雷特'), E.badge('德塞雷特国')], [], { prerequisiteAny: [['WDC_deseret_schools'], ['WDC_nauvoo_legion']] }),
+            f('WDC_state_of_deseret', '德塞雷特国', '德塞雷特', 9, 8, 11, '盐湖城建立政教合一的德塞雷特国。', [E.ppCap(3), E.gDef(0.05), E.allCapT(2), E.moneyIncome(2), E.freeT(4), E.recruitCost(-1), E.ideo('deseret', '德塞雷特神权国', '德塞雷特'), E.badge('德塞雷特国')], [], { prerequisiteAny: [['WDC_deseret_schools'], ['WDC_nauvoo_legion']] }),
 
             // ===================== 线 C：矿业财阀（银 vs 铜）｜形状＝矿井竖坑+巷道 =====================
             f('WDC_mining_barons', '矿业寡头', '矿业财阀', 16, 2, 6, '让科罗拉多白银与犹他铜矿的财团掌权。', [E.money(14), E.capI(1)], ['WDC_rocky_council'], meOthers('WDC_mining_barons')),
@@ -68,7 +68,7 @@
             f('WDC_free_silver', '自由铸银', '矿业财阀', 14, 7, 8, '推行自由铸银救济矿工与小农。', [E.moneyIncome(1), E.recruitCost(-1)], ['WDC_silver_populists']),
             f('WDC_silver_commonwealth', '白银公社', '矿业财阀', 14, 8, 9, '把白银民粹写成矿工共同体的国家理念。', [E.ppIncome(1), E.money(12), E.ideo('populism', '白银民粹共和国', '白银共和国')], ['WDC_free_silver']),
             f('WDC_anaconda_trust', '阿纳康达财团', '矿业财阀', 18, 7, 8, '阿纳康达式铜业财团垄断矿政。', [E.moneyIncome(2), E.tagMoney('油田', 6)], ['WDC_copper_trust']),
-            f('WDC_copper_oligarchy', '铜业寡头国', '矿业财阀', 18, 8, 9, '把军区变成铜业财团运营的寡头政体。', [E.moneyIncome(2), E.actionCost('build', -1), E.ideo('plutocracy', '铜业托拉斯国', '铜业托拉斯')], ['WDC_anaconda_trust']),
+            f('WDC_copper_oligarchy', '铜业寡头国', '矿业财阀', 18, 8, 9, '把军区变成铜业财团运营的寡头政体。', [E.moneyIncome(2), E.actionCost('build', -1), E.freeT(4), E.recruitAmount(1), E.ideo('plutocracy', '铜业托拉斯国', '铜业托拉斯')], ['WDC_anaconda_trust']),
             f('WDC_mountain_mineral_state', '山地矿业国', '矿业财阀', 16, 9, 11, '无论白银还是铜业，矿产都成了军区的财政命脉。', [E.moneyIncome(2), E.allI(1, 2), E.capI(1), E.badge('山地矿业国')], [], { prerequisiteAny: [['WDC_silver_commonwealth'], ['WDC_copper_oligarchy']] }),
 
             // ===================== 线 D：边疆联邦（山地诸州）｜形状＝星辐邦联 =====================

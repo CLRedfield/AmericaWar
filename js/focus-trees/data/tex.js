@@ -26,9 +26,9 @@
             f('TEX_oil_cartel', '石油卡特尔', '石油寡头', 2, 6, 7, '德士古联合各大油商组成卡特尔。', [E.moneyIncome(2), E.tagInc('油田', 1)], ['TEX_oil_assembly'], { mutuallyExclusive: ['TEX_oil_coup'] }),
             f('TEX_oil_coup', '石油军政变', '石油寡头', 4, 6, 7, '德士古发动政变，扶植军方接管政府。', [E.capT(3), E.gAtk(0.05)], ['TEX_oil_assembly'], { mutuallyExclusive: ['TEX_oil_cartel'] }),
             f('TEX_petro_bonds', '石油债券', '石油寡头', 2, 7, 7, '以未来油税发行高息战争债券。', [E.bonds(35, 5, 4), E.tagMoney('油田', 8)], ['TEX_oil_cartel']),
-            f('TEX_corporatocracy', '石油财阀国', '石油寡头', 2, 8, 9, '把德州变成由油田财团运营的财阀政体。', [E.moneyIncome(2), E.actionCost('build', -1), E.tagInc('油田', 2), E.ideo('plutocracy', '德克萨斯石油寡头国', '石油寡头国')], ['TEX_petro_bonds']),
+            f('TEX_corporatocracy', '石油财阀国', '石油寡头', 2, 8, 9, '把德州变成由油田财团运营的财阀政体。', [E.moneyIncome(2), E.actionCost('build', -1), E.tagInc('油田', 2), E.freeT(4), E.recruitAmount(1), E.ideo('plutocracy', '德克萨斯石油寡头国', '石油寡头国')], ['TEX_petro_bonds']),
             f('TEX_eaker_command', '伊克航空指挥', '石油寡头', 4, 7, 7, '让艾拉·伊克与尼米兹这样的军官掌握指挥权。', [E.gAtk(0.05), E.capT(2)], ['TEX_oil_coup']),
-            f('TEX_oil_junta', '石油军政府', '石油寡头', 4, 8, 9, '油钱供养一支由军官统治的政府。', [E.capT(3), E.allCapT(2), E.gAtk(0.05), E.ideo('military_junta', '德克萨斯军政府', '军政府')], ['TEX_eaker_command']),
+            f('TEX_oil_junta', '石油军政府', '石油寡头', 4, 8, 9, '油钱供养一支由军官统治的政府。', [E.capT(3), E.allCapT(2), E.gAtk(0.05), E.moneyIncome(2), E.freeT(4), E.recruitCost(-1), E.ideo('military_junta', '德克萨斯军政府', '军政府')], ['TEX_eaker_command']),
             f('TEX_petroleum_state', '石油国家', '石油寡头', 3, 9, 11, '无论财阀还是军政，石油都成了德州的财政宪法。', [E.moneyIncome(2), E.tagInc('油田', 2), E.allCapT(2), E.badge('石油国家')], [], { prerequisiteAny: [['TEX_corporatocracy'], ['TEX_oil_junta']] }),
 
             // ===================== 线 B：帕皮·奥丹尼尔民粹｜形状＝广播塔 + 电波 =====================
@@ -48,7 +48,7 @@
             f('TEX_grassroots_legion', '草根军团', '帕皮民粹', 10, 6, 7, '把听众组织成草根动员军团。', [E.recruitAmount(1), E.allT(1)], ['TEX_radio_machine'], { mutuallyExclusive: ['TEX_odaniel_governor'] }),
             f('TEX_ten_commandments', '十诫纲领', '帕皮民粹', 8, 7, 8, '用"十诫与黄金法则"包装施政纲领。', [E.pp(4), E.crisis(2)], ['TEX_odaniel_governor']),
             f('TEX_pass_the_biscuits', '把饼干传过来', '帕皮民粹', 10, 7, 8, '把口号变成全州动员的草根运动。', [E.freeT(3), E.recruitCost(-1)], ['TEX_grassroots_legion']),
-            f('TEX_lone_star_populism', '孤星民粹', '帕皮民粹', 9, 8, 11, '把广播民粹写成孤星共和国的国家理念。', [E.ppIncome(1), E.ppCap(3), E.pp(5), E.ideo('populism', '德克萨斯帕皮国', '帕皮国'), E.badge('孤星民粹')], [], { prerequisiteAny: [['TEX_ten_commandments'], ['TEX_pass_the_biscuits']] }),
+            f('TEX_lone_star_populism', '孤星民粹', '帕皮民粹', 9, 8, 11, '把广播民粹写成孤星共和国的国家理念。', [E.ppIncome(1), E.ppCap(3), E.pp(5), E.moneyIncome(2), E.freeT(4), E.allCapT(2), E.ideo('populism', '德克萨斯帕皮国', '帕皮国'), E.badge('孤星民粹')], [], { prerequisiteAny: [['TEX_ten_commandments'], ['TEX_pass_the_biscuits']] }),
 
             // ===================== 线 C：新政民主（奥尔雷德/加纳/约翰逊）｜形状＝议会穹顶 dome =====================
             f('TEX_texas_democrats', '德州民主党', '新政民主', 16, 2, 6, '以临时宪法和选举制度争取广泛承认。', [E.pp(3), E.ppCap(2)], ['TEX_state_convention'], meOthers('TEX_texas_democrats')),
@@ -66,8 +66,8 @@
             f('TEX_lbj_machine', '约翰逊机器', '新政民主', 18, 6, 7, '约翰逊在各县建起自己的政治机器。', [E.recruitAmount(1), E.ppIncome(1)], ['TEX_new_deal_clubs']),
             f('TEX_texas_bill_of_rights', '德州权利法案', '新政民主', 15, 6, 8, '颁布保障公民权利的德州权利法案。', [E.ppCap(3), E.pp(4)], ['TEX_allred_ticket']),
             f('TEX_lbj_public_works', '约翰逊公共工程', '新政民主', 17, 6, 8, '约翰逊把公共工程铺到每个县。', [E.moneyIncome(1), E.allI(1, 2)], ['TEX_lbj_ticket']),
-            f('TEX_wartime_republic', '战时共和', '新政民主', 15, 7, 9, '战时仍保留选举、法院与文官审查。', [E.ppCap(2), E.gDef(0.05), E.ideo('wartime_democracy', '德克萨斯临时政府', '德克萨斯')], ['TEX_texas_bill_of_rights']),
-            f('TEX_new_deal_texas', '德州新政', '新政民主', 17, 7, 9, '把公共工程、工业与选举写成德州新政。', [E.moneyIncome(1), E.ppIncome(1), E.ideo('new_deal', '德克萨斯新政邦', '新政邦')], ['TEX_lbj_public_works']),
+            f('TEX_wartime_republic', '战时共和', '新政民主', 15, 7, 9, '战时仍保留选举、法院与文官审查。', [E.ppCap(2), E.gDef(0.05), E.moneyIncome(2), E.freeT(4), E.recruitCost(-1), E.ideo('wartime_democracy', '德克萨斯临时政府', '德克萨斯')], ['TEX_texas_bill_of_rights']),
+            f('TEX_new_deal_texas', '德州新政', '新政民主', 17, 7, 9, '把公共工程、工业与选举写成德州新政。', [E.moneyIncome(3), E.ppIncome(1), E.freeT(4), E.recruitCost(-1), E.ideo('new_deal', '德克萨斯新政邦', '新政邦')], ['TEX_lbj_public_works']),
             f('TEX_lone_star_democracy', '孤星民主', '新政民主', 16, 8, 11, '把民主传统升格为孤星共和国的国家身份。', [E.ppCap(3), E.pp(5), E.allCapT(2), E.badge('孤星民主')], [], { prerequisiteAny: [['TEX_wartime_republic'], ['TEX_new_deal_texas']] }),
 
             // ===================== 线 D：孤星共和（收复主义）｜形状＝五角星 =====================

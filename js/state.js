@@ -124,12 +124,14 @@ const GameState = {
         },
         plutocracy: {
             id: 'plutocracy', name: '财阀寡头', color: '#9a3412',
-            description: '银行、铁路和承包商承担国家职能。金钱多、政治资本少。',
+            description: '银行、铁路和承包商承担国家职能。资本充沛、基建高效，但政治凝聚力略弱。',
             bonuses: [
-                { type: 'moneyIncome', amount: 6 },
-                { type: 'maintenanceRate', amount: +0.05 },
-                { type: 'recruitCost', amount: 1 },
-                { type: 'ppIncome', amount: -0.5 }
+                { type: 'moneyIncome', amount: 7 },
+                { type: 'actionCost', action: 'build', amount: -1 },
+                { type: 'captureMoney', amount: 3 },
+                { type: 'freeTroops', amount: 3 },
+                { type: 'maintenanceRate', amount: +0.01 },
+                { type: 'ppIncome', amount: -0.25 }
             ]
         },
         security_state: {

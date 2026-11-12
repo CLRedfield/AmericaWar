@@ -79,7 +79,7 @@
             f('usa_morgan_trust', '摩根托拉斯', '华尔街', 21, 6, 7, '由摩根托拉斯统一调度战时金融。', [E.moneyIncome(2), E.bonds(30, 4, 3)], ['usa_stock_exchange'], { mutuallyExclusive: ['usa_speculation'] }),
             f('usa_speculation', '投机交易所', '华尔街', 23, 6, 7, '放开投机，用市场现金流撑起战争。', [E.money(20), E.capMoney(2)], ['usa_federal_reserve'], { mutuallyExclusive: ['usa_morgan_trust'] }),
             f('usa_banking_cartel', '银行卡特尔', '华尔街', 21, 7, 8, '各大银行结成战时卡特尔。', [E.moneyIncome(2), E.money(15)], ['usa_morgan_trust']),
-            f('usa_financial_republic', '纽约金融共和国', '华尔街', 21, 8, 10, '由金融寡头运营的纽约金融共和国。', [E.moneyIncome(2), E.money(20), E.actionCost('build', -1), E.ideo('plutocracy', '纽约金融共和国', '金融共和国'), E.badge('金融共和国')], ['usa_banking_cartel']),
+            f('usa_financial_republic', '纽约金融共和国', '华尔街', 21, 8, 10, '由金融寡头运营的纽约金融共和国。', [E.moneyIncome(2), E.money(20), E.actionCost('build', -1), E.freeT(4), E.recruitAmount(1), E.ideo('plutocracy', '纽约金融共和国', '金融共和国'), E.badge('金融共和国')], ['usa_banking_cartel']),
             f('usa_free_market', '自由市场', '华尔街', 23, 7, 8, '把纽约辟为自由贸易与投机的市场。', [E.tagInc('港口', 1), E.moneyIncome(1)], ['usa_speculation']),
             f('usa_free_city', '纽约自由市', '华尔街', 23, 8, 10, '把纽约变成汉萨式的自由商业城市。', [E.moneyIncome(2), E.tagInc('港口', 1), E.tagMoney('港口', 8), E.ideo('mercantile', '纽约自由市', '自由市'), E.badge('自由市')], ['usa_free_market']),
             f('usa_wall_street_state', '华尔街之国', '华尔街', 22, 9, 10, '无论托拉斯还是自由市，金融都成了纽约的命脉。', [E.moneyIncome(2), E.allCapT(2)], [], { prerequisiteAny: [['usa_financial_republic'], ['usa_free_city']] }),
@@ -118,10 +118,10 @@
             f('usa_reform_city', '改革市政', '拉瓜迪亚', 39, 6, 7, '把廉政与效率写成市政原则。', [E.ppCap(2), E.actionCost('build', -1)], ['usa_good_government'], { mutuallyExclusive: ['usa_new_deal_coalition'] }),
             f('usa_new_deal_coalition', '新政联盟', '拉瓜迪亚', 41, 6, 7, '与新政力量结成城市联盟。', [E.moneyIncome(1), E.ppIncome(1)], ['usa_public_works_nyc'], { mutuallyExclusive: ['usa_reform_city'] }),
             f('usa_civil_service_reform', '文官改革', '拉瓜迪亚', 39, 7, 8, '用考绩制取代分肥的文官改革。', [E.actionCost('focus', -1), E.ppCap(2)], ['usa_reform_city']),
-            f('usa_fusion_metropolis', '纽约融合市政', '拉瓜迪亚', 39, 8, 10, '把融合改革升格为城市国家形态。', [E.ppCap(3), E.actionCost('build', -1), E.gDef(0.05), E.ideo('fusion_progressivism', '纽约融合市政', '融合市政'), E.badge('融合市政')], ['usa_civil_service_reform']),
+            f('usa_fusion_metropolis', '纽约融合市政', '拉瓜迪亚', 39, 8, 10, '把融合改革升格为城市国家形态。', [E.ppCap(3), E.actionCost('build', -1), E.gDef(0.05), E.moneyIncome(2), E.freeT(4), E.recruitCost(-1), E.ideo('fusion_progressivism', '纽约融合市政', '融合市政'), E.badge('融合市政')], ['usa_civil_service_reform']),
             f('usa_relief_programs', '救济计划', '拉瓜迪亚', 41, 7, 8, '推行覆盖全市的救济与公共就业。', [E.moneyIncome(1), E.freeT(2)], ['usa_new_deal_coalition']),
             f('usa_new_deal_city', '纽约新政联盟', '拉瓜迪亚', 41, 8, 10, '以新政联盟为基础的进步民主城市。', [E.ppCap(2), E.moneyIncome(1), E.ppIncome(1), E.ideo('wartime_democracy', '纽约新政联盟', '新政联盟'), E.badge('新政联盟')], ['usa_relief_programs']),
-            f('usa_little_flower', '小花之城', '拉瓜迪亚', 40, 9, 10, '无论改革还是新政，融合派都重塑了纽约。', [E.ppCap(3), E.gDef(0.05)], [], { prerequisiteAny: [['usa_fusion_metropolis'], ['usa_new_deal_city']] }),
+            f('usa_little_flower', '小花之城', '拉瓜迪亚', 40, 9, 10, '无论改革还是新政，融合派都重塑了纽约。', [E.ppCap(3), E.gDef(0.05), E.moneyIncome(2), E.allCapT(2)], [], { prerequisiteAny: [['usa_fusion_metropolis'], ['usa_new_deal_city']] }),
 
             // ===================== 支线·军事：军事改革｜麦帅参谋部（箭簇）=====================
             f('usa_war_department_expansion', '扩编战争部', '军事改革', 48, 1, 5, '重开各局办公室，协调陆军、民兵与州防卫队。', [E.capT(4)], ['usa_secure_command']),

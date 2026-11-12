@@ -38,7 +38,7 @@
             // 赌城臂（财阀）
             f('PAC_casino_capitalism', '赌场资本主义', '休斯财团', 6, 5, 7, '用赌场与娱乐现金流支撑战时财政。', [E.moneyIncome(2), E.bonds(25, 4, 3)], ['PAC_vegas_project']),
             f('PAC_luxury_bonds', '奢华债券', '休斯财团', 6, 6, 8, '向富豪发行高息战争债券。', [E.money(20), E.moneyIncome(1)], ['PAC_casino_capitalism']),
-            f('PAC_economic_zone', '太平洋经济特区', '休斯财团', 6, 7, 9, '把太平洋国变成由财团运营的经济特区。', [E.moneyIncome(2), E.money(20), E.ideo('plutocracy', '太平洋经济特区', '经济特区')], ['PAC_luxury_bonds']),
+            f('PAC_economic_zone', '太平洋经济特区', '休斯财团', 6, 7, 9, '把太平洋国变成由财团运营的经济特区。', [E.moneyIncome(2), E.money(20), E.actionCost('build', -1), E.freeT(4), E.recruitAmount(1), E.ideo('plutocracy', '太平洋经济特区', '经济特区')], ['PAC_luxury_bonds']),
             // 航空臂（技术）+ 肋
             f('PAC_jet_radar', '喷气与雷达', '休斯财团', 4, 5, 7, '抢先发展喷气推进与海岸雷达。', [E.allI(1, 3), E.gAtk(0.05)], ['PAC_aviation_expansion']),
             f('PAC_nuclear_research', '曼哈顿西岸分部', '休斯财团', 3, 6, 8, '把胡佛水坝电力投入秘密核研究。', [E.capI(1), E.capBoost(1, 2)], ['PAC_jet_radar']),

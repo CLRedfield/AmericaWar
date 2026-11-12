@@ -37,6 +37,7 @@ const App = {
     mobilePanel: null,
     mobileLobbyPanel: 'slots',
     focusMobileFilter: 'all',
+    focusDetailCollapsed: false,
     focusBranchOnly: false,
     focusTreeOverview: false,
     resolutionAnimation: null,
@@ -929,6 +930,12 @@ const App = {
         this.setRecruitDraftAmount(this.getMaxRecruitAmount());
     },
 
+    setRecruitRatio(ratio) {
+        const max = this.getMaxRecruitAmount();
+        const target = ratio <= 0 ? 1 : Math.max(1, Math.round(max * ratio));
+        this.setRecruitDraftAmount(target);
+    },
+
     getMaxDisbandAmount(node = MapData.getNode(GameState.game.selectedNodeId)) {
         return Math.max(0, node?.troops || 0);
     },
@@ -964,6 +971,14 @@ const App = {
         this.setDisbandDraftAmount(this.getMaxDisbandAmount(node));
     },
 
+    setDisbandRatio(ratio) {
+        const confirm = GameState.game.actionConfirm;
+        const node = MapData.getNode(confirm && confirm.action === 'disband' ? confirm.nodeId : GameState.game.selectedNodeId);
+        const max = this.getMaxDisbandAmount(node);
+        const target = ratio <= 0 ? 1 : Math.max(1, Math.round(max * ratio));
+        this.setDisbandDraftAmount(target);
+    },
+
     getSelectedMoveAmount(source = MapData.getNode(GameState.game.selectedNodeId)) {
         const maxAmount = GameState.getNodeMovableTroops(source);
         if (maxAmount <= 0) return 0;
@@ -994,6 +1009,19 @@ const App = {
         const confirm = GameState.game.actionConfirm;
         const source = MapData.getNode(confirm && confirm.action === 'move' ? confirm.nodeId : GameState.game.selectedNodeId);
         this.setMoveDraftAmount(GameState.getNodeMovableTroops(source));
+    },
+
+    setMovePreset(preset) {
+        const confirm = GameState.game.actionConfirm;
+        const source = MapData.getNode(confirm && confirm.action === 'move' ? confirm.nodeId : GameState.game.selectedNodeId);
+        const max = GameState.getNodeMovableTroops(source);
+        if (max <= 0) return;
+        const stationary = Math.max(0, (source?.troops || 0) - max);
+        let amount = max;
+        if (preset === 'one') amount = 1;
+        else if (preset === 'half') amount = Math.max(1, Math.ceil(max / 2));
+        else if (preset === 'leaveOne') amount = stationary >= 1 ? max : Math.max(1, max - 1);
+        this.setMoveDraftAmount(amount);
     },
 
     getSelectedBattleAmount(attacker = null) {
@@ -1033,6 +1061,19 @@ const App = {
         const preview = GameState.game.battlePreview;
         const attacker = MapData.getNode(preview ? preview.attackerId : GameState.game.selectedNodeId);
         this.setBattleDraftAmount(GameState.getNodeMovableTroops(attacker));
+    },
+
+    setBattlePreset(preset) {
+        const preview = GameState.game.battlePreview;
+        const attacker = MapData.getNode(preview ? preview.attackerId : GameState.game.selectedNodeId);
+        const max = GameState.getNodeMovableTroops(attacker);
+        if (max <= 0) return;
+        const stationary = Math.max(0, (attacker?.troops || 0) - max);
+        let amount = max;
+        if (preset === 'one') amount = 1;
+        else if (preset === 'half') amount = Math.max(1, Math.ceil(max / 2));
+        else if (preset === 'leaveOne') amount = stationary >= 1 ? max : Math.max(1, max - 1);
+        this.setBattleDraftAmount(amount);
     },
 
     syncRecruitSliderDisplay() {
@@ -1414,6 +1455,13 @@ const App = {
         const maxAttackers = GameState.getNodeMovableTroops(MapData.getNode(attackerId));
         GameState.game.battleDraftAmount = maxAttackers;
         GameState.setBattlePreview(this.createBattlePreview(attackerId, defenderId, maxAttackers));
+    },
+
+    attackFromNeighbor(attackerId, defenderId) {
+        const attacker = MapData.getNode(attackerId);
+        if (!attacker || attacker.factionId !== GameState.getPlayerFactionId()) return;
+        GameState.game.selectedNodeId = attackerId;
+        this.openBattlePreview(attackerId, defenderId);
     },
 
     confirmBattle() {
@@ -2210,6 +2258,7 @@ const App = {
             // 每次（重新）打开都按视口自动适配，给出总览而不是 100% 打开后狂滑
             GameState.game.focusTreeViewport = { scale: 1, autoFit: true };
             this.focusTreeOverview = false;
+            this.focusDetailCollapsed = Boolean(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 760px)').matches);
             this.focusTreeCentered = false;
             this.pendingFocusTreeScroll = null;
             this.focusTreeScroll = null;
@@ -2228,7 +2277,14 @@ const App = {
             }
         }
 
+        this.mobilePanel = null;
         GameState.toggleFocusModal(true);
+    },
+
+    toggleFocusDetailSheet(forceValue = null) {
+        this.captureFocusTreeScroll();
+        this.focusDetailCollapsed = forceValue === null ? !this.focusDetailCollapsed : Boolean(forceValue);
+        GameState.notify();
     },
 
     openDiplomacyModal() {
@@ -2318,6 +2374,9 @@ const App = {
         const fitWhole = Math.min(vpW / baseW, vpH / baseH);
         if (this.focusTreeOverview) return Math.min(1, fitWhole * 0.98);
         if (canvas.classList.contains('focus-west-russia')) {
+            if (vpW <= 760) {
+                return this.focusBranchOnly ? Math.max(0.68, Math.min(0.95, fitWhole)) : 0.68;
+            }
             return this.focusBranchOnly ? Math.max(0.74, Math.min(1, fitWhole)) : 0.82;
         }
         const scale = fitWhole >= 0.5 ? fitWhole : (vpH / baseH) * 0.98;

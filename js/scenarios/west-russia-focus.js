@@ -3,21 +3,21 @@
  * the same focus objects used by the American campaign.
  */
 const buildWestRussiaFocus = (() => {
-    const effect = (type, amount) => ({ type, amount });
+    const effect = (type, amount, extra = {}) => ({ type, amount, ...extra });
     const grant = (type, amount) => [effect(type, amount)];
     const develop = () => [{ type: 'allIndustry', amount: 1, maxNodes: 2 }];
 
     // Each administration emphasizes different parts of the existing economy and combat rules.
     const doctrines = {
-        civic: [effect('pp', 2), effect('crisisPP', 2), effect('ppCapBonus', 4), effect('ppIncome', 0.6)],
-        council: [effect('pp', 2), effect('recruitAmount', 1), effect('freeTroops', 1), effect('ppIncome', 0.4)],
-        staff: [effect('capitalTroops', 2), effect('globalAttack', 0.04), effect('allTroops', 1), effect('globalAttack', 0.05)],
-        defence: [effect('capitalTroops', 2), effect('globalDefense', 0.04), effect('crisisPP', 1), effect('globalDefense', 0.05)],
-        industry: [effect('money', 6), effect('capitalIndustry', 1), effect('moneyIncome', 0.5), effect('moneyIncome', 1)],
-        supply: [effect('money', 5), effect('maintenanceRate', -0.03), effect('freeTroops', 1), effect('maintenanceRate', -0.04)],
-        trade: [effect('money', 7), effect('captureMoney', 2), effect('ppCapBonus', 3), effect('moneyIncome', 0.9)],
-        levy: [effect('capitalTroops', 2), effect('recruitAmount', 1), effect('maintenanceRate', 0.02), effect('captureTroops', 1)],
-        relief: [effect('pp', 3), effect('crisisPP', 2), effect('money', 8), effect('maintenanceRate', -0.035)]
+        civic: [effect('pp', 3), effect('crisisPP', 3), effect('ppCapBonus', 6), effect('ppIncome', 0.9)],
+        council: [effect('pp', 3), effect('recruitAmount', 1), effect('freeTroops', 3), effect('ppIncome', 0.7)],
+        staff: [effect('capitalTroops', 3), effect('globalAttack', 0.06), effect('allTroops', 1), effect('globalAttack', 0.08)],
+        defence: [effect('capitalTroops', 3), effect('globalDefense', 0.06), effect('freeTroops', 2), effect('globalDefense', 0.08)],
+        industry: [effect('money', 10), effect('capitalIndustry', 1), effect('moneyIncome', 1.2), effect('moneyIncome', 1.6)],
+        supply: [effect('money', 9), effect('maintenanceRate', -0.045), effect('freeTroops', 3), effect('maintenanceRate', -0.05)],
+        trade: [effect('money', 11), effect('captureMoney', 3), effect('moneyIncome', 1.2), effect('moneyIncome', 1.5)],
+        levy: [effect('capitalTroops', 3), effect('recruitAmount', 2), effect('freeTroops', 3), effect('captureTroops', 1)],
+        relief: [effect('pp', 4), effect('crisisPP', 3), effect('money', 12), effect('maintenanceRate', -0.05)]
     };
 
     function politicalChapter(profile, route, plans, rootRoutes) {
@@ -42,13 +42,13 @@ const buildWestRussiaFocus = (() => {
         add('commit', route.title, center, route.platform, [doctrines[route.policies[0].doctrine][0]], entrance,
             { steps: 1, excludes: competing, story: route.story });
 
-        add('hearing', route.hearing, center - 1, '', grant('ppCapBonus', 3),
+        add('hearing', route.hearing, center - 1, '', [effect('ppCapBonus', 4), effect('pp', 2)],
             [plan.chamber === 'command' ? mandate : commit]);
-        add('mandate', route.mandate, center + 1, '', grant('money', 6),
+        add('mandate', route.mandate, center + 1, '', [effect('money', 8), effect('capitalTroops', 1)],
             [plan.chamber === 'caucus' ? hearing : commit]);
 
         const required = { joint: [hearing, mandate], command: [hearing], caucus: [mandate] }[plan.chamber] || [];
-        add('congress', route.congress, center, '确定政府领导。', grant('ppIncome', 0.3), required,
+        add('congress', route.congress, center, '确定政府领导。', [effect('ppIncome', 0.4), effect('moneyIncome', 0.5)], required,
             { any: required.length ? undefined : [[hearing], [mandate]] });
         add('wartime', route.wartime, center, '确立执政方针。', [doctrines[route.policies[0].doctrine][1]],
             [congress]);
@@ -74,7 +74,7 @@ const buildWestRussiaFocus = (() => {
                 [armKey(parallelWork ? 'choice' : 'measure')]);
             const charterParents = [armKey('project'), ...(parallelWork ? [armKey('measure')] : [])];
             add(suffix('charter'), policy.title + '施政纲领', lane, '',
-                grant('ppCapBonus', 4), charterParents);
+                [effect('ppCapBonus', 5), effect('freeTroops', 1), effect('money', 6)], charterParents);
             add(suffix('settlement'), policy.stateName, lane, '确立政体，获得本路线效果。',
                 [
                     ...(!outcome ? [reward[3]] : []),
@@ -94,15 +94,15 @@ const buildWestRussiaFocus = (() => {
         const rulebook = key('rulebook');
         const integration = key('integration');
         const reserves = key('reserves');
-        add('rulebook', route.outlook, center, '', grant('moneyIncome', 0.6), [],
+        add('rulebook', route.outlook, center, '', [effect('capitalIndustry', 1), effect('moneyIncome', 1)], [],
             { any: settlements.map(id => [id]) });
         add('integration', '地方接管法令', center - 1, '恢复地方工业。',
             develop(), [rulebook, plan.integration].filter(Boolean), { branch: '经济恢复', category: 'industry' });
         add('reserves', '战后常备名册', center + 1, '扩充常备部队。',
             grant('allTroops', 1), [rulebook, plan.reserves].filter(Boolean), { branch: '军事整备', category: 'military' });
-        add('final', route.outlook + '总章程', center, '', grant('ppIncome', 0.55), [rulebook]);
+        add('final', route.outlook + '总章程', center, '', [effect('ppIncome', 0.65), effect('capitalTroops', 2)], [rulebook]);
         add('successors', route.title + '的下一任代表', center, '',
-            grant('moneyIncome', 0.75), [key('final')]);
+            [effect('moneyIncome', 1.1), effect('freeTroops', 2), effect('money', 8)], [key('final')]);
 
         return { title: route.title, category: 'politics', nodes };
     }
@@ -119,15 +119,15 @@ const buildWestRussiaFocus = (() => {
             category: 'politics',
             nodes: [
                 { key: 'report', name: opening, lane: 1, description: profile.faction.description,
-                    effects: grant('pp', 1), steps: 1 },
+                    effects: [effect('pp', 2), effect('money', 5)], steps: 1 },
                 { key: 'repair', name: repair, lane: 0, description: '集中首都的修造人员，恢复第一批产能。',
-                    effects: grant('capitalIndustry', 1), requires: ['report'], steps: 1, branch: firstIndustry, category: 'industry' },
+                    effects: [effect('capitalIndustry', 1), effect('money', 4)], requires: ['report'], steps: 1, branch: firstIndustry, category: 'industry' },
                 { key: 'roster', name: roster, lane: 2, description: '登记还能立即归队的人员与装备。',
-                    effects: grant('capitalTroops', 2), requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' },
+                    effects: grant('capitalTroops', 3), requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' },
                 { key: 'assembly', name: assembly, lane: 1, description: '选择国家的政治方向。',
-                    effects: grant('pp', 2), requires: ['report'], steps: 1 },
+                    effects: [effect('pp', 3), effect('ppCapBonus', 4)], requires: ['report'], steps: 1 },
                 { key: 'frontier', name: frontier, lane: 3, description: '检查路障、通讯与民用撤离路线。',
-                    effects: [{ type: 'taggedDefense', amount: 0.04, tag: design.frontier }], requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' }
+                    effects: [{ type: 'taggedDefense', amount: 0.05, tag: design.frontier }, effect('freeTroops', 1)], requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' }
             ]
         };
     }
