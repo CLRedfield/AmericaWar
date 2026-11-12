@@ -55,22 +55,30 @@ test('settlements replace institutions through one engine effect, and expose the
         assert.equal(focus.routeOutcome.id, focus.effects[1].id);
         assert.equal(choice.routeOutcome.id, focus.routeOutcome.id);
         assert.equal(choice.routeDecision, true);
-        assert.equal(focus.progressRequired, 1, focus.id + ' takes one political step');
+        assert.equal(choice.progressRequired, 2, choice.id + ' takes two political steps');
+        assert.equal(focus.progressRequired, 4, focus.id + ' takes four steps as a regime settlement');
         assert.ok(!focus.description.includes(focus.routeOutcome.payoff), focus.id + ' leaves numeric effects to the effect panel');
         assert.ok(!focus.description.includes(focus.routeOutcome.tradeoff), focus.id + ' does not repeat the tradeoff panel');
         assert.equal(WestRussiaEndings.getById(focus.effects[1].id).title, focus.routeOutcome.title);
     });
 });
 
-test('political decisions need only earlier political decisions and take one step each', () => {
+test('political decisions need only earlier political decisions and follow a 1-to-4 step progression', () => {
     const { GameState } = campaign();
     let settlements = 0;
     for (const [factionId, tree] of Object.entries(GameState.focusTrees)) {
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const political = tree.filter(focus => focus.category === 'politics');
         assert.ok(political.length, factionId + ' retains political choices');
+        const treeSteps = new Set(tree.map(focus => focus.progressRequired));
+        assert.deepEqual([...treeSteps].sort((a, b) => a - b), [1, 2, 3, 4], factionId + ' uses 1/2/3/4 focus step tiers');
         for (const focus of political) {
-            assert.equal(focus.progressRequired, 1, focus.id + ' takes one step');
+            assert.ok(focus.progressRequired >= 1 && focus.progressRequired <= 4, focus.id + ' uses valid 1-4 step count');
+            if (focus.id.endsWith('_report')) assert.equal(focus.progressRequired, 1, focus.id + ' opening focus takes 1 step');
+            if (focus.id.endsWith('_congress')) assert.equal(focus.progressRequired, 3, focus.id + ' congress takes 3 steps');
+            if (focus.id.endsWith('_settlement') || focus.id.endsWith('_successors')) {
+                assert.equal(focus.progressRequired, 4, focus.id + ' major capstone takes 4 steps');
+            }
             assert.ok(!focus.wartime, focus.id + ' is open during preparation');
             assert.ok(!focus.notBeforeTurn, focus.id + ' has no date requirement');
             assert.ok(!focus.requiredControl?.length, focus.id + ' has no territory requirement');

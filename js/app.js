@@ -17,6 +17,7 @@ function formatTimer(totalSeconds) {
 
 function formatMoney(value) {
     const safeValue = Number(value) || 0;
+    if (Math.abs(safeValue) < 0.005) return '0';
     return Number.isInteger(safeValue) ? String(safeValue) : safeValue.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
@@ -763,7 +764,7 @@ const App = {
 
             const hasMovableTroops = GameState.getFactionMovableTroops(playerFactionId) > 0;
             if (!hasMovableTroops) return { enabled: false, reason: '本回合没有可移动士兵', cost: meta.cost, ...meta };
-            if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${meta.ppCost - resources.pp} PP`, cost: meta.cost, ...meta };
+            if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${formatMoney(meta.ppCost - resources.pp)} PP`, cost: meta.cost, ...meta };
             return { enabled: true, reason: '', cost: meta.cost, ppCost: meta.ppCost, costMoney: meta.costMoney, meta };
         }
 
@@ -775,7 +776,7 @@ const App = {
             return { enabled: false, reason: '征兵只能在当前首都或已占领的原始首都执行', cost: meta.cost };
         }
         if (action === 'recruit' && resources.money < (meta.costPerSoldier || 1)) {
-            return { enabled: false, reason: `至少需要 ${meta.costPerSoldier || 1} 金钱才能征 1 个兵`, cost: meta.cost };
+            return { enabled: false, reason: `至少需要 ${formatMoney(meta.costPerSoldier || 1)} 金钱才能征 1 个兵`, cost: meta.cost };
         }
         if (action === 'disband' && node.troops < 1) {
             return { enabled: false, reason: '该节点没有可裁撤的部队', cost: meta.cost };
@@ -785,7 +786,7 @@ const App = {
             if (node.industry >= cap) return { enabled: false, reason: `该节点工业已达到上限 ${cap}`, cost: meta.cost };
         }
         if (meta.costMoney > 0 && resources.money < meta.costMoney) return { enabled: false, reason: `缺少 ${formatMoney(meta.costMoney - resources.money)} 金钱`, cost: meta.cost };
-        if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${meta.ppCost - resources.pp} PP`, cost: meta.cost };
+        if (resources.pp < meta.ppCost) return { enabled: false, reason: `缺少 ${formatMoney(meta.ppCost - resources.pp)} PP`, cost: meta.cost };
         if (action === 'move' && node.troops < 1) return { enabled: false, reason: '该节点没有可移动部队', cost: meta.cost };
         if (action === 'move' && requireFriendlyMoveTarget && MapData.getMoveTargets(node.id, playerFactionId).length === 0) {
             return { enabled: false, reason: '没有相邻己方目标', cost: meta.cost };
@@ -876,7 +877,7 @@ const App = {
             node.troops += recruitAmount;
             node.freshTroops = (node.freshTroops || 0) + recruitAmount;
             GameState.game.recruitDraftAmount = 1;
-            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：${node.name} 完成征兵，驻军 +${recruitAmount}（消耗 $${meta.costMoney}）。`, 'system');
+            GameState.addLog(`第 ${GameState.game.currentTurn} 回合：${node.name} 完成征兵，驻军 +${recruitAmount}（消耗 $${formatMoney(meta.costMoney)}）。`, 'system');
             return;
         }
 
@@ -1818,7 +1819,7 @@ const App = {
 
         const debtText = settlement.debtPenalty.threshold > 0 ? `，赤字状态：${settlement.debtPenalty.label}` : '';
         const desertionText = settlement.debtDeserted > 0 ? `，财政崩溃逃散 ${settlement.debtDeserted} 步兵` : '';
-        GameState.addLog(`${auto ? '计时结束' : '回合开始'}：第 ${turn} 回合，收入 $${formatMoney(settlement.income)}，维护 $${formatMoney(settlement.maintenance)}，金钱 ${formatSignedMoney(settlement.moneyDelta)}，余额 $${formatMoney(settlement.balance)}，获得 ${settlement.ppIncome} PP${debtText}${desertionText}。`, 'system', false);
+        GameState.addLog(`${auto ? '计时结束' : '回合开始'}：第 ${turn} 回合，收入 $${formatMoney(settlement.income)}，维护 $${formatMoney(settlement.maintenance)}，金钱 ${formatSignedMoney(settlement.moneyDelta)}，余额 $${formatMoney(settlement.balance)}，获得 ${formatMoney(settlement.ppIncome)} PP${debtText}${desertionText}。`, 'system', false);
     },
 
     settleAiTurnStart(turnOrder, playerFactionId) {
@@ -1884,7 +1885,7 @@ const App = {
         if (!GameState.isFocusStageOpen(focus)) return { enabled: false, reason: focus.notBeforeTurn && GameState.game.currentTurn < focus.notBeforeTurn ? `第 ${focus.notBeforeTurn} 回合开放` : '战斗期开放', ...actionMeta };
         if (!GameState.areFocusPrerequisitesMet(focus, completed)) return { enabled: false, reason: '前置国策未满足', ...actionMeta };
         if (!GameState.hasFocusTerritory(focus, playerFactionId)) return { enabled: false, reason: '需控制所列省区', ...actionMeta };
-        if (resources.pp < actionMeta.ppCost) return { enabled: false, reason: `缺少 ${actionMeta.ppCost - resources.pp} PP`, ...actionMeta };
+        if (resources.pp < actionMeta.ppCost) return { enabled: false, reason: `缺少 ${formatMoney(actionMeta.ppCost - resources.pp)} PP`, ...actionMeta };
 
         return { enabled: true, reason: '', focus, ...actionMeta };
     },

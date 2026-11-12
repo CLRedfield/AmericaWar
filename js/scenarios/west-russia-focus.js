@@ -39,19 +39,19 @@ const buildWestRussiaFocus = (() => {
         // Political choices only follow political choices. Workshop, army and
         // territorial projects remain optional work in their own branches.
         const entrance = plan.parent ? [plan.parent + '_congress'] : ['assembly'];
-        add('commit', route.title, center, route.platform, [doctrines[route.policies[0].doctrine][0]], entrance,
-            { steps: 1, excludes: competing, story: route.story });
+        add('commit', route.title, center, route.platform, [doctrines[route.policies[0].doctrine][0], effect('pp', 3)], entrance,
+            { steps: 2, excludes: competing, story: route.story });
 
-        add('hearing', route.hearing, center - 1, '', [effect('ppCapBonus', 4), effect('pp', 2)],
-            [plan.chamber === 'command' ? mandate : commit]);
-        add('mandate', route.mandate, center + 1, '', [effect('money', 8), effect('capitalTroops', 1)],
-            [plan.chamber === 'caucus' ? hearing : commit]);
+        add('hearing', route.hearing, center - 1, '', [effect('ppCapBonus', 5), effect('pp', 4)],
+            [plan.chamber === 'command' ? mandate : commit], { steps: 2 });
+        add('mandate', route.mandate, center + 1, '', [effect('money', 10), effect('capitalTroops', 2)],
+            [plan.chamber === 'caucus' ? hearing : commit], { steps: 2 });
 
         const required = { joint: [hearing, mandate], command: [hearing], caucus: [mandate] }[plan.chamber] || [];
-        add('congress', route.congress, center, '确定政府领导。', [effect('ppIncome', 0.4), effect('moneyIncome', 0.5)], required,
-            { any: required.length ? undefined : [[hearing], [mandate]] });
-        add('wartime', route.wartime, center, '确立执政方针。', [doctrines[route.policies[0].doctrine][1]],
-            [congress]);
+        add('congress', route.congress, center, '确定政府领导。', [effect('pp', 5), effect('ppIncome', 0.7), effect('moneyIncome', 0.9)], required,
+            { steps: 3, any: required.length ? undefined : [[hearing], [mandate]] });
+        add('wartime', route.wartime, center, '确立执政方针。', [doctrines[route.policies[0].doctrine][1], effect('pp', 5), effect('money', 8)],
+            [congress], { steps: 3 });
 
         const lateChoice = plan.cabinet === 'coalition';
         const parallelWork = plan.cabinet === 'parallel';
@@ -64,17 +64,17 @@ const buildWestRussiaFocus = (() => {
             const reward = doctrines[policy.doctrine];
             const eligibility = [wartime];
             const rivals = route.policies.map((_, index) => index).filter(index => index !== arm);
-            add(suffix('choice'), policy.title, lane, policy.platform, [reward[0]], eligibility,
-                { excludes: lateChoice ? [] : rivals.map(index => key(index + '_choice')), steps: 1,
+            add(suffix('choice'), policy.title, lane, policy.platform, [reward[0], effect('pp', 3)], eligibility,
+                { excludes: lateChoice ? [] : rivals.map(index => key(index + '_choice')), steps: 2,
                     routeOutcome: outcome, routeDecision: true });
             add(suffix('measure'), policy.measure, lane, '',
-                [reward[1]], [armKey('choice')]);
+                [reward[1], effect('money', 6)], [armKey('choice')], { steps: 2 });
             add(suffix('project'), policy.project, parallelWork ? lane + 1 : lane,
-                '', [reward[2]],
-                [armKey(parallelWork ? 'choice' : 'measure')]);
+                '', [reward[2], effect('pp', 4), effect('money', 8)],
+                [armKey(parallelWork ? 'choice' : 'measure')], { steps: 3 });
             const charterParents = [armKey('project'), ...(parallelWork ? [armKey('measure')] : [])];
             add(suffix('charter'), policy.title + '施政纲领', lane, '',
-                [effect('ppCapBonus', 5), effect('freeTroops', 1), effect('money', 6)], charterParents);
+                [effect('ppCapBonus', 6), effect('freeTroops', 2), effect('money', 10), effect('pp', 5)], charterParents, { steps: 3 });
             add(suffix('settlement'), policy.stateName, lane, '确立政体，获得本路线效果。',
                 [
                     ...(!outcome ? [reward[3]] : []),
@@ -82,7 +82,7 @@ const buildWestRussiaFocus = (() => {
                     ...(outcome ? [{ type: 'routeSettlement', id: outcome.id }] : [])
                 ],
                 [armKey('charter')], {
-                    steps: 1,
+                    steps: 4,
                     excludes: lateChoice ? rivals.map(index => key(index + '_settlement')) : [],
                     story: { title: outcome ? outcome.title : policy.endingTitle,
                         text: policy.ending },
@@ -94,15 +94,17 @@ const buildWestRussiaFocus = (() => {
         const rulebook = key('rulebook');
         const integration = key('integration');
         const reserves = key('reserves');
-        add('rulebook', route.outlook, center, '', [effect('capitalIndustry', 1), effect('moneyIncome', 1)], [],
-            { any: settlements.map(id => [id]) });
+        add('rulebook', route.outlook, center, '', [effect('capitalIndustry', 1), effect('moneyIncome', 1.2), effect('pp', 3)], [],
+            { steps: 2, any: settlements.map(id => [id]) });
         add('integration', '地方接管法令', center - 1, '恢复地方工业。',
-            develop(), [rulebook, plan.integration].filter(Boolean), { branch: '经济恢复', category: 'industry' });
+            [{ type: 'allIndustry', amount: 1, maxNodes: 3 }, effect('money', 8)], [rulebook, plan.integration].filter(Boolean),
+            { steps: 3, precompensated: true, branch: '经济恢复', category: 'industry' });
         add('reserves', '战后常备名册', center + 1, '扩充常备部队。',
-            grant('allTroops', 1), [rulebook, plan.reserves].filter(Boolean), { branch: '军事整备', category: 'military' });
-        add('final', route.outlook + '总章程', center, '', [effect('ppIncome', 0.65), effect('capitalTroops', 2)], [rulebook]);
+            [effect('allTroops', 1), effect('freeTroops', 2)], [rulebook, plan.reserves].filter(Boolean),
+            { steps: 3, precompensated: true, branch: '军事整备', category: 'military' });
+        add('final', route.outlook + '总章程', center, '', [effect('ppIncome', 0.9), effect('capitalTroops', 3), effect('pp', 5)], [rulebook], { steps: 3 });
         add('successors', route.title + '的下一任代表', center, '',
-            [effect('moneyIncome', 1.1), effect('freeTroops', 2), effect('money', 8)], [key('final')]);
+            [effect('moneyIncome', 1.6), effect('freeTroops', 3), effect('money', 14), effect('capitalTroops', 2)], [key('final')], { steps: 4 });
 
         return { title: route.title, category: 'politics', nodes };
     }
@@ -119,17 +121,45 @@ const buildWestRussiaFocus = (() => {
             category: 'politics',
             nodes: [
                 { key: 'report', name: opening, lane: 1, description: profile.faction.description,
-                    effects: [effect('pp', 2), effect('money', 5)], steps: 1 },
+                    effects: [effect('pp', 3), effect('money', 6)], steps: 1 },
                 { key: 'repair', name: repair, lane: 0, description: '集中首都的修造人员，恢复第一批产能。',
                     effects: [effect('capitalIndustry', 1), effect('money', 4)], requires: ['report'], steps: 1, branch: firstIndustry, category: 'industry' },
                 { key: 'roster', name: roster, lane: 2, description: '登记还能立即归队的人员与装备。',
                     effects: grant('capitalTroops', 3), requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' },
                 { key: 'assembly', name: assembly, lane: 1, description: '选择国家的政治方向。',
-                    effects: [effect('pp', 3), effect('ppCapBonus', 4)], requires: ['report'], steps: 1 },
+                    effects: [effect('pp', 5), effect('ppCapBonus', 5)], requires: ['report'], steps: 2 },
                 { key: 'frontier', name: frontier, lane: 3, description: '检查路障、通讯与民用撤离路线。',
                     effects: [{ type: 'taggedDefense', amount: 0.05, tag: design.frontier }, effect('freeTroops', 1)], requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' }
             ]
         };
+    }
+
+    function computeFocusSteps(node, hasChildren) {
+        if (node.category === 'politics') return node.steps || 2;
+        if (node.steps === 1) return 1;
+        if (node.steps === 4) return 4;
+        if (node.steps === 3 && !node.precompensated) return !hasChildren ? 4 : 3;
+        if (node.precompensated) return node.steps || 3;
+        const multiParent = Boolean(node.any?.length) || (node.requires || []).length >= 2;
+        if (!hasChildren && multiParent && (node.war || (node.effects || []).length >= 2)) return 4;
+        const heavyEffect = (node.effects || []).some(item => (
+            item.type === 'actionCost' || item.type === 'allIndustry' || item.type === 'industryCapBonus' || item.type === 'allTroops'
+        ));
+        if (node.control?.length || node.war || multiParent || heavyEffect) return 3;
+        return 2;
+    }
+
+    function compensateStepEffects(node, steps) {
+        const base = (node.effects || []).map(item => ({ ...item }));
+        if (node.category === 'politics' || node.precompensated || steps <= 2) return base;
+        if (steps === 3) {
+            if (node.category === 'military') return [...base, effect('freeTroops', 1), effect('money', 4)];
+            if (node.category === 'civil') return [...base, effect('pp', 3), effect('money', 4)];
+            return [...base, effect('money', 6), effect('pp', 2)];
+        }
+        if (node.category === 'military') return [...base, effect('capitalTroops', 2), effect('freeTroops', 2), effect('pp', 3)];
+        if (node.category === 'civil') return [...base, effect('pp', 5), effect('money', 8), effect('ppCapBonus', 4)];
+        return [...base, effect('money', 10), effect('pp', 3), effect('moneyIncome', 0.5)];
     }
 
     return function buildFocusTree(profile, design) {
@@ -148,6 +178,11 @@ const buildWestRussiaFocus = (() => {
             }
             column += Math.max(...section.nodes.map(node => node.lane)) + 2;
         }
+        const parentKeys = new Set();
+        for (const node of drafts.values()) {
+            for (const req of node.requires || []) parentKeys.add(req);
+            for (const group of node.any || []) for (const req of group) parentKeys.add(req);
+        }
 
         const built = new Map();
         const visiting = new Set();
@@ -164,10 +199,11 @@ const buildWestRussiaFocus = (() => {
             while (occupied.has(node.x + ',' + y)) y++;
             occupied.add(node.x + ',' + y);
 
+            const steps = computeFocusSteps(node, parentKeys.has(key));
             const focus = {
                 id: id(key), name: node.name, branch: node.branch, category: node.category, x: node.x, y,
-                cost: 4, description: node.description, effects: node.effects, prerequisites: required.map(parent => parent.id),
-                progressRequired: node.category === 'politics' ? 1 : node.steps || 2
+                cost: steps * 2, description: node.description, effects: compensateStepEffects(node, steps), prerequisites: required.map(parent => parent.id),
+                progressRequired: steps
             };
             if (anyGroups.length) focus.prerequisiteAny = anyGroups.map(group => group.map(parent => parent.id));
             const plainPolitics = node.category === 'politics';

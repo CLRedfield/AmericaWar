@@ -898,11 +898,18 @@ const SimultaneousTurns = {
         }
         if (captureMoney > 0 || captureTroops > 0) {
             GameState.addLog(
-                `${GameState.getFactionName(factionId)} 占领 ${target.name}：缴获 $${captureMoney}，归附部队 +${captureTroops}。`,
+                `${GameState.getFactionName(factionId)} 占领 ${target.name}：缴获 $${this.formatAmount(captureMoney)}，归附部队 +${captureTroops}。`,
                 'battle',
                 false
             );
         }
+    },
+
+    formatAmount(value) {
+        if (typeof formatMoney === 'function') return formatMoney(value);
+        const safeValue = Number(value) || 0;
+        if (Math.abs(safeValue) < 0.005) return '0';
+        return safeValue.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
     },
 
     getStoredCombat(factionId, node) {
@@ -930,7 +937,7 @@ const SimultaneousTurns = {
             this.saveHumanState(factionId);
             const desertionText = settlement.debtDeserted > 0 ? `，逃散 ${settlement.debtDeserted} 支` : '';
             GameState.addLog(
-                `${GameState.getFactionName(factionId)} 回合末经济：收入 $${formatMoney(settlement.income)}，维护 $${formatMoney(settlement.maintenance)}，余额 $${formatMoney(settlement.balance)}，+${settlement.ppIncome} PP${desertionText}。`,
+                `${GameState.getFactionName(factionId)} 回合末经济：收入 $${this.formatAmount(settlement.income)}，维护 $${this.formatAmount(settlement.maintenance)}，余额 $${this.formatAmount(settlement.balance)}，+${this.formatAmount(settlement.ppIncome)} PP${desertionText}。`,
                 'system',
                 false
             );

@@ -103,7 +103,8 @@ test('all 35 formerly weak western endings improve real 40-troop supply without 
             (f.id.endsWith('_settlement') || f.id.endsWith('zeroSeal') || f.id.endsWith('zeroBroadcast')));
         assert.ok(target, id);
         for (const focus of politicalPlan(tree, target)) {
-            assert.equal(GameState.getFocusRequiredProgress(focus), 1);
+            const steps = GameState.getFocusRequiredProgress(focus);
+            assert.ok(steps >= 1 && steps <= 4, `${focus.id}: valid step count ${steps}`);
             for (const effect of focus.effects) {
                 App.applyFocusEffect(effect, faction, MapData.getNode(GameState.getCapitalNodeId(faction)));
             }

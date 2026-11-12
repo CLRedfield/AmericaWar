@@ -302,13 +302,13 @@ const GamePageView = {
                     <div class="top-stat-item mobile-core-stat top-stat-interactive" title="点击查看政治点收入与国家修正" onclick="window.app.openModifiersModal()">
                         <span class="top-stat-label">PP</span>
                         <span class="top-stat-value">
-                            ${resources.pp}/${GameState.getEffectivePPCap()}
+                            ${formatMoney(resources.pp)}/${formatMoney(GameState.getEffectivePPCap())}
                             <span class="resource-delta ${this.deltaClass(resourcePreview.ppDelta)}">(${formatSignedMoney(resourcePreview.ppDelta)})</span>
                         </span>
                     </div>
                     <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">行动递增</span>
-                        <span class="top-stat-value">+${GameState.getActionExtraCost()} PP</span>
+                        <span class="top-stat-value">+${formatMoney(GameState.getActionExtraCost())} PP</span>
                     </div>
                     <div class="top-stat-item mobile-optional-stat">
                         <span class="top-stat-label">省区</span>
@@ -390,7 +390,7 @@ const GamePageView = {
                     </div>
                     ${ideology ? this.renderIdeologyCard(ideology) : ''}
                     ${debtPenalty.threshold > 0 ? this.renderDebtStatusCard(debtPenalty) : ''}
-                    <div class="passive-line">有效政治点收入：每回合 +${GameState.getTurnPPIncome()} PP；步兵维护：每人 $${formatMoney(GameState.getMaintenanceRate())}</div>
+                    <div class="passive-line">有效政治点收入：每回合 +${formatMoney(GameState.getTurnPPIncome())} PP；步兵维护：每人 $${formatMoney(GameState.getMaintenanceRate())}</div>
                     <div class="panel-actions">
                         <button class="btn btn-primary" onclick="window.app.openFocusModal()">国策</button>
                         <button class="btn btn-outline" onclick="window.app.openModifiersModal()">国家修正</button>
@@ -431,7 +431,7 @@ const GamePageView = {
             ? `全部行动基础 PP +${debtPenalty.actionCostDelta}`
             : '';
         const ppPenalty = debtPenalty.ppIncomeDelta
-            ? `PP 收入 ${debtPenalty.ppIncomeDelta}`
+            ? `PP 收入 ${formatSignedMoney(debtPenalty.ppIncomeDelta)}`
             : '';
         const desertionPenalty = debtPenalty.desertionRate
             ? `每回合逃散 ${Math.round(debtPenalty.desertionRate * 100)}% 部队`
@@ -474,7 +474,7 @@ const GamePageView = {
 
     formatIdeologyBonus(bonus) {
         if (!bonus) return '';
-        const sign = (n) => (n > 0 ? `+${n}` : `${n}`);
+        const sign = (n) => formatSignedMoney(n);
         const pct = (n) => `${formatMoney(n * 100)}%`;
         const signedPct = (n) => (n > 0 ? `+${pct(n)}` : `-${pct(-n)}`);
         switch (bonus.type) {
@@ -628,8 +628,8 @@ const GamePageView = {
                 <span>点击地图上的任意省区查看驻军和工业。选中己方省区后，可以征兵、建设或规划行军。</span>
             </div>
             <div class="action-help-block">
-                当前可用 PP：${GameState.game.playerResources.pp}<br>
-                下一回合有效收入：+${GameState.getTurnPPIncome()} PP
+                当前可用 PP：${formatMoney(GameState.game.playerResources.pp)}<br>
+                下一回合有效收入：+${formatMoney(GameState.getTurnPPIncome())} PP
             </div>
         `;
     },
@@ -1202,9 +1202,9 @@ const GamePageView = {
                     </header>
                     <div class="focus-toolbar">
                         <div class="focus-toolbar-stats">
-                            <span>${isPlayerView ? '我方' : '看海'} PP ${formatMoney(pp)}${isPlayerView ? `/${GameState.getEffectivePPCap()}` : ''}</span>
+                            <span>${isPlayerView ? '我方' : '看海'} PP ${formatMoney(pp)}${isPlayerView ? `/${formatMoney(GameState.getEffectivePPCap())}` : ''}</span>
                             <span>推进消耗 ${actionCost}${isPlayerView ? ' PP' : ''}</span>
-                            <span>${isPlayerView ? `行动递增 +${GameState.getActionExtraCost()} PP` : '只读查看，不消耗行动'}</span>
+                            <span>${isPlayerView ? `行动递增 +${formatMoney(GameState.getActionExtraCost())} PP` : '只读查看，不消耗行动'}</span>
                             <span>已完成 ${completedInTree}/${tree.length}</span>
                         </div>
                         ${overview ? '' : `<div class="focus-zoom-controls">
@@ -1957,8 +1957,8 @@ const GamePageView = {
             const ending = WestRussiaEndings.getById(effect.id);
             return ending ? `获得「${escapeHtml(ending.title)}」的全部加成` : '获得路线加成';
         }
-        const signed = effect.amount > 0 ? `+${effect.amount}` : String(effect.amount);
-        const percent = (val) => `${val > 0 ? '+' : ''}${Math.round(val * 100)}%`;
+        const signed = formatSignedMoney(effect.amount);
+        const percent = (val) => `${formatSignedMoney(val * 100)}%`;
         const getComparisonPair = (current, delta, clamp = value => value) => {
             const applied = this.isFocusCompleted(focus);
             const before = applied ? clamp(current - delta) : current;
@@ -2215,8 +2215,8 @@ const GamePageView = {
     formatNationalModifiers(m) {
         if (!m) return [];
         const out = [];
-        const sign = (n) => (n > 0 ? `+${n}` : `${n}`);
-        const pct = (n) => `${n > 0 ? '+' : ''}${(n * 100).toFixed(0)}%`;
+        const sign = (n) => formatSignedMoney(n);
+        const pct = (n) => `${formatSignedMoney(n * 100)}%`;
         if (m.ppIncome) out.push(`每回合 PP ${sign(m.ppIncome)}`);
         if (m.moneyIncome) out.push(`每回合金钱 ${sign(m.moneyIncome)}`);
         if (m.ppCapBonus) out.push(`PP 上限 ${sign(m.ppCapBonus)}`);

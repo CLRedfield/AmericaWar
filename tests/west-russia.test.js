@@ -27,7 +27,7 @@ function gameClient() {
     for (const filename of scripts) {
         vm.runInContext(fs.readFileSync(path.join(root, filename), 'utf8'), context, { filename });
     }
-    return Object.assign(context, vm.runInContext("({ GameState, WestRussiaFocusLayout })", context));
+    return Object.assign(context, vm.runInContext("({ GameState, WestRussiaFocusLayout, GamePageView, formatMoney })", context));
 }
 
 function assertReachableFocuses(focuses, byId) {
@@ -442,7 +442,13 @@ test('narrative setting is opt-in, stays with the session and unlocks local fact
     assert.equal(GameState.updateLobbySetting('story', false), false, 'room settings freeze during a match');
     assert.equal(GameState.getCampaignStories().length, 2);
     assert.ok(GameState.getCampaignStories().some(entry => entry.id === 'wr_intro_KOM'));
-    for (const id of ['report', 'repair', 'assembly', 'centre_commit']) app.advanceFocus('wr_kom_' + id);
+    for (const id of ['report', 'repair', 'assembly', 'centre_commit']) {
+        const focus = GameState.getFocusById('wr_kom_' + id);
+        for (let step = 0; step < GameState.getFocusRequiredProgress(focus); step++) {
+            GameState.game.playerResources.pp = GameState.getEffectivePPCap();
+            app.advanceFocus(focus.id);
+        }
+    }
     assert.ok(GameState.getCampaignStories().some(entry => entry.id === 'wr_kom_centre_commit'));
     assert.equal(GameState.getFocusStatus(GameState.getFocusById('wr_kom_left_commit')), 'mutually-blocked');
     assert.ok(!GameState.getCampaignStories().some(entry => entry.id === 'wr_smuta'));
@@ -612,3 +618,47 @@ test('West Russia room codes, settings and authoritative snapshots select the sa
     assert.ok(rooms.has('provinces-v1-' + oldCode));
     assert.equal(guest.MapData.nodes.length, 48);
 });
+
+test('UI caps PP and money displays at 2 decimal places and West Russia uses 1/2/3/4 focus step tiers', () => {
+    const { GameState, GamePageView, formatMoney, app } = gameClient();
+    assert.equal(formatMoney(4.199999999999999), '4.2');
+    assert.equal(formatMoney(2.3500000000000005), '2.35');
+    assert.equal(formatMoney(-0.0000001), '0');
+
+    GameState.initLocalLobby('west-russia');
+    GameState.takeSlot('WRF');
+    GameState.startGameSession();
+
+    for (const faction of GameState.factions) {
+        const tree = GameState.getFocusTree(faction.id);
+        const steps = new Set(tree.map(focus => GameState.getFocusRequiredProgress(focus)));
+        assert.deepEqual([...steps].sort((a, b) => a - b), [1, 2, 3, 4], `${faction.id} uses all 1/2/3/4 focus step tiers`);
+        const openings = tree.filter(focus => focus.prerequisites.length === 0 && !(focus.prerequisiteAny && focus.prerequisiteAny.length));
+        assert.ok(openings.every(focus => GameState.getFocusRequiredProgress(focus) === 1), `${faction.id} opening focuses require 1 step`);
+        const settlements = tree.filter(focus => focus.id.endsWith('_settlement'));
+        assert.ok(settlements.every(focus => GameState.getFocusRequiredProgress(focus) === 4), `${faction.id} political settlements require 4 steps`);
+    }
+
+    GameState.game.playerResources.pp = 4.199999999999999;
+    GameState.game.playerResources.money = 12.349999999999998;
+    GameState.game.selectedNodeId = null;
+    GameState.game.showFocusTreeModal = true;
+
+    const html = [
+        GamePageView.renderTopStatusBar(),
+        GamePageView.renderLeftFactionPanel(),
+        GamePageView.renderRightActionPanel(),
+        GamePageView.renderFocusTreeModal()
+    ].join('\n');
+
+    assert.equal(html.includes('4.1999'), false);
+    assert.equal(html.includes('12.3499'), false);
+    assert.equal(html.includes('4.2'), true);
+    assert.equal(html.includes('12.35'), true);
+
+    GameState.game.playerResources.pp = 0.19999999999999996;
+    const focusAvailability = app.getFocusAdvanceAvailability('wr_wrf_report');
+    assert.equal(focusAvailability.enabled, false);
+    assert.equal(focusAvailability.reason.includes('0.1999'), false);
+});
+
