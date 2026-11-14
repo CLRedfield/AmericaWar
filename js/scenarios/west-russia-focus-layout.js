@@ -138,8 +138,10 @@ const WestRussiaFocusLayout = (() => {
                     else if (part === 'project') column = parallel ? idx * 2 + 1 : [0.5, 2.5, 4.5][idx];
                     else if (part === 'charter') column = [0.5, 2.5, 4.5][idx];
                     else if (part === 'settlement') column = [1.0, 2.5, 4.0][idx];
-                } else if (chamberFork && node === hearing) column = 1.0;
-                else if (chamberFork && node === mandate) column = 4.0;
+                } else if (chamberFork && node === hearing) column = 1.2;
+                else if (chamberFork && node === mandate) column = 3.8;
+                else if (node.id.endsWith('_integration')) column = center - 1.2;
+                else if (node.id.endsWith('_reserves')) column = center + 1.2;
                 return { id: node.id, column, row: rows.get(node.id) };
             });
             return { shape: 'parliament-dome-3', positions: normalizePositions(placed) };
@@ -164,12 +166,14 @@ const WestRussiaFocusLayout = (() => {
                     column = (table[part] || table.choice)[idx] ?? idx * 1.8;
                 } else if (chamberFork && node === hearing) column = 2.0;
                 else if (chamberFork && node === mandate) column = 4.0;
+                else if (node.id.endsWith('_integration')) column = center - 1.2;
+                else if (node.id.endsWith('_reserves')) column = center + 1.2;
                 return { id: node.id, column, row: rows.get(node.id) };
             });
             return { shape: 'giant-fan-4', positions: normalizePositions(placed) };
         }
 
-        // 2-arm sculpted architectural motifs
+        // 2-arm sculpted architectural motifs (with unified 3-card epilogue pedestal)
         const profiles = {
             pyramid: {
                 center: 2.0,
@@ -178,70 +182,78 @@ const WestRussiaFocusLayout = (() => {
                 measure: parallel ? [0.3, 3.7] : [0.9, 3.1],
                 project: parallel ? [1.4, 2.6] : [0.5, 3.5],
                 charter: [0.2, 3.8],
-                settlement: [0.0, 4.0]
+                settlement: [0.0, 4.0],
+                pedestal: [0.8, 3.2]
             },
             wedge: {
                 center: 2.0,
                 chamber: [0.0, 4.0],
-                choice: [0.0, 4.0],
-                measure: parallel ? [0.4, 3.6] : [0.5, 3.5],
+                choice: [0.2, 3.8],
+                measure: parallel ? [0.4, 3.6] : [0.6, 3.4],
                 project: parallel ? [1.4, 2.6] : [1.0, 3.0],
                 charter: [1.3, 2.7],
-                settlement: [1.5, 2.5]
+                settlement: [1.5, 2.5],
+                pedestal: [1.0, 3.0]
             },
             cross: {
                 center: 2.0,
-                chamber: [1.5, 2.5],
+                chamber: [1.4, 2.6],
                 choice: [1.0, 3.0],
-                measure: parallel ? [0.0, 4.0] : [0.0, 4.0],
+                measure: [0.0, 4.0],
                 project: parallel ? [1.0, 3.0] : [1.2, 2.8],
-                charter: [1.5, 2.5],
-                settlement: [1.5, 2.5]
+                charter: [1.4, 2.6],
+                settlement: [1.4, 2.6],
+                pedestal: [0.9, 3.1]
             },
             scepter: {
                 center: 2.0,
-                chamber: [1.5, 2.5],
+                chamber: [1.4, 2.6],
                 choice: [1.2, 2.8],
-                measure: parallel ? [0.0, 4.0] : [0.2, 3.8],
-                project: parallel ? [1.1, 2.9] : [0.8, 3.2],
-                charter: [0.6, 3.4],
-                settlement: [1.2, 2.8]
+                measure: parallel ? [0.0, 4.0] : [0.4, 3.6],
+                project: parallel ? [1.1, 2.9] : [0.9, 3.1],
+                charter: [0.8, 3.2],
+                settlement: [1.3, 2.7],
+                pedestal: [1.0, 3.0]
             },
             dome: {
                 center: 2.0,
-                chamber: [0.6, 3.4],
+                chamber: [0.8, 3.2],
                 choice: [0.6, 3.4],
                 measure: parallel ? [0.0, 4.0] : [0.2, 3.8],
                 project: parallel ? [1.2, 2.8] : [0.6, 3.4],
                 charter: [0.6, 3.4],
-                settlement: [1.2, 2.8]
+                settlement: [1.1, 2.9],
+                pedestal: [0.9, 3.1]
             },
             obelisk: {
                 center: 1.8,
-                chamber: [1.3, 2.3],
-                choice: [1.3, 2.3],
-                measure: parallel ? [0.2, 3.4] : [1.3, 2.3],
-                project: parallel ? [1.2, 2.4] : [0.0, 3.6],
-                charter: [1.3, 2.3],
-                settlement: [1.3, 2.3]
+                chamber: [1.2, 2.4],
+                choice: [1.2, 2.4],
+                measure: parallel ? [0.2, 3.4] : [1.2, 2.4],
+                project: parallel ? [1.2, 2.4] : [0.2, 3.4],
+                charter: [1.2, 2.4],
+                settlement: [1.2, 2.4],
+                pedestal: [0.8, 2.8]
             },
             derrick: {
                 center: 2.0,
-                chamber: [1.4, 2.6],
+                chamber: [1.3, 2.7],
                 choice: [1.1, 2.9],
                 measure: parallel ? [0.4, 3.6] : [0.8, 3.2],
                 project: parallel ? [1.4, 2.6] : [0.5, 3.5],
-                charter: [0.2, 3.8],
-                settlement: [0.0, 4.0]
+                charter: [0.3, 3.7],
+                settlement: [0.1, 3.9],
+                pedestal: [0.8, 3.2]
             },
             fan: {
                 center: 2.0,
-                chamber: [0.8, 3.2],
+                chamber: [0.9, 3.1],
                 choice: [1.2, 2.8],
                 measure: parallel ? [0.2, 3.8] : [0.4, 3.6],
                 project: parallel ? [1.3, 2.7] : [0.0, 4.0],
                 charter: [0.6, 3.4],
-                settlement: [1.2, 2.8]
+                settlement: [1.1, 2.9],
+                pedestal: [0.9, 3.1]
             }
         };
         const spec = profiles[motif] || profiles.dome;
@@ -256,285 +268,217 @@ const WestRussiaFocusLayout = (() => {
             else if (chamberFork && node === mandate) column = spec.chamber[1];
             else if (!chamberFork && motif === 'wedge' && node === hearing) column = 1.4;
             else if (!chamberFork && motif === 'wedge' && node === mandate) column = 2.6;
+            else if (node.id.endsWith('_integration')) column = spec.pedestal[0];
+            else if (node.id.endsWith('_reserves')) column = spec.pedestal[1];
             return { id: node.id, column, row: rows.get(node.id) };
         });
         return { shape: 'political-' + motif, positions: normalizePositions(placed) };
     }
 
-    function sculptPortfolio(nodes, crestStyle = 'arch') {
-        const patterns = {
-            arch: [[0, 1], [1, 0], [2, 0], [3, 1], [1.5, 2]],
-            chevron: [[0, 0], [1, 1], [2, 1], [3, 0], [1.5, 2]],
-            diamond: [[1, 0], [0, 1], [2, 1], [1, 2], [1, 3]],
-            rampart: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
-            pillar: [[0.5, 0], [0, 1], [1, 1], [0.5, 2], [0.5, 3]],
-            stepLeft: [[0, 0], [1, 0], [0.5, 1], [1.5, 1], [1, 2]],
-            stepRight: [[0.5, 0], [1.5, 0], [0, 1], [1, 1], [0.5, 2]]
-        };
-        const coords = patterns[crestStyle] || patterns.arch;
-        const placed = nodes.map((node, index) => {
-            const c = coords[index] || [index % 2, Math.floor(index / 2)];
-            return { id: node.id, column: c[0], row: c[1] };
-        });
-        return { shape: 'crest-' + crestStyle, positions: normalizePositions(placed) };
-    }
-
-    function sculptSupportChapter(nodes, rows, localParents, localChildren, style = 'wide') {
+    function sculptDepartmentChapter(nodes, rows, localParents, localChildren, style = 'compact') {
         if (nodes.some(node => node.id.endsWith('_zeroListen'))) {
             const bySuffix = suffix => nodes.find(node => node.id.endsWith(suffix));
             const placed = [
                 bySuffix('_zeroListen') && { id: bySuffix('_zeroListen').id, column: 1.0, row: 0 },
                 bySuffix('_zeroSeal') && { id: bySuffix('_zeroSeal').id, column: 0.0, row: 1 },
                 bySuffix('_zeroReply') && { id: bySuffix('_zeroReply').id, column: 2.0, row: 1 },
-                bySuffix('_zeroBroadcast') && { id: bySuffix('_zeroBroadcast').id, column: 2.4, row: 2 }
+                bySuffix('_zeroBroadcast') && { id: bySuffix('_zeroBroadcast').id, column: 2.0, row: 2 }
             ].filter(Boolean);
             return { shape: 'abyss-trench', positions: normalizePositions(placed) };
         }
 
         const base = chapterColumns(nodes, rows, localParents, localChildren);
         const normalizedBase = normalizePositions(base);
+        const compact = normalizePositions(compressColumns(normalizedBase));
         if (style === 'compact') {
-            return { shape: 'support-compact', positions: normalizePositions(compressColumns(normalizedBase)) };
+            return { shape: 'dept-compact', positions: compact };
+        }
+        if (style === 'wide') {
+            return { shape: 'dept-wide', positions: normalizedBase };
         }
 
-        const maxCol = Math.max(...normalizedBase.map(node => node.column), 0);
-        const maxRow = Math.max(...normalizedBase.map(node => node.row), 1);
-        const byRow = new Map();
-        for (const item of normalizedBase) {
-            if (!byRow.has(item.row)) byRow.set(item.row, []);
-            byRow.get(item.row).push(item);
-        }
-
-        let placed = normalizedBase.map(item => ({ ...item }));
+        const cMid = Math.max(...compact.map(n => n.column), 0) / 2;
+        const cMaxRow = Math.max(...compact.map(n => n.row), 1);
         if (style === 'arrowhead') {
-            const mid = maxCol / 2;
-            placed = placed.map(item => {
-                const rowItems = byRow.get(item.row);
-                if (rowItems.length === 1) return { ...item, column: mid };
-                const flare = item.row >= 1 && item.row <= maxRow - 1 ? 0.3 : 0;
-                const shift = item.column < mid ? -flare : item.column > mid ? flare : 0;
-                return { ...item, column: item.column + shift };
-            });
-            return { shape: 'support-arrowhead', positions: normalizePositions(placed) };
-        }
-
-        if (style === 'diamond') {
-            const compact = normalizePositions(compressColumns(normalizedBase));
-            const cMid = Math.max(...compact.map(n => n.column), 0) / 2;
-            const cMaxRow = Math.max(...compact.map(n => n.row), 1);
-            placed = compact.map(item => {
+            const placed = compact.map(item => {
                 const rowItems = compact.filter(other => other.row === item.row);
                 if (rowItems.length === 1) return { ...item, column: cMid };
-                const distFromMidRow = 1 - Math.abs(item.row - cMaxRow / 2) / (cMaxRow / 2 || 1);
-                const flare = 0.45 * distFromMidRow;
+                const flare = item.row >= 1 && item.row <= cMaxRow - 1 ? 0.2 : 0;
                 const shift = item.column < cMid ? -flare : item.column > cMid ? flare : 0;
                 return { ...item, column: item.column + shift };
             });
-            return { shape: 'support-diamond', positions: normalizePositions(placed) };
+            return { shape: 'dept-arrowhead', positions: normalizePositions(placed) };
         }
 
-        if (style === 'echelon-right' || style === 'echelon-left') {
-            const compact = normalizePositions(compressColumns(normalizedBase));
-            const dir = style === 'echelon-right' ? 0.28 : -0.28;
-            placed = compact.map(item => ({ ...item, column: item.column + item.row * dir }));
-            return { shape: 'support-' + style, positions: normalizePositions(placed) };
-        }
-
-        // 'wide': preserve 3-lane open courtyard without collapsing center stems to 0.5
-        if (maxCol >= 2) {
-            return { shape: 'support-trident', positions: normalizedBase };
-        }
-        return { shape: 'support-fork', positions: normalizePositions(compressColumns(normalizedBase)) };
+        // 'diamond': subtle mid-tree flare with centered single-card spine nodes
+        const placed = compact.map(item => {
+            const rowItems = compact.filter(other => other.row === item.row);
+            if (rowItems.length === 1) return { ...item, column: cMid };
+            const distFromMidRow = 1 - Math.abs(item.row - cMaxRow / 2) / (cMaxRow / 2 || 1);
+            const flare = 0.25 * distFromMidRow;
+            const shift = item.column < cMid ? -flare : item.column > cMid ? flare : 0;
+            return { ...item, column: item.column + shift };
+        });
+        return { shape: 'dept-diamond', positions: normalizePositions(placed) };
     }
 
-    // 11 bespoke national macro blueprints: each defines its structure id, crest styles,
-    // support chapter styles, and explicit column stacks (with startRow & optional air gaps).
+    // 11 bespoke American-Civil-War-style national layouts:
+    // - Cohesive Political Crown (all political forks & mid-tree succession branches connect at dRow = 1..2)
+    // - 4 consolidated, internally-connected Department Trees (d:0 Industry, d:1 Military, d:2 Civil, d:3 Strategy)
+    // - Compact 14-17 row height with distinct macro arrangements per nation.
     const nationalBlueprints = {
-        // 1. 西俄革命阵线：双元帅两翼军旗 + 中央南下伏尔加赤军巨矛
+        // 1. 西俄革命阵线：左翼参谋旁支分叉 + 三路赤军主帅树冠 + 右翼军务/苏维埃/船坞部门群
         WRF: {
             structure: 'dual-marshal-spear',
-            econCrest: 'diamond',
-            milCrest: 'chevron',
-            supportStyles: ['diamond', 'wide', 'diamond', 'arrowhead', 'wide', 'compact', 'wide', 'diamond', 'arrowhead'],
+            deptStyles: ['diamond', 'compact', 'arrowhead', 'diamond'],
             stacks: [
-                { startRow: 2, region: 'home-front', items: ['s:0', 's:5'] },
-                { startRow: 1, region: 'home-front', items: ['s:1', 's:6'] },
-                { startRow: 3, region: 'politics', items: ['p:zhukov', 'p:cadres'] },
-                { startRow: 0, region: 'politics', items: ['opening', 'p:continuity', 's:3', 's:8', 'milCrest'] },
-                { startRow: 3, region: 'politics', items: ['p:tukhachevsky', 's:7'] },
-                { startRow: 1, region: 'frontier', items: ['s:4', 'econCrest'] },
-                { startRow: 2, region: 'frontier', items: ['s:2'] }
+                { startRow: 2, region: 'politics', items: ['p:cadres'] },
+                { startRow: 2, region: 'politics', items: ['p:zhukov'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:continuity'] },
+                { startRow: 2, region: 'politics', items: ['p:tukhachevsky'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] },
+                { startRow: 1, region: 'home-front', items: ['d:0'] }
             ]
         },
-        // 2. 科米共和国：上层半圆议会拱廊 + 左翼日丹诺夫深空尖塔 + 中央圆顶 + 右翼超宽四选一巨扇
+        // 2. 科米共和国：左翼半途裂变火箭尖塔 + 中央三路大穹顶 + 右翼四路巨扇 + 右侧共和部门群
         KOM: {
             structure: 'parliament-hemicycle',
-            econCrest: 'arch',
-            milCrest: 'arch',
-            supportStyles: ['wide', 'diamond', 'wide', 'arrowhead', 'diamond', 'compact', 'echelon-right', 'compact', 'wide'],
+            deptStyles: ['compact', 'diamond', 'arrowhead', 'compact'],
             stacks: [
-                { startRow: 4, region: 'home-front', items: ['s:2', 's:4'] },
-                { startRow: 1, region: 'politics', items: ['s:0', 'p:left', 'p:research'] },
-                { startRow: 0, region: 'politics', items: ['opening', 'p:centre', 's:1', 's:6'] },
-                { startRow: 1, region: 'politics', items: ['s:8', 'p:right', 'econCrest'] },
-                { startRow: 3, region: 'frontier', items: ['s:5', 's:3'] },
-                { startRow: 5, region: 'frontier', items: ['s:7', 'milCrest'] }
+                { startRow: 2, region: 'politics', items: ['p:research'] },
+                { startRow: 2, region: 'politics', items: ['p:left'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:centre'] },
+                { startRow: 2, region: 'politics', items: ['p:right'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] },
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] }
             ]
         },
-        // 3. 维亚特卡总督辖区：双头鹰高扬双翼 + 中央罗曼诺夫皇冠对称阵
+        // 3. 维亚特卡总督辖区：左右帝国双翼拱卫中央四路罗曼诺夫皇冠
         VYA: {
             structure: 'imperial-double-eagle',
-            econCrest: 'diamond',
-            milCrest: 'diamond',
-            supportStyles: ['diamond', 'arrowhead', 'arrowhead', 'compact', 'echelon-left', 'diamond', 'echelon-left', 'compact', 'diamond', 'echelon-right'],
+            deptStyles: ['diamond', 'arrowhead', 'compact', 'diamond'],
             stacks: [
-                { startRow: 0, region: 'home-front', items: ['s:6', 's:4'] },
-                { startRow: 2, region: 'home-front', items: ['s:1', 's:7'] },
-                { startRow: 4, region: 'politics', items: ['p:solidarists', 'econCrest'] },
-                { startRow: 3, region: 'politics', items: ['p:kadets'] },
-                { startRow: 0, region: 'politics', items: ['opening', 's:0', 's:3', 's:8'] },
-                { startRow: 3, region: 'politics', items: ['p:shulgin'] },
-                { startRow: 4, region: 'politics', items: ['p:rovs', 'milCrest'] },
-                { startRow: 2, region: 'frontier', items: ['s:2', 's:9'] },
-                { startRow: 0, region: 'frontier', items: ['s:5'] }
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] },
+                { startRow: 2, region: 'politics', items: ['p:solidarists'] },
+                { startRow: 2, region: 'politics', items: ['p:kadets'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:shulgin'] },
+                { startRow: 2, region: 'politics', items: ['p:rovs'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] }
             ]
         },
-        // 4. 萨马拉（俄罗斯解放军）：KONR 铁血阶梯金字塔（尖顶逐级外扩至宽厚军工底座）
+        // 4. 萨马拉（俄罗斯解放军）：左翼伏尔加动力 + 中央 KONR 阶梯楔冠 + 右翼解放军渡江集群
         SAM: {
             structure: 'konr-pyramid',
-            econCrest: 'chevron',
-            milCrest: 'chevron',
-            supportStyles: ['compact', 'diamond', 'wide', 'arrowhead', 'wide', 'compact', 'echelon-left', 'compact', 'diamond', 'arrowhead'],
+            deptStyles: ['arrowhead', 'compact', 'diamond', 'arrowhead'],
             stacks: [
-                { startRow: 11, region: 'home-front', items: ['s:6', 'econCrest'] },
-                { startRow: 8, region: 'home-front', items: ['s:2', 's:7'] },
-                { startRow: 5, region: 'politics', items: ['p:zykov', 's:4'] },
-                { startRow: 3, region: 'politics', items: ['p:steel', 's:1'] },
-                { startRow: 0, region: 'politics', items: ['opening', 's:0', 's:3', 's:8'] },
-                { startRow: 3, region: 'politics', items: ['p:officers', 's:9'] },
-                { startRow: 5, region: 'politics', items: ['p:oktan', 's:5'] },
-                { startRow: 11, region: 'frontier', items: ['milCrest'] }
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 3, region: 'politics', items: ['p:zykov'] },
+                { startRow: 2, region: 'politics', items: ['p:steel'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:officers'] },
+                { startRow: 3, region: 'politics', items: ['p:oktan'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] }
             ]
         },
-        // 5. 彼尔姆（雅利安兄弟会）：左侧超深符文双歧巨塔 + 中央下陷矿坑峡谷 + 右侧地下抵抗暗堡
+        // 5. 彼尔姆（雅利安兄弟会）：左侧瓦格纳→韦利米尔邪典双塔 vs 右侧地下工人/技术官与卡马工业群
         PRM: {
             structure: 'pagan-twin-spires',
-            econCrest: 'pillar',
-            milCrest: 'diamond',
-            supportStyles: ['compact', 'diamond', 'wide', 'arrowhead', 'wide', 'compact', 'echelon-right', 'compact', 'compact', 'diamond'],
+            deptStyles: ['compact', 'diamond', 'compact', 'arrowhead'],
             stacks: [
-                { startRow: 2, region: 'frontier', items: ['s:3', 'milCrest'] },
-                { startRow: 0, region: 'politics', items: ['opening', 'p:vagner', 'p:velimir'] },
-                { startRow: 10, gapBefore: 0.6, region: 'home-front', items: ['s:1', 'econCrest'] },
-                { startRow: 11, region: 'home-front', items: ['s:2', 's:8'] },
-                { startRow: 10, region: 'home-front', items: ['s:0', 's:5'] },
-                { startRow: 3, gapBefore: 0.6, region: 'politics', items: ['p:workers', 's:4'] },
-                { startRow: 3, region: 'politics', items: ['p:garrison', 's:6'] },
-                { startRow: 4, region: 'frontier', items: ['s:7', 's:9'] }
+                { startRow: 2, region: 'politics', items: ['p:velimir'] },
+                { startRow: 2, region: 'politics', items: ['p:vagner'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:workers'] },
+                { startRow: 2, region: 'politics', items: ['p:engineers'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] },
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] }
             ]
         },
-        // 6. 奥涅加（反共志愿卫队）：上方一字横亘白海海岸防线胸墙 + 右下角孤悬深潜第零频道海沟
+        // 6. 奥涅加（反共志愿卫队）：左翼芬兰补给与港务 + 中央四路海防政治树 + 紧邻旁侧第零频道与海岸反攻
         ONE: {
             structure: 'coastal-abyss',
-            econCrest: 'rampart',
-            milCrest: 'rampart',
-            supportStyles: ['compact', 'compact', 'compact', 'compact', 'compact', 'compact', 'compact', 'compact', 'compact', 'compact', 'arrowhead'],
+            deptStyles: ['compact', 'diamond', 'compact', 'arrowhead'],
             stacks: [
-                { startRow: 0, region: 'home-front', items: ['s:0', 's:5'] },
-                { startRow: 0, region: 'home-front', items: ['s:2', 's:6'] },
-                { startRow: 0, region: 'politics', items: ['s:1', 'p:treaty'] },
-                { startRow: 0, region: 'politics', items: ['s:3', 'p:autonomy'] },
-                { startRow: 0, region: 'politics', items: ['opening', 's:7', 'econCrest'] },
-                { startRow: 0, region: 'politics', items: ['s:4', 'p:patrol'] },
-                { startRow: 0, region: 'politics', items: ['s:9', 'p:harbor'] },
-                { startRow: 0, region: 'frontier', items: ['s:10', 's:8'] },
-                { startRow: 0, gapBefore: 0.8, region: 'frontier', items: ['milCrest', { id: 'secret', minRow: 15 }] }
+                { startRow: 1, region: 'home-front', items: ['d:2'] },
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 2, region: 'politics', items: ['p:treaty'] },
+                { startRow: 2, region: 'politics', items: ['p:autonomy'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:patrol'] },
+                { startRow: 2, region: 'politics', items: ['p:harbor'] },
+                { startRow: 2, region: 'politics', items: ['secret', 'd:3'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] }
             ]
         },
-        // 7. 高尔基坦克旅：GAZ 重坦正面宽肩装甲带 + 向下逐级内收的倒三角穿甲楔尖
+        // 7. 高尔基坦克旅：左翼 GAZ 汽车军工纵列 + 中央装甲旅 V 型楔冠 + 右翼江防与干线总攻纵列
         GOR: {
             structure: 'armored-wedge',
-            econCrest: 'chevron',
-            milCrest: 'chevron',
-            supportStyles: ['wide', 'arrowhead', 'compact', 'wide', 'compact', 'compact', 'compact', 'diamond', 'compact', 'arrowhead'],
+            deptStyles: ['compact', 'compact', 'diamond', 'arrowhead'],
             stacks: [
-                { startRow: 0, region: 'home-front', items: ['s:6'] },
-                { startRow: 0, region: 'home-front', items: ['s:0', 'econCrest'] },
-                { startRow: 0, region: 'politics', items: ['s:3', 'p:workers'] },
-                { startRow: 2, region: 'politics', items: ['p:armor', 's:2'] },
-                { startRow: 0, region: 'politics', items: ['opening', 'p:river', 's:7', 's:9'] },
-                { startRow: 2, region: 'politics', items: ['p:veterans', 's:8'] },
-                { startRow: 0, region: 'frontier', items: ['s:1', 'milCrest'] },
-                { startRow: 0, region: 'frontier', items: ['s:4'] },
-                { startRow: 0, region: 'frontier', items: ['s:5'] }
+                { startRow: 1, region: 'home-front', items: ['d:0', 'd:2'] },
+                { startRow: 3, region: 'politics', items: ['p:workers'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:armor'] },
+                { startRow: 2, region: 'politics', items: ['p:river'] },
+                { startRow: 3, region: 'politics', items: ['p:veterans'] },
+                { startRow: 1, region: 'frontier', items: ['d:1', 'd:3'] }
             ]
         },
-        // 8. 沃洛格达中立国：顶层横梁 + 中央指针垂轴 + 左右腾空对称悬挂双秤盘
+        // 8. 沃洛格达中立国：左右对称中立民生与铁道双翼 + 中央市政→教员同盟子分叉
         VOL: {
             structure: 'neutrality-scale',
-            econCrest: 'arch',
-            milCrest: 'arch',
-            supportStyles: ['compact', 'compact', 'diamond', 'compact', 'compact', 'diamond', 'diamond', 'compact', 'compact', 'compact'],
+            deptStyles: ['compact', 'diamond', 'compact', 'arrowhead'],
             stacks: [
-                { startRow: 0, region: 'home-front', items: ['s:1', { id: 's:2', minRow: 8 }, 's:3'] },
-                { startRow: 0, region: 'politics', items: ['s:4', { id: 'p:coops', minRow: 8 }, 's:5'] },
-                { startRow: 0, region: 'home-front', items: ['econCrest'] },
-                { startRow: 0, gapBefore: 0.7, region: 'politics', items: ['opening', 'p:municipal', 'p:schools'] },
-                { startRow: 0, gapBefore: 0.7, region: 'frontier', items: ['milCrest'] },
-                { startRow: 0, region: 'politics', items: ['s:7', { id: 'p:neutrality', minRow: 8 }, 's:6'] },
-                { startRow: 0, region: 'frontier', items: ['s:0', { id: 's:9', minRow: 8 }, 's:8'] }
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] },
+                { startRow: 2, region: 'politics', items: ['p:coops'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:municipal'] },
+                { startRow: 2, region: 'politics', items: ['p:schools'] },
+                { startRow: 2, region: 'politics', items: ['p:neutrality'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] }
             ]
         },
-        // 9. 圣乔治骑士团：四角完全留空、上小横木+主横梁+下斜踏脚的东正教八端十字架
+        // 9. 圣乔治骑士团：左右上卡马短横翼拱卫中央堂区→民法和解十字中枢
         GEO: {
             structure: 'orthodox-cross',
-            econCrest: 'pillar',
-            milCrest: 'pillar',
-            supportStyles: ['compact', 'diamond', 'diamond', 'compact', 'compact', 'compact', 'compact', 'compact', 'compact', 'diamond'],
+            deptStyles: ['diamond', 'diamond', 'compact', 'arrowhead'],
             stacks: [
-                { startRow: 9, region: 'home-front', items: ['s:5', 'econCrest'] },
-                { startRow: 8, region: 'home-front', items: ['s:2', 's:3'] },
-                { startRow: 2, region: 'politics', items: ['s:0', { id: 'p:forestry', minRow: 8 }, { id: 's:8', minRow: 22 }] },
-                { startRow: 0, region: 'politics', items: ['opening', 'p:parishes', 'p:law', 's:9'] },
-                { startRow: 2, region: 'politics', items: ['s:6', { id: 'p:order', minRow: 8 }, { id: 'milCrest', minRow: 24 }] },
-                { startRow: 8, region: 'frontier', items: ['s:1', 's:4'] },
-                { startRow: 9, region: 'frontier', items: ['s:7'] }
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 2, region: 'politics', items: ['p:forestry'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:parishes'] },
+                { startRow: 2, region: 'politics', items: ['p:law'] },
+                { startRow: 2, region: 'politics', items: ['p:order'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] }
             ]
         },
-        // 10. 鞑靼斯坦共和国：伏尔加与卡马左右双河斜向阶梯汇流至中央三角洲
+        // 10. 鞑靼斯坦共和国：左侧伏尔加—卡马政治汇流（议会→自治联邦旁支）+ 右侧江防、市民与油田三翼
         TAT: {
             structure: 'twin-river-confluence',
-            econCrest: 'stepRight',
-            milCrest: 'stepLeft',
-            supportStyles: ['echelon-right', 'echelon-left', 'echelon-left', 'echelon-left', 'echelon-right', 'diamond', 'echelon-left', 'echelon-right', 'diamond', 'arrowhead'],
+            deptStyles: ['diamond', 'compact', 'arrowhead', 'diamond'],
             stacks: [
-                { startRow: 0, region: 'home-front', items: ['s:7', 's:4'] },
-                { startRow: 2, region: 'home-front', items: ['s:0', 'econCrest'] },
-                { startRow: 4, region: 'politics', items: ['p:union'] },
-                { startRow: 5, region: 'politics', items: ['p:assembly', 's:5'] },
-                { startRow: 2, region: 'politics', items: ['opening', { id: 'p:federation', minRow: 15 }, 's:9'] },
-                { startRow: 5, region: 'politics', items: ['p:guard', 's:8'] },
-                { startRow: 4, region: 'frontier', items: ['s:3', 'milCrest'] },
-                { startRow: 2, region: 'frontier', items: ['s:2', 's:6'] },
-                { startRow: 0, region: 'frontier', items: ['s:1'] }
+                { startRow: 2, region: 'politics', items: ['p:union'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:assembly'] },
+                { startRow: 2, region: 'politics', items: ['p:federation'] },
+                { startRow: 2, region: 'politics', items: ['p:guard'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] },
+                { startRow: 1, region: 'home-front', items: ['d:0'] }
             ]
         },
-        // 11. 巴什科尔托斯坦共和国：两端高挑弓梢向中央弧谷弯曲的南乌拉尔铁骑新月弯弓
+        // 11. 巴什科尔托斯坦共和国：外侧油铁与乌拉尔山口双角拱卫中央库鲁尔泰（自治议会→农社协商旁支）
         BSH: {
             structure: 'steppe-crescent',
-            econCrest: 'stepRight',
-            milCrest: 'stepLeft',
-            supportStyles: ['echelon-right', 'echelon-left', 'echelon-right', 'echelon-left', 'echelon-right', 'echelon-right', 'echelon-right', 'echelon-left', 'echelon-left', 'echelon-left', 'arrowhead'],
+            deptStyles: ['compact', 'arrowhead', 'diamond', 'compact'],
             stacks: [
-                { startRow: 0, region: 'home-front', items: ['s:5', 's:2'] },
-                { startRow: 2, region: 'home-front', items: ['s:0', 'econCrest'] },
-                { startRow: 4, region: 'home-front', items: ['s:4', 's:6'] },
-                { startRow: 6, region: 'politics', items: ['p:oil'] },
-                { startRow: 3, region: 'politics', items: ['opening', { id: 'p:home', minRow: 7 }, 'p:farm'] },
-                { startRow: 6, region: 'politics', items: ['p:mountains'] },
-                { startRow: 4, region: 'frontier', items: ['s:3', 's:7'] },
-                { startRow: 2, region: 'frontier', items: ['s:10', 'milCrest'] },
-                { startRow: 0, region: 'frontier', items: ['s:1', 's:9', 's:8'] }
+                { startRow: 1, region: 'home-front', items: ['d:0'] },
+                { startRow: 2, region: 'politics', items: ['p:oil'] },
+                { startRow: 0, region: 'politics', items: ['opening', 'p:home'] },
+                { startRow: 2, region: 'politics', items: ['p:farm'] },
+                { startRow: 2, region: 'politics', items: ['p:mountains'] },
+                { startRow: 1, region: 'frontier', items: ['d:1'] },
+                { startRow: 1, region: 'home-front', items: ['d:2', 'd:3'] }
             ]
         }
     };
@@ -611,31 +555,26 @@ const WestRussiaFocusLayout = (() => {
             branches.get(node.branch).push(node);
         }
 
-        // Identify support chapters in deterministic order so each receives its assigned style
-        let supportIndex = 0;
+        let fallbackDeptIndex = 0;
         const chapters = [...branches.values()].map((group, order) => {
             const root = group[0];
             const isOpening = group.some(node => node.id.endsWith('_assembly'));
             const isSecret = group.some(node => node.id.endsWith('_zeroListen'));
             const political = sculptPoliticalChapter(group, rows);
-            const portfolio = !isOpening && !isSecret && !political && group.length > 2
-                && group.every(node => !localParents.get(node.id).length && !localChildren.get(node.id).length);
+            const deptSlot = !isOpening && !isSecret && !political
+                ? (group.find(node => node.deptIndex != null)?.deptIndex ?? fallbackDeptIndex++)
+                : null;
 
             let sculpted;
-            let supportSlot = null;
             if (political) {
                 sculpted = political;
-            } else if (portfolio) {
-                const crest = root.category === 'industry' ? blueprint.econCrest : blueprint.milCrest;
-                sculpted = sculptPortfolio(group, crest);
             } else if (isOpening) {
-                sculpted = sculptSupportChapter(group, rows, localParents, localChildren, 'compact');
+                sculpted = sculptDepartmentChapter(group, rows, localParents, localChildren, 'compact');
             } else if (isSecret) {
-                sculpted = sculptSupportChapter(group, rows, localParents, localChildren, 'secret');
+                sculpted = sculptDepartmentChapter(group, rows, localParents, localChildren, 'secret');
             } else {
-                supportSlot = supportIndex++;
-                const style = blueprint.supportStyles[supportSlot] || 'wide';
-                sculpted = sculptSupportChapter(group, rows, localParents, localChildren, style);
+                const style = blueprint.deptStyles?.[deptSlot] || 'compact';
+                sculpted = sculptDepartmentChapter(group, rows, localParents, localChildren, style);
             }
 
             const compact = sculpted.positions;
@@ -644,10 +583,9 @@ const WestRussiaFocusLayout = (() => {
                 category: root.category,
                 entryId: root.id,
                 order,
-                supportSlot,
+                deptSlot,
                 isOpening,
                 isSecret,
-                isPortfolio: portfolio,
                 isPoliticalRoute: Boolean(political),
                 shape: sculpted.shape,
                 positions: compact,
@@ -689,19 +627,15 @@ const WestRussiaFocusLayout = (() => {
             for (const chapter of chapters) {
                 if (chapter.isOpening) tokenMap.set('opening', chapter);
                 else if (chapter.isSecret) tokenMap.set('secret', chapter);
-                else if (chapter.isPortfolio && chapter.category === 'industry') tokenMap.set('econCrest', chapter);
-                else if (chapter.isPortfolio && chapter.category === 'military') tokenMap.set('milCrest', chapter);
                 else if (chapter.isPoliticalRoute) {
                     const match = chapter.entryId.match(/^wr_[a-z]+_(.+)_commit$/);
                     if (match) tokenMap.set('p:' + match[1], chapter);
-                } else if (chapter.supportSlot != null) {
-                    tokenMap.set('s:' + chapter.supportSlot, chapter);
+                } else if (chapter.deptSlot != null) {
+                    tokenMap.set('d:' + chapter.deptSlot, chapter);
                 }
             }
 
-            // Compute column offsets for every stack first, then place opening & parent
-            // political routes before dependent political routes so parent rows are known.
-            const baseColGap = 0.45;
+            const baseColGap = 0.35;
             const resolvedStacks = [];
             const usedChapters = new Set();
             let cursorCol = 0;
@@ -728,15 +662,13 @@ const WestRussiaFocusLayout = (() => {
                 cursorCol += stackWidth;
             }
 
-            // Safety fallback for any unreferenced chapter (e.g. if a secret is hidden before reveal)
             for (const chapter of chapters) {
                 if (usedChapters.has(chapter.name)) continue;
-                const gap = baseColGap;
-                if (resolvedStacks.length) cursorCol += gap;
+                if (resolvedStacks.length) cursorCol += baseColGap;
                 resolvedStacks.push({
                     startCol: cursorCol,
                     width: chapter.width,
-                    startRow: 2,
+                    startRow: 1,
                     region: chapter.category === 'politics' ? 'politics' : 'frontier',
                     entries: [{ id: chapter.name, minRow: 0, chapter }]
                 });
@@ -744,9 +676,6 @@ const WestRussiaFocusLayout = (() => {
             }
 
             const assemblyId = tokenMap.get('opening')?.positions.find(node => node.id.endsWith('_assembly'))?.id;
-
-            // Multi-pass stack placement so opening is placed first, root political routes second,
-            // and succession routes (plus items below them in the same stack) third.
             const stackRowCursor = resolvedStacks.map(stack => stack.startRow);
             const nextIndexInStack = resolvedStacks.map(() => 0);
 
@@ -773,7 +702,7 @@ const WestRussiaFocusLayout = (() => {
                             const entry = byId.get(chapter.entryId);
                             const parentId = entry.prerequisites.find(id => id.endsWith('_congress')) || assemblyId;
                             if (parentId && positions[parentId]) {
-                                top = Math.max(top, positions[parentId].row + 2);
+                                top = Math.max(top, positions[parentId].row + 1);
                             }
                             const bridge = externalLinks.find(link => link.from === parentId && link.to === chapter.entryId);
                             if (bridge) bridges.push({ ...bridge, bridge: true, display: 'political-entry' });
@@ -781,7 +710,7 @@ const WestRussiaFocusLayout = (() => {
                         const centeredCol = stack.startCol + (stack.width - chapter.width) / 2;
                         const region = chapter.category === 'politics' ? 'politics' : stack.region;
                         place(chapter, centeredCol, top, region);
-                        stackRowCursor[s] = top + chapter.height + 1;
+                        stackRowCursor[s] = top + chapter.height;
                         nextIndexInStack[s]++;
                         progress = true;
                     }

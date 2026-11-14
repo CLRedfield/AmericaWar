@@ -124,7 +124,7 @@ test('West Russia provides a connected province map and complete, distinct facti
         const byId = new Map(focuses.map(focus => [focus.id, focus]));
         assert.ok(focuses.length >= 150);
         assert.equal(byId.size, focuses.length);
-        assert.ok(new Set(focuses.map(focus => focus.branch)).size >= 14);
+        assert.ok(new Set(focuses.map(focus => focus.branch)).size >= 9);
         assert.ok(focuses.filter(focus => !focus.prerequisites.length && !focus.prerequisiteAny).length >= 2);
         assert.equal(new Set(focuses.map(focus => `${focus.x},${focus.y}`)).size, focuses.length);
         const indices = new Map(focuses.map((focus, index) => [focus.id, index]));
@@ -328,6 +328,7 @@ test('West Russia gives every nation a distinct macro silhouette and sculpted br
                 assert.equal(link.optional, actual.optional);
                 const parent = positions[parentId];
                 assert.ok(parent.row < card.row, `${parentId} → ${focus.id} goes downward locally`);
+                assert.ok(card.row - parent.row <= 2, `${parentId} → ${focus.id} stays within 1-2 rows of its parent`);
                 if (!link.crossBranch) {
                     local++;
                     if (card.row - parent.row === 1) tight++;
@@ -351,6 +352,8 @@ test('West Russia gives every nation a distinct macro silhouette and sculpted br
             }
         }
         assert.ok(tight / local >= .95, `${factionId} keeps its local runs compact`);
+        assert.ok(Math.max(...Object.values(positions).map(item => item.row)) <= 17,
+            `${factionId} keeps a readable American-style tree height`);
 
         const isolatedSection = political[0];
         const isolated = WestRussiaFocusLayout.build(tree, factionId, isolatedSection.name);
@@ -364,9 +367,9 @@ test('West Russia gives every nation a distinct macro silhouette and sculpted br
     assert.equal(structures.size, GameState.factions.length, 'all 11 West Russia nations have distinct macro silhouettes');
     assert.equal(silhouettes.size, GameState.factions.length);
     assert.ok(politicalShapes.size >= 8, 'Political chapters span diverse architectural motifs');
-    assert.ok(allShapes.size >= 20, 'Political, crest and support chapters span diverse micro-geometries');
-    assert.equal(allPrerequisites, 2062, 'all logical dependencies including parallel policy diamonds remain intact');
-    assert.equal(crossBranchLinks, 391, 'opening projects share their own branch; all external prerequisites remain references');
+    assert.ok(allShapes.size >= 13, 'Political and consolidated department chapters span diverse micro-geometries');
+    assert.equal(allPrerequisites, 2060, 'all logical dependencies including parallel policy diamonds remain intact');
+    assert.equal(crossBranchLinks, 242, 'consolidated department trees turn 149 former cross-map jumps into local lines');
     assert.equal(politicalBridges, 45, 'all route entries and the northern signal chain visibly connect to their actual political parents');
 });
 

@@ -27,7 +27,7 @@ const buildWestRussiaFocus = (() => {
         KOM: { left: 'derrick', research: 'scepter', centre: 'dome', right: 'fan' },
         VYA: { kadets: 'dome', shulgin: 'obelisk', solidarists: 'cross', rovs: 'wedge' },
         SAM: { zykov: 'dome', steel: 'pyramid', officers: 'obelisk', oktan: 'derrick' },
-        PRM: { vagner: 'obelisk', velimir: 'scepter', workers: 'dome', garrison: 'wedge' },
+        PRM: { vagner: 'obelisk', velimir: 'scepter', workers: 'dome', engineers: 'wedge' },
         ONE: { treaty: 'derrick', autonomy: 'dome', patrol: 'wedge', harbor: 'pyramid' },
         GOR: { workers: 'derrick', armor: 'wedge', river: 'fan', veterans: 'obelisk' },
         VOL: { municipal: 'dome', schools: 'scepter', coops: 'pyramid', neutrality: 'derrick' },
@@ -124,10 +124,10 @@ const buildWestRussiaFocus = (() => {
             { steps: 2, any: settlements.map(id => [id]) });
         add('integration', '地方接管法令', center - 1, '恢复地方工业。',
             [{ type: 'allIndustry', amount: 1, maxNodes: 3 }, effect('money', 8)], [rulebook, plan.integration].filter(Boolean),
-            { steps: 3, precompensated: true, branch: '经济恢复', category: 'industry', motif: null });
+            { steps: 3, precompensated: true, category: 'industry', motif: null });
         add('reserves', '战后常备名册', center + 1, '扩充常备部队。',
             [effect('allTroops', 1), effect('freeTroops', 2)], [rulebook, plan.reserves].filter(Boolean),
-            { steps: 3, precompensated: true, branch: '军事整备', category: 'military', motif: null });
+            { steps: 3, precompensated: true, category: 'military', motif: null });
         add('final', route.outlook + '总章程', center, '', [effect('ppIncome', 0.9), effect('capitalTroops', 3), effect('pp', 5)], [rulebook], { steps: 3 });
         add('successors', route.title + '的下一任代表', center, '',
             [effect('moneyIncome', 1.6), effect('freeTroops', 3), effect('money', 14), effect('capitalTroops', 2)], [key('final')], { steps: 4 });
@@ -135,13 +135,96 @@ const buildWestRussiaFocus = (() => {
         return { title: route.title, category: 'politics', nodes };
     }
 
-    function openingChapter(profile, design) {
+    // Consolidate fragmented non-political sub-chapters into 4 cohesive American-style
+    // national department trees (Industry, Military, Civil/Diplomacy, Strategic Integration)
+    // so upstream and downstream focuses connect directly via short vertical lines.
+    const departmentPlans = {
+        WRF: [
+            { title: '白海船坞与乌赫塔工业', chapters: [0, 2], opening: ['repair'] },
+            { title: '普列谢茨克军务与北德维纳军运', chapters: [1, 3, 4], opening: ['roster', 'frontier'] },
+            { title: '军属安置与后方苏维埃', chapters: [5, 6] },
+            { title: '西俄光复与伏尔加攻势', chapters: [7, 8] }
+        ],
+        KOM: [
+            { title: '维切格达林业、电网与劳资', chapters: [1, 2, 4], opening: ['repair'] },
+            { title: '共和国防卫与双语航运', chapters: [3, 6], opening: ['roster', 'frontier'] },
+            { title: '公开选举与公民保障', chapters: [0, 5] },
+            { title: '北境统合与二届议会', chapters: [7, 8] }
+        ],
+        VYA: [
+            { title: '王室财政、兵工与矿冶', chapters: [0, 1, 6], opening: ['repair'] },
+            { title: '白卫近卫与乌德穆尔特军铁', chapters: [2, 7], opening: ['roster', 'frontier'] },
+            { title: '巡回法庭、粮税与使团', chapters: [3, 4, 5] },
+            { title: '王国接管与东线反攻', chapters: [8, 9] }
+        ],
+        SAM: [
+            { title: '伏尔加动力与财政承包', chapters: [1, 4], opening: ['repair'] },
+            { title: '解放军整编与油铁渡口', chapters: [2, 3, 6], opening: ['roster', 'frontier'] },
+            { title: '军民善后与民事许可', chapters: [0, 5, 7] },
+            { title: '战区接收与渡江战役', chapters: [8, 9] }
+        ],
+        PRM: [
+            { title: '卡马电网、矿冶与工业议定', chapters: [1, 2, 8], opening: ['repair'] },
+            { title: '要道守备与山口河港', chapters: [3, 6], opening: ['roster', 'frontier'] },
+            { title: '双权名册与工友互助', chapters: [0, 4] },
+            { title: '民事法院、复产与上游统合', chapters: [5, 7, 9] }
+        ],
+        ONE: [
+            { title: '白海港务、冰路与跨海补给', chapters: [2, 6, 9], opening: ['repair'] },
+            { title: '冰湾预警、三镇防线与机动勤务', chapters: [1, 3, 4], opening: ['roster', 'frontier'] },
+            { title: '芬兰供给、粮票学校与三镇议事', chapters: [0, 5, 7] },
+            { title: '白海缓冲与海岸反攻', chapters: [8, 10] }
+        ],
+        GOR: [
+            { title: '汽车厂复产、军工与技校', chapters: [0, 3, 6], opening: ['repair'] },
+            { title: '伏尔加江防、道路与桥梁步兵', chapters: [2, 4, 8], opening: ['roster', 'frontier'] },
+            { title: '老兵安置与伏尔加工厂带', chapters: [5, 7] },
+            { title: '装甲战备与干线总攻', chapters: [1, 9] }
+        ],
+        VOL: [
+            { title: '切列波韦茨工坊、合作社与铁道', chapters: [1, 2, 5], opening: ['repair', 'frontier'] },
+            { title: '铁路卫戍与地方预算', chapters: [6, 7], opening: ['roster'] },
+            { title: '通行公约、医护与北方教员', chapters: [0, 3, 4] },
+            { title: '邻镇接纳与跨境救援走廊', chapters: [8, 9] }
+        ],
+        GEO: [
+            { title: '上卡马林木、粮库与船运', chapters: [2, 4, 5], opening: ['repair', 'frontier'] },
+            { title: '山口护卫与前线补给', chapters: [1, 7], opening: ['roster'] },
+            { title: '堂区救济、民法与夜间通信', chapters: [0, 3, 6] },
+            { title: '上卡马接收与彼尔姆进军', chapters: [8, 9] }
+        ],
+        TAT: [
+            { title: '努尔拉特油田、造船与两岸能源', chapters: [1, 6, 9], opening: ['repair'] },
+            { title: '喀山江防、航运与西线粮运', chapters: [2, 3, 7], opening: ['roster', 'frontier'] },
+            { title: '多语市民与港工工会', chapters: [0, 4] },
+            { title: '地方协约与两岸代表权', chapters: [5, 8] }
+        ],
+        BSH: [
+            { title: '乌法油田、铁矿与农社财政', chapters: [0, 2, 3, 5], opening: ['repair'] },
+            { title: '山口联防、河道与守备编制', chapters: [1, 4, 7], opening: ['roster', 'frontier'] },
+            { title: '山地医护与边境采购互认', chapters: [6, 9] },
+            { title: '南部接管与山口出击', chapters: [8, 10] }
+        ]
+    };
+
+    function resolveDepartmentBranches(factionId) {
+        const plan = departmentPlans[factionId] || [];
+        const byChapter = new Map();
+        const byOpening = new Map();
+        const deptByBranch = new Map();
+        plan.forEach((dept, deptIndex) => {
+            deptByBranch.set(dept.title, deptIndex);
+            for (const idx of dept.chapters) byChapter.set(idx, dept.title);
+            for (const key of dept.opening || []) byOpening.set(key, dept.title);
+        });
+        return { byChapter, byOpening, deptByBranch };
+    }
+
+    function openingChapter(profile, design, byOpening) {
         const [opening, repair, roster, assembly, frontier] = profile.opening;
-        // Opening projects belong with the work they start. Keeping them in
-        // the same chapter as late political follow-ups made the old chapter
-        // boxes stretch across the entire tree and interleave with every route.
-        const firstIndustry = design.chapters.find(section => section.category === 'industry')?.title || '经济恢复';
-        const firstMilitary = design.chapters.find(section => section.category === 'military')?.title || '军事整备';
+        const firstIndustry = byOpening.get('repair') || design.chapters.find(section => section.category === 'industry')?.title || '经济恢复';
+        const rosterBranch = byOpening.get('roster') || design.chapters.find(section => section.category === 'military')?.title || '军事整备';
+        const frontierBranch = byOpening.get('frontier') || rosterBranch;
         return {
             title: design.council.title,
             category: 'politics',
@@ -151,11 +234,11 @@ const buildWestRussiaFocus = (() => {
                 { key: 'repair', name: repair, lane: 0, description: '集中首都的修造人员，恢复第一批产能。',
                     effects: [effect('capitalIndustry', 1), effect('money', 4)], requires: ['report'], steps: 1, branch: firstIndustry, category: 'industry' },
                 { key: 'roster', name: roster, lane: 2, description: '登记还能立即归队的人员与装备。',
-                    effects: grant('capitalTroops', 3), requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' },
+                    effects: grant('capitalTroops', 3), requires: ['report'], steps: 1, branch: rosterBranch, category: 'military' },
                 { key: 'assembly', name: assembly, lane: 1, description: '选择国家的政治方向。',
                     effects: [effect('pp', 5), effect('ppCapBonus', 5)], requires: ['report'], steps: 2 },
                 { key: 'frontier', name: frontier, lane: 3, description: '检查路障、通讯与民用撤离路线。',
-                    effects: [{ type: 'taggedDefense', amount: 0.05, tag: design.frontier }, effect('freeTroops', 1)], requires: ['report'], steps: 1, branch: firstMilitary, category: 'military' }
+                    effects: [{ type: 'taggedDefense', amount: 0.05, tag: design.frontier }, effect('freeTroops', 1)], requires: ['report'], steps: 1, branch: frontierBranch, category: 'military' }
             ]
         };
     }
@@ -190,9 +273,14 @@ const buildWestRussiaFocus = (() => {
 
     return function buildFocusTree(profile, design) {
         if (typeof WestRussiaSecrets !== 'undefined') design = WestRussiaSecrets.extend(profile, design);
+        const { byChapter, byOpening, deptByBranch } = resolveDepartmentBranches(profile.faction.id);
+        const mappedChapters = design.chapters.map((chapter, index) => ({
+            ...chapter,
+            title: byChapter.get(index) || chapter.title
+        }));
         const rootRoutes = profile.routes.filter(route => !design.routes[route.id]?.parent).map(route => route.id);
         const political = profile.routes.map(route => politicalChapter(profile, route, design.routes, rootRoutes));
-        const sections = [openingChapter(profile, design), design.chapters[0], ...political, ...design.chapters.slice(1)];
+        const sections = [openingChapter(profile, design, byOpening), mappedChapters[0], ...political, ...mappedChapters.slice(1)];
         const prefix = 'wr_' + profile.faction.id.toLowerCase() + '_';
         const id = key => prefix + key;
         const drafts = new Map();
@@ -242,6 +330,7 @@ const buildWestRussiaFocus = (() => {
             if (node.notBeforeTurn != null && !plainPolitics) focus.notBeforeTurn = node.notBeforeTurn;
             if (node.secretReveal) focus.secretReveal = node.secretReveal;
             if (node.motif && plainPolitics) focus.motif = node.motif;
+            if (deptByBranch.has(focus.branch)) focus.deptIndex = deptByBranch.get(focus.branch);
             built.set(key, focus);
             visiting.delete(key);
             return focus;

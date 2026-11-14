@@ -1447,6 +1447,7 @@ const GamePageView = {
         if (!focus.category) return this.branchColor(focus.branch);
         const resolvedFaction = focus.id?.match(/^wr_([a-z]+)_/)?.[1]?.toUpperCase() || factionId;
         const tree = GameState.getFocusTree(resolvedFaction);
+        const root = tree.find(item => item.branch === focus.branch) || focus;
         const nationalPolitics = {
             WRF: ['#9b6b43', '#b33b3b', '#3d7494', '#7e5a3b', '#8e4562', '#4c7c6b', '#a07d3b'],
             KOM: ['#56799c', '#a84448', '#3c838a', '#b08642', '#7a5096', '#568560', '#96634c'],
@@ -1460,11 +1461,22 @@ const GamePageView = {
             TAT: ['#438775', '#3e7796', '#9e7c3f', '#94525c', '#688552', '#755b91', '#51848c'],
             BSH: ['#54875c', '#a1733e', '#467896', '#8f4f5b', '#6d5c91', '#48857c', '#847e45']
         };
-        if (focus.category === 'politics') {
+        if (root.category === 'politics') {
             const branches = [...new Set(tree.filter(item => item.category === 'politics').map(item => item.branch))];
             const colors = nationalPolitics[resolvedFaction]
                 || ['#867552', '#427998', '#85639d', '#a05f5d', '#648a60', '#438b83', '#a57b47'];
-            return colors[Math.max(0, branches.indexOf(focus.branch)) % colors.length];
+            return colors[Math.max(0, branches.indexOf(root.branch)) % colors.length];
+        }
+        if (root.deptIndex != null) {
+            const deptPalettes = [
+                ['#4d8c84', '#4f8896', '#5c8c78'],
+                ['#a66258', '#a87548', '#966b61'],
+                ['#6b8d5c', '#756d9e', '#5b8a74'],
+                ['#9c844b', '#8b699c', '#ab8954']
+            ];
+            const factionShift = Math.max(0, Object.keys(nationalPolitics).indexOf(resolvedFaction));
+            const palette = deptPalettes[root.deptIndex % deptPalettes.length];
+            return palette[factionShift % palette.length];
         }
         const factionShift = Math.max(0, Object.keys(nationalPolitics).indexOf(resolvedFaction));
         const colors = {
@@ -1474,9 +1486,9 @@ const GamePageView = {
             civil: ['#6b8d5c', '#7a9162', '#5b8a74', '#748c55'],
             diplomacy: ['#8b699c', '#756d9e', '#98698e', '#7f6496'],
             integration: ['#9c844b', '#ab8954', '#8e8352', '#a37b4d']
-        }[focus.category] || ['#7c8b86'];
-        const branches = [...new Set(tree.filter(item => item.category === focus.category).map(item => item.branch))];
-        return colors[(Math.max(0, branches.indexOf(focus.branch)) + factionShift) % colors.length];
+        }[root.category] || ['#7c8b86'];
+        const branches = [...new Set(tree.filter(item => item.category === root.category).map(item => item.branch))];
+        return colors[(Math.max(0, branches.indexOf(root.branch)) + factionShift) % colors.length];
     },
 
     focusBranchTextColor(color) {
@@ -1539,17 +1551,23 @@ const GamePageView = {
                 maxB = Math.max(maxB, p.bottomY);
             });
             if (!isFinite(minL)) return;
+            if (layout.regions) {
+                const wrPad = 11;
+                const wrLabelGap = 18;
+                const wx = minL - wrPad;
+                const wy = minT - wrPad - wrLabelGap;
+                const ww = (maxR - minL) + wrPad * 2;
+                const wh = (maxB - minT) + wrPad * 2 + wrLabelGap;
+                bands.push(`<rect class="focus-lane-band" x="${wx}" y="${wy}" width="${ww}" height="${wh}" rx="16" fill="${color}" stroke="${color}" />`);
+                bands.push(`<text class="focus-lane-label" x="${wx + 14}" y="${wy + 19}" fill="${color}">${escapeHtml(branch)}</text>`);
+                return;
+            }
             const pad = 16;
             const labelGap = 22;
             const x = minL - pad;
             const y = minT - pad - labelGap;
             const w = (maxR - minL) + pad * 2;
             const h = (maxB - minT) + pad * 2 + labelGap;
-            if (layout.regions) {
-                bands.push(`<rect class="focus-lane-band" x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${color}" stroke="${color}" />`);
-                bands.push(`<text class="focus-lane-label" x="${x + 16}" y="${y + 24}" fill="${color}">${escapeHtml(branch)}</text>`);
-                return;
-            }
             bands.push(`<rect class="focus-lane-band" x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${color}" />`);
             bands.push(`<text class="focus-lane-label" x="${x + 16}" y="${y + 24}" fill="${color}">${escapeHtml(branch)}</text>`);
         });

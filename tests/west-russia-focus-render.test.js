@@ -249,7 +249,7 @@ test('every external West Russia prerequisite is named on its card and has a rea
             }
         }
     }
-    assert.equal(externalDependencies, 391, 'all external dependencies remain visible as references');
+    assert.equal(externalDependencies, 242, 'all remaining external dependencies stay visible as references');
 });
 
 test('both campaigns use the same full-size colored card contract and political routes have distinct colors', () => {
