@@ -20,13 +20,30 @@ const buildWestRussiaFocus = (() => {
         relief: [effect('pp', 4), effect('crisisPP', 3), effect('money', 12), effect('maintenanceRate', -0.05)]
     };
 
+    // Distinct architectural motifs per faction route so each political path has
+    // its own topological silhouette (dome, pyramid, wedge, cross, scepter, obelisk, derrick, fan).
+    const routeMotifs = {
+        WRF: { zhukov: 'dome', cadres: 'pyramid', continuity: 'obelisk', tukhachevsky: 'wedge' },
+        KOM: { left: 'derrick', research: 'scepter', centre: 'dome', right: 'fan' },
+        VYA: { kadets: 'dome', shulgin: 'obelisk', solidarists: 'cross', rovs: 'wedge' },
+        SAM: { zykov: 'dome', steel: 'pyramid', officers: 'obelisk', oktan: 'derrick' },
+        PRM: { vagner: 'obelisk', velimir: 'scepter', workers: 'dome', garrison: 'wedge' },
+        ONE: { treaty: 'derrick', autonomy: 'dome', patrol: 'wedge', harbor: 'pyramid' },
+        GOR: { workers: 'derrick', armor: 'wedge', river: 'fan', veterans: 'obelisk' },
+        VOL: { municipal: 'dome', schools: 'scepter', coops: 'pyramid', neutrality: 'derrick' },
+        GEO: { parishes: 'cross', law: 'cross', forestry: 'pyramid', order: 'wedge' },
+        TAT: { union: 'derrick', assembly: 'dome', federation: 'pyramid', guard: 'wedge' },
+        BSH: { oil: 'derrick', home: 'dome', farm: 'scepter', mountains: 'pyramid' }
+    };
+
     function politicalChapter(profile, route, plans, rootRoutes) {
         const plan = plans[route.id] || {};
+        const motif = routeMotifs[profile.faction.id]?.[route.id] || 'dome';
         const nodes = [];
         const center = route.policies.length;
         const key = suffix => route.id + '_' + suffix;
         const add = (suffix, name, lane, description, effects, requires, extra = {}) => {
-            nodes.push({ key: key(suffix), name, lane, description, effects, requires, ...extra });
+            nodes.push({ key: key(suffix), name, lane, description, effects, requires, motif, ...extra });
         };
         const commit = key('commit');
         const hearing = key('hearing');
@@ -39,22 +56,31 @@ const buildWestRussiaFocus = (() => {
         // Political choices only follow political choices. Workshop, army and
         // territorial projects remain optional work in their own branches.
         const entrance = plan.parent ? [plan.parent + '_congress'] : ['assembly'];
+        // Preserve 'either' (OR) chambers so minimal step-counts never increase;
+        // otherwise sculpt the chamber to match the route's architectural motif.
+        const chamber = (!plan.chamber || plan.chamber === 'either')
+            ? plan.chamber
+            : (motif === 'scepter' || motif === 'cross')
+                ? (plan.chamber === 'command' ? 'command' : 'caucus')
+                : (motif === 'dome' || motif === 'pyramid' || motif === 'derrick')
+                    ? 'joint'
+                    : plan.chamber;
         add('commit', route.title, center, route.platform, [doctrines[route.policies[0].doctrine][0], effect('pp', 3)], entrance,
             { steps: 2, excludes: competing, story: route.story });
 
         add('hearing', route.hearing, center - 1, '', [effect('ppCapBonus', 5), effect('pp', 4)],
-            [plan.chamber === 'command' ? mandate : commit], { steps: 2 });
+            [chamber === 'command' ? mandate : commit], { steps: 2 });
         add('mandate', route.mandate, center + 1, '', [effect('money', 10), effect('capitalTroops', 2)],
-            [plan.chamber === 'caucus' ? hearing : commit], { steps: 2 });
+            [chamber === 'caucus' ? hearing : commit], { steps: 2 });
 
-        const required = { joint: [hearing, mandate], command: [hearing], caucus: [mandate] }[plan.chamber] || [];
+        const required = { joint: [hearing, mandate], command: [hearing], caucus: [mandate] }[chamber] || [];
         add('congress', route.congress, center, '确定政府领导。', [effect('pp', 5), effect('ppIncome', 0.7), effect('moneyIncome', 0.9)], required,
             { steps: 3, any: required.length ? undefined : [[hearing], [mandate]] });
         add('wartime', route.wartime, center, '确立执政方针。', [doctrines[route.policies[0].doctrine][1], effect('pp', 5), effect('money', 8)],
             [congress], { steps: 3 });
 
         const lateChoice = plan.cabinet === 'coalition';
-        const parallelWork = plan.cabinet === 'parallel';
+        const parallelWork = ['dome', 'pyramid', 'cross', 'scepter', 'derrick'].includes(motif);
         const settlements = route.policies.map((policy, arm) => {
             const outcome = typeof WestRussiaEndings !== 'undefined'
                 ? WestRussiaEndings.get(profile.faction.id, route.id, arm) : null;
@@ -98,10 +124,10 @@ const buildWestRussiaFocus = (() => {
             { steps: 2, any: settlements.map(id => [id]) });
         add('integration', '地方接管法令', center - 1, '恢复地方工业。',
             [{ type: 'allIndustry', amount: 1, maxNodes: 3 }, effect('money', 8)], [rulebook, plan.integration].filter(Boolean),
-            { steps: 3, precompensated: true, branch: '经济恢复', category: 'industry' });
+            { steps: 3, precompensated: true, branch: '经济恢复', category: 'industry', motif: null });
         add('reserves', '战后常备名册', center + 1, '扩充常备部队。',
             [effect('allTroops', 1), effect('freeTroops', 2)], [rulebook, plan.reserves].filter(Boolean),
-            { steps: 3, precompensated: true, branch: '军事整备', category: 'military' });
+            { steps: 3, precompensated: true, branch: '军事整备', category: 'military', motif: null });
         add('final', route.outlook + '总章程', center, '', [effect('ppIncome', 0.9), effect('capitalTroops', 3), effect('pp', 5)], [rulebook], { steps: 3 });
         add('successors', route.title + '的下一任代表', center, '',
             [effect('moneyIncome', 1.6), effect('freeTroops', 3), effect('money', 14), effect('capitalTroops', 2)], [key('final')], { steps: 4 });
@@ -215,6 +241,7 @@ const buildWestRussiaFocus = (() => {
             if (node.routeDecision) focus.routeDecision = true;
             if (node.notBeforeTurn != null && !plainPolitics) focus.notBeforeTurn = node.notBeforeTurn;
             if (node.secretReveal) focus.secretReveal = node.secretReveal;
+            if (node.motif && plainPolitics) focus.motif = node.motif;
             built.set(key, focus);
             visiting.delete(key);
             return focus;

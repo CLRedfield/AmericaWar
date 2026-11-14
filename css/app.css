@@ -4770,8 +4770,8 @@ button.focus-condition:focus-visible {
     box-shadow: 0 0 0 2px #f87171b3;
 }
 .focus-unified-card.focus-mutual-target .focus-choice-label { border-color: #fecaca; background: #991b1b; color: #fff1f2; }
-.focus-west-russia .focus-lane-band { opacity: .075; }
-.focus-west-russia .focus-lane-label { font-size: 14px; opacity: .8; }
+.focus-west-russia .focus-lane-band { opacity: 1; fill-opacity: .085; stroke-opacity: .24; stroke-width: 1.5; }
+.focus-west-russia .focus-lane-label { font-size: 14px; opacity: .88; }
 .focus-west-russia .focus-section-heading .focus-lane-label { font-size: 13px; font-weight: 700; opacity: .95; }
 .focus-section-rule { fill: none; stroke-width: 3; stroke-linecap: square; opacity: .85; }
 @media (prefers-reduced-motion: reduce) {

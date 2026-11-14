@@ -202,11 +202,13 @@ test('political branch choices support nested succession, multiple candidates an
         'choosing the union government does not require economic contracts or crew training');
 });
 
-test('West Russia forms a connected political crown and compact wings without losing prerequisites', () => {
-    const { GameState, WestRussiaFocusLayout } = gameClient();
+test('West Russia gives every nation a distinct macro silhouette and sculpted branch motifs without losing prerequisites', () => {
+    const { GameState, WestRussiaFocusLayout, GamePageView } = gameClient();
     GameState.initLocalLobby('west-russia');
+    const structures = new Set();
     const silhouettes = new Set();
     const politicalShapes = new Set();
+    const allShapes = new Set();
     let crossBranchLinks = 0;
     let politicalBridges = 0;
     let allPrerequisites = 0;
@@ -215,7 +217,9 @@ test('West Russia forms a connected political crown and compact wings without lo
         const byId = new Map(tree.map(focus => [focus.id, focus]));
         const layout = WestRussiaFocusLayout.build(tree, factionId);
         const { sections, positions, links, allLinks, externalLinks, references, cardWidth, cardHeight } = layout;
-        assert.equal(layout.structure, 'political-crown');
+        assert.ok(layout.structure && layout.structure !== 'political-crown', factionId + ': uses a bespoke national macro structure');
+        structures.add(layout.structure);
+        for (const section of sections) allShapes.add(section.shape);
         assert.equal(cardWidth, 190, factionId + ': the same card width as the American campaign');
         assert.equal(cardHeight, 150, factionId + ': the same card height as the American campaign');
         const branchCount = new Set(tree.map(focus => focus.branch)).size;
@@ -235,6 +239,16 @@ test('West Russia forms a connected political crown and compact wings without lo
             assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
                 `${factionId}: ${a.name} and ${b.name} keep separate branch panels instead of interleaving`);
         }
+        const bandHtml = GamePageView.renderFocusLaneBands(tree, layout);
+        const bandRects = [...bandHtml.matchAll(/<rect\b[^>]*x="([-\d.]+)"\s+y="([-\d.]+)"\s+width="([-\d.]+)"\s+height="([-\d.]+)"/g)]
+            .map(([, x, y, w, h]) => ({ left: Number(x), top: Number(y), right: Number(x) + Number(w), bottom: Number(y) + Number(h) }));
+        assert.equal(bandRects.length, sections.filter(section => section.positions.length >= 2).length,
+            factionId + ': every multi-card branch renders an American-style swimlane backdrop');
+        for (let i = 0; i < bandRects.length; i++) for (let j = i + 1; j < bandRects.length; j++) {
+            const a = bandRects[i], b = bandRects[j];
+            assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
+                `${factionId}: rendered swimlane backdrops never overlap`);
+        }
         silhouettes.add(tree.map(({ id }) => `${positions[id].column},${positions[id].row}`).join('|'));
 
         const prefix = 'wr_' + factionId.toLowerCase() + '_';
@@ -251,7 +265,7 @@ test('West Russia forms a connected political crown and compact wings without lo
             const entryPosition = positions[entry.id];
             assert.ok(entryPosition.row > assembly.row, entry.id + ': follows the shared political opening');
             if (parentId.endsWith('_congress')) {
-                assert.equal(entryPosition.row, parent.row + 1, entry.id + ': succession grows directly from its parent congress');
+                assert.ok(entryPosition.row >= parent.row + 1, entry.id + ': succession grows below its parent congress');
             }
             const stem = entry.id.replace(/_commit$/, '');
             const choices = tree.filter(focus => focus.branch === section.name && /_\d+_choice$/.test(focus.id));
@@ -347,9 +361,11 @@ test('West Russia forms a connected political crown and compact wings without lo
             assert.deepEqual(isolated.references.get(id), references.get(id));
         }
     }
+    assert.equal(structures.size, GameState.factions.length, 'all 11 West Russia nations have distinct macro silhouettes');
     assert.equal(silhouettes.size, GameState.factions.length);
-    assert.ok(politicalShapes.size >= 3, 'Political chapters retain different real fork and cabinet structures');
-    assert.equal(allPrerequisites, 2030, 'all original logical dependencies remain intact');
+    assert.ok(politicalShapes.size >= 8, 'Political chapters span diverse architectural motifs');
+    assert.ok(allShapes.size >= 20, 'Political, crest and support chapters span diverse micro-geometries');
+    assert.equal(allPrerequisites, 2062, 'all logical dependencies including parallel policy diamonds remain intact');
     assert.equal(crossBranchLinks, 391, 'opening projects share their own branch; all external prerequisites remain references');
     assert.equal(politicalBridges, 45, 'all route entries and the northern signal chain visibly connect to their actual political parents');
 });

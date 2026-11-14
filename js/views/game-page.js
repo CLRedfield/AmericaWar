@@ -1445,20 +1445,38 @@ const GamePageView = {
 
     focusBranchColor(focus, factionId = GameState.game.focusViewFactionId || GameState.getPlayerFactionId()) {
         if (!focus.category) return this.branchColor(focus.branch);
-        const tree = GameState.getFocusTree(factionId);
+        const resolvedFaction = focus.id?.match(/^wr_([a-z]+)_/)?.[1]?.toUpperCase() || factionId;
+        const tree = GameState.getFocusTree(resolvedFaction);
+        const nationalPolitics = {
+            WRF: ['#9b6b43', '#b33b3b', '#3d7494', '#7e5a3b', '#8e4562', '#4c7c6b', '#a07d3b'],
+            KOM: ['#56799c', '#a84448', '#3c838a', '#b08642', '#7a5096', '#568560', '#96634c'],
+            VYA: ['#a88743', '#6f5194', '#3f7696', '#9b4f58', '#568368', '#8a6b48', '#488184'],
+            SAM: ['#6d7a64', '#50728c', '#987244', '#8d534f', '#6b5c8c', '#4d8276', '#857d4b'],
+            PRM: ['#8f6743', '#9e443e', '#6f4b8e', '#457a67', '#a67f38', '#496f8f', '#7a7d48'],
+            ONE: ['#497d94', '#3d6896', '#4a877d', '#7b5d94', '#8e6c46', '#2e8599', '#6c497a'],
+            GOR: ['#9c6839', '#a64d3d', '#497d6f', '#526f91', '#877941', '#7d5687', '#5d8455'],
+            VOL: ['#8b7d56', '#4a8188', '#6e6496', '#5c8562', '#9c6c4d', '#4f7396', '#8f5a6d'],
+            GEO: ['#ad8a3e', '#99484d', '#436e9b', '#7b5891', '#538268', '#8f6b47', '#498286'],
+            TAT: ['#438775', '#3e7796', '#9e7c3f', '#94525c', '#688552', '#755b91', '#51848c'],
+            BSH: ['#54875c', '#a1733e', '#467896', '#8f4f5b', '#6d5c91', '#48857c', '#847e45']
+        };
         if (focus.category === 'politics') {
-            // Discrete colors make neighboring political choices visibly different.
             const branches = [...new Set(tree.filter(item => item.category === 'politics').map(item => item.branch))];
-            const colors = ['#867552', '#427998', '#85639d', '#a05f5d', '#648a60', '#438b83', '#a57b47'];
+            const colors = nationalPolitics[resolvedFaction]
+                || ['#867552', '#427998', '#85639d', '#a05f5d', '#648a60', '#438b83', '#a57b47'];
             return colors[Math.max(0, branches.indexOf(focus.branch)) % colors.length];
         }
+        const factionShift = Math.max(0, Object.keys(nationalPolitics).indexOf(resolvedFaction));
         const colors = {
-            industry: ['#548e86', '#6b8f72', '#568f98'], military: ['#a5675d', '#a8774c', '#967164'],
-            logistics: ['#547f9c', '#5d8d9b', '#617f9b'], civil: ['#6f8d60', '#7c9367', '#608b77'],
-            diplomacy: ['#8d6c9c', '#79709d', '#996c91'], integration: ['#9b854f', '#ab8b58', '#908455']
+            industry: ['#4d8c84', '#638f6d', '#4f8896', '#5c8c78'],
+            military: ['#a66258', '#a87548', '#966b61', '#9d5d6b'],
+            logistics: ['#4e7d9b', '#578b9a', '#5f7c9c', '#4a848f'],
+            civil: ['#6b8d5c', '#7a9162', '#5b8a74', '#748c55'],
+            diplomacy: ['#8b699c', '#756d9e', '#98698e', '#7f6496'],
+            integration: ['#9c844b', '#ab8954', '#8e8352', '#a37b4d']
         }[focus.category] || ['#7c8b86'];
         const branches = [...new Set(tree.filter(item => item.category === focus.category).map(item => item.branch))];
-        return colors[Math.max(0, branches.indexOf(focus.branch)) % colors.length];
+        return colors[(Math.max(0, branches.indexOf(focus.branch)) + factionShift) % colors.length];
     },
 
     focusBranchTextColor(color) {
@@ -1504,11 +1522,12 @@ const GamePageView = {
 
     renderFocusLaneBands(tree, layout) {
         const bands = [];
-        // 分支泳道：把每条线圈成一簇（≥3 节点的分支才画底色+标题）
+        // 分支泳道：把每条线圈成一簇底框+标题（西俄分支≥2节点，美战维持原版≥3节点）
+        const minNodes = layout.regions ? 2 : 3;
         const byBranch = {};
         tree.forEach(focus => { (byBranch[focus.branch] = byBranch[focus.branch] || []).push(focus); });
         Object.entries(byBranch).forEach(([branch, nodes]) => {
-            if (!branch || nodes.length < 3) return;
+            if (!branch || nodes.length < minNodes) return;
             const color = this.focusBranchColor(nodes[0]);
             let minL = Infinity, minT = Infinity, maxR = -Infinity, maxB = -Infinity;
             nodes.forEach(n => {
@@ -1520,21 +1539,17 @@ const GamePageView = {
                 maxB = Math.max(maxB, p.bottomY);
             });
             if (!isFinite(minL)) return;
-            if (layout.regions) {
-                // Let the forks and convergences make the silhouette. A small
-                // colored heading is enough to identify a chapter; enclosing
-                // every branch in a tall panel makes them all look alike.
-                const y = minT - 27;
-                bands.push(`<g class="focus-section-heading"><path class="focus-section-rule" d="M ${minL} ${y - 8} V ${y + 7} H ${minL + 14}" stroke="${color}" />`
-                    + `<text class="focus-lane-label" x="${minL + 20}" y="${y + 5}" fill="${color}">${escapeHtml(branch)}</text></g>`);
-                return;
-            }
             const pad = 16;
             const labelGap = 22;
             const x = minL - pad;
             const y = minT - pad - labelGap;
             const w = (maxR - minL) + pad * 2;
             const h = (maxB - minT) + pad * 2 + labelGap;
+            if (layout.regions) {
+                bands.push(`<rect class="focus-lane-band" x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${color}" stroke="${color}" />`);
+                bands.push(`<text class="focus-lane-label" x="${x + 16}" y="${y + 24}" fill="${color}">${escapeHtml(branch)}</text>`);
+                return;
+            }
             bands.push(`<rect class="focus-lane-band" x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${color}" />`);
             bands.push(`<text class="focus-lane-label" x="${x + 16}" y="${y + 24}" fill="${color}">${escapeHtml(branch)}</text>`);
         });
